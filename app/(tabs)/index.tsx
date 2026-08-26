@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import * as ScreenOrientation from "expo-screen-orientation";
 
 import { ScreenContainer } from "@/components/screen-container";
+import { getCardBackTheme, type CardBackTheme } from "@/lib/card-back-theme";
 import { getGameLayout } from "@/lib/game-layout";
 import { haptic } from "@/lib/haptics";
 import {
@@ -35,6 +37,7 @@ type Records = { wins: number; bestScore: number; bestTimeSeconds: number | null
 const CARD_RATIO = 1.42;
 const ACTIVE_GAME_KEY = "our-style-solitaire:active-game";
 const RECORDS_KEY = "our-style-solitaire:records";
+const SOUND_ENABLED_KEY = "our-style-solitaire:sound-enabled";
 const PHYSICAL_EDGE_INSET = 52;
 
 const emptyRecords: Records = { wins: 0, bestScore: 0, bestTimeSeconds: null };
@@ -113,17 +116,17 @@ function CardFace({
   );
 }
 
-function CardBack({ width, onPress }: { width: number; onPress: () => void }) {
+function CardBack({ width, theme, onPress }: { width: number; theme: CardBackTheme; onPress: () => void }) {
   const height = width * CARD_RATIO;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="카드 뒷면, 탭하여 공개"
       onPress={onPress}
-      style={({ pressed }) => [styles.card, styles.cardBack, { width, height }, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.card, styles.cardBack, { width, height, backgroundColor: theme.outer, borderColor: theme.border }, pressed && styles.pressed]}
     >
-      <View style={styles.backInner}>
-        <Text style={styles.backMark}>✦</Text>
+      <View style={[styles.backInner, { backgroundColor: theme.inner, borderColor: theme.border }]}>
+        <Text style={[styles.backMark, { color: theme.mark }]}>{theme.glyph}</Text>
       </View>
     </Pressable>
   );
@@ -145,7 +148,7 @@ function EmptySlot({ width, label, onPress }: { width: number; label: string; on
 export default function HomeScreen() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const isLandscape = screenWidth > screenHeight;
-  const physicalEdgeInset = isLandscape ? 28 : PHYSICAL_EDGE_INSET;
+  const physicalEdgeInset = isLandscape ? 10 : PHYSICAL_EDGE_INSET;
   const { boardWidth, cardWidth, compact, stackOffset, tableauGap, uiScale } = getGameLayout(
     screenWidth,
     screenHeight,
@@ -158,13 +161,16 @@ export default function HomeScreen() {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [records, setRecords] = useState<Records>(emptyRecords);
   const [hydrated, setHydrated] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const newGameStarted = useRef(false);
+  const selectPlayer = useAudioPlayer(require("../../assets/sounds/card-select.wav"));
+  const movePlayer = useAudioPlayer(require("../../assets/sounds/card-move.wav"));
 
   useEffect(() => {
     let mounted = true;
     const loadLocalGame = async () => {
       try {
-        const [activeGameValue, recordsValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY]);
+        const [activeGameValue, recordsValue, soundEnabledValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY]);
         if (!mounted) return;
         if (activeGameValue[1] && !newGameStarted.current) {
           const saved = JSON.parse(activeGameValue[1]) as { game?: typeof game; elapsedSeconds?: number };
@@ -172,6 +178,7 @@ export default function HomeScreen() {
           if (typeof saved.elapsedSeconds === "number") setElapsedSeconds(saved.elapsedSeconds);
         }
         if (recordsValue[1]) setRecords({ ...emptyRecords, ...(JSON.parse(recordsValue[1]) as Records) });
+        if (soundEnabledValue[1]) setSoundEnabled(soundEnabledValue[1] === "true");
       } catch {
         // A fresh local game is retained when storage is unavailable or malformed.
       } finally {
@@ -193,6 +200,15 @@ export default function HomeScreen() {
   }, [hydrated, records]);
 
   useEffect(() => {
+    if (!hydrated) return;
+    AsyncStorage.setItem(SOUND_ENABLED_KEY, String(soundEnabled)).catch(() => undefined);
+  }, [hydrated, soundEnabled]);
+
+  useEffect(() => {
+    setAudioModeAsync({ playsInSilentMode: true }).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
     if (paused || !hydrated || isWon(game)) return;
     const timer = setInterval(() => setElapsedSeconds((seconds) => seconds + 1), 1000);
     return () => clearInterval(timer);
@@ -208,6 +224,17 @@ export default function HomeScreen() {
     setPaused(false);
     setSheet(null);
     AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ game: freshGame, elapsedSeconds: 0 })).catch(() => undefined);
+  };
+
+  const requestNewGame = () => {
+    Alert.alert(
+      "새 게임을 시작할까요?",
+      "진행 중인 게임은 사라지고 새 카드로 다시 시작합니다.",
+      [
+        { text: "취소", style: "cancel" },
+        { text: "새 게임", style: "destructive", onPress: () => startNewGame() },
+      ],
+    );
   };
 
   const toggleOrientation = async () => {
@@ -231,6 +258,17 @@ export default function HomeScreen() {
     }));
   };
 
+  const playEffect = (effect: "select" | "move") => {
+    if (!soundEnabled) return;
+    const player = effect === "select" ? selectPlayer : movePlayer;
+    try {
+      player.seekTo(0);
+      player.play();
+    } catch {
+      // Sound feedback must never interrupt a card move.
+    }
+  };
+
   const applyGame = (nextGame: typeof game | null, success = false) => {
     if (!nextGame || nextGame === game) {
       haptic.error();
@@ -238,6 +276,7 @@ export default function HomeScreen() {
     }
     setGame(nextGame);
     setSelection(null);
+    playEffect("move");
     if (success) {
       haptic.success();
     } else {
@@ -252,6 +291,7 @@ export default function HomeScreen() {
 
   const selectCard = (nextSelection: Selection) => {
     haptic.light();
+    playEffect("select");
     setSelection((current) => (current?.cardId === nextSelection.cardId ? null : nextSelection));
   };
 
@@ -323,6 +363,7 @@ export default function HomeScreen() {
   };
 
   const difficulty = getDifficulty(game.level);
+  const cardBackTheme = getCardBackTheme(game.level);
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
@@ -339,11 +380,14 @@ export default function HomeScreen() {
             <Pressable accessibilityRole="button" accessibilityLabel="자동 완성" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, pressed && styles.pressed]}>
               <Text style={styles.autoButtonText}>AUTO</Text>
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="새 게임" onPress={() => startNewGame()} style={({ pressed }) => [styles.newButton, pressed && styles.pressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="새 게임" onPress={requestNewGame} style={({ pressed }) => [styles.newButton, pressed && styles.pressed]}>
               <Text style={styles.newButtonText}>＋</Text>
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={isLandscape ? "세로 모드로 전환" : "가로 모드로 전환"} onPress={toggleOrientation} style={({ pressed }) => [styles.orientationButton, pressed && styles.pressed]}>
               <Text style={styles.orientationButtonText}>{isLandscape ? "▯" : "▭"}</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={soundEnabled ? "사운드 끄기" : "사운드 켜기"} onPress={() => setSoundEnabled((value) => !value)} style={({ pressed }) => [styles.soundButton, !soundEnabled && styles.soundButtonOff, pressed && styles.pressed]}>
+              <Text style={styles.soundButtonText}>{soundEnabled ? "♪" : "×"}</Text>
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="게임 메뉴" onPress={() => { haptic.light(); setPaused(true); setSheet("menu"); }} style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}>
               <Text style={styles.menuButtonText}>···</Text>
@@ -367,7 +411,7 @@ export default function HomeScreen() {
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
             {game.stock.length ? (
-              <CardBack width={cardWidth} onPress={drawStockCard} />
+              <CardBack width={cardWidth} theme={cardBackTheme} onPress={drawStockCard} />
             ) : (
               <EmptySlot width={cardWidth} label={game.waste.length ? "↻" : ""} onPress={() => applyGame(drawFromStock(game))} />
             )}
@@ -398,7 +442,7 @@ export default function HomeScreen() {
                   {card.faceUp ? (
                     <CardFace card={card} width={cardWidth} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => autoMoveToFoundation({ kind: "tableau", column, index })} />
                   ) : (
-                    <CardBack width={cardWidth} onPress={() => onTableauPress(column, index, card)} />
+                    <CardBack width={cardWidth} theme={cardBackTheme} onPress={() => onTableauPress(column, index, card)} />
                   )}
                 </View>
               ))}
@@ -420,7 +464,7 @@ export default function HomeScreen() {
                     <Pressable onPress={() => { haptic.light(); setSheet("records"); }} style={({ pressed }) => [styles.sheetSecondaryButton, pressed && styles.pressed]}><Text style={styles.sheetSecondaryText}>기록</Text></Pressable>
                     <Pressable onPress={() => { haptic.light(); setSheet("rules"); }} style={({ pressed }) => [styles.sheetSecondaryButton, pressed && styles.pressed]}><Text style={styles.sheetSecondaryText}>규칙</Text></Pressable>
                   </View>
-                  <Pressable onPress={() => Alert.alert("새 게임을 시작할까요?", "진행 중인 게임은 자동 저장되지만 새 게임으로 전환됩니다.", [{ text: "취소", style: "cancel" }, { text: "새 게임", style: "destructive", onPress: () => startNewGame() }])} style={({ pressed }) => [styles.sheetLinkButton, pressed && styles.pressed]}><Text style={styles.sheetLinkText}>새 게임 시작</Text></Pressable>
+                  <Pressable onPress={requestNewGame} style={({ pressed }) => [styles.sheetLinkButton, pressed && styles.pressed]}><Text style={styles.sheetLinkText}>새 게임 시작</Text></Pressable>
                 </>
               ) : null}
               {sheet === "records" ? (
@@ -456,7 +500,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#11182C", paddingHorizontal: 12 },
   rootLandscape: { paddingHorizontal: 16 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 6, paddingBottom: 12 },
-  headerLandscape: { paddingTop: 0, paddingBottom: 5 },
+  headerLandscape: { paddingTop: 0, paddingBottom: 3 },
   eyebrow: { color: "#77D6C3", fontSize: 10, fontWeight: "800", letterSpacing: 2.2 },
   title: { color: "#FFFDF8", fontSize: 27, lineHeight: 31, fontWeight: "800", letterSpacing: -0.7 },
   titleLine: { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -469,10 +513,13 @@ const styles = StyleSheet.create({
   newButtonText: { color: "#11182C", fontSize: 22, lineHeight: 24, fontWeight: "600" },
   orientationButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: "#233958", borderWidth: 1, borderColor: "#3D5A85" },
   orientationButtonText: { color: "#77D6C3", fontSize: 17, lineHeight: 20, fontWeight: "900" },
+  soundButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: "#233958", borderWidth: 1, borderColor: "#3D5A85" },
+  soundButtonOff: { backgroundColor: "#1A2944", borderColor: "#294264" },
+  soundButtonText: { color: "#77D6C3", fontSize: 18, lineHeight: 20, fontWeight: "900" },
   menuButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: "#233958" },
   menuButtonText: { color: "#FFFDF8", fontSize: 19, lineHeight: 16, fontWeight: "900", marginTop: -8 },
   stats: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 8, marginBottom: 14 },
-  statsLandscape: { paddingVertical: 4, marginBottom: 8 },
+  statsLandscape: { paddingVertical: 3, marginBottom: 6 },
   statValue: { color: "#FFFDF8", fontSize: 15, fontWeight: "800", textAlign: "center", fontVariant: ["tabular-nums"] },
   statLabel: { color: "#A6B4CE", fontSize: 9, fontWeight: "700", marginTop: 1, textAlign: "center" },
   statDivider: { width: 1, height: 22, marginHorizontal: 10, backgroundColor: "#2E4163" },
@@ -484,7 +531,7 @@ const styles = StyleSheet.create({
   board: { alignSelf: "center" },
   boardLandscape: { flex: 1, justifyContent: "flex-start" },
   topPiles: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
-  topPilesLandscape: { marginBottom: 8 },
+  topPilesLandscape: { marginBottom: 6 },
   stockWasteGroup: { flexDirection: "row", gap: 6 },
   foundationGroup: { flexDirection: "row", gap: 4 },
   slot: { borderRadius: 7, borderWidth: 1.5, borderStyle: "dashed", borderColor: "#3C557D", alignItems: "center", justifyContent: "center", backgroundColor: "#182744" },
