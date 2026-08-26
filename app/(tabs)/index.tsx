@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as ScreenOrientation from "expo-screen-orientation";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { getGameLayout } from "@/lib/game-layout";
@@ -199,13 +200,27 @@ export default function HomeScreen() {
 
   const startNewGame = (level = game.level) => {
     newGameStarted.current = true;
+    const freshGame = createPlayableGame(level);
     haptic.light();
-    setGame(() => createPlayableGame(level));
+    setGame(freshGame);
     setSelection(null);
     setElapsedSeconds(0);
     setPaused(false);
     setSheet(null);
-    AsyncStorage.removeItem(ACTIVE_GAME_KEY).catch(() => undefined);
+    AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ game: freshGame, elapsedSeconds: 0 })).catch(() => undefined);
+  };
+
+  const toggleOrientation = async () => {
+    const nextMode = isLandscape ? "portrait" : "landscape";
+    haptic.light();
+    if (Platform.OS === "web") return;
+    try {
+      await ScreenOrientation.lockAsync(
+        nextMode === "landscape" ? ScreenOrientation.OrientationLock.LANDSCAPE : ScreenOrientation.OrientationLock.PORTRAIT_UP,
+      );
+    } catch {
+      Alert.alert("화면 전환", "이 기기에서는 화면 방향을 전환할 수 없습니다.");
+    }
   };
 
   const saveWin = (finishedGame: typeof game) => {
@@ -326,6 +341,9 @@ export default function HomeScreen() {
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="새 게임" onPress={() => startNewGame()} style={({ pressed }) => [styles.newButton, pressed && styles.pressed]}>
               <Text style={styles.newButtonText}>＋</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={isLandscape ? "세로 모드로 전환" : "가로 모드로 전환"} onPress={toggleOrientation} style={({ pressed }) => [styles.orientationButton, pressed && styles.pressed]}>
+              <Text style={styles.orientationButtonText}>{isLandscape ? "▯" : "▭"}</Text>
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="게임 메뉴" onPress={() => { haptic.light(); setPaused(true); setSheet("menu"); }} style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}>
               <Text style={styles.menuButtonText}>···</Text>
@@ -449,6 +467,8 @@ const styles = StyleSheet.create({
   autoButtonText: { color: "#77D6C3", fontSize: 10, fontWeight: "900", letterSpacing: 0.9 },
   newButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 18, backgroundColor: "#FF7A66" },
   newButtonText: { color: "#11182C", fontSize: 22, lineHeight: 24, fontWeight: "600" },
+  orientationButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: "#233958", borderWidth: 1, borderColor: "#3D5A85" },
+  orientationButtonText: { color: "#77D6C3", fontSize: 17, lineHeight: 20, fontWeight: "900" },
   menuButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: "#233958" },
   menuButtonText: { color: "#FFFDF8", fontSize: 19, lineHeight: 16, fontWeight: "900", marginTop: -8 },
   stats: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 8, marginBottom: 14 },
