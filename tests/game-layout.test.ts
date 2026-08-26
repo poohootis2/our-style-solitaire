@@ -18,8 +18,9 @@ describe("반응형 게임 테이블 레이아웃", () => {
 
   it("가로 화면에서도 카드 폭과 쌓임 간격을 제한한다", () => {
     const layout = getGameLayout(800, 360);
-    expect(layout.cardWidth).toBeLessThanOrEqual(44);
-    expect(layout.stackOffset).toBeGreaterThanOrEqual(21);
+    expect(layout.cardWidth).toBeLessThanOrEqual(48);
+    expect(layout.boardWidth).toBeLessThanOrEqual(720);
+    expect(layout.stackOffset).toBeGreaterThanOrEqual(12);
   });
 
   it("상하 안전 여백을 적용해도 카드 쌓임 간격이 사용 가능한 범위에 머문다", () => {

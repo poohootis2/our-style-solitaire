@@ -10,6 +10,7 @@ import {
   createPlayableGame,
   drawFromStock,
   flipTableauCard,
+  getDifficulty,
   isWon,
   moveFoundationToTableau,
   moveAceToFoundation,
@@ -142,10 +143,12 @@ function EmptySlot({ width, label, onPress }: { width: number; label: string; on
 
 export default function HomeScreen() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const isLandscape = screenWidth > screenHeight;
+  const physicalEdgeInset = isLandscape ? 28 : PHYSICAL_EDGE_INSET;
   const { boardWidth, cardWidth, compact, stackOffset, tableauGap, uiScale } = getGameLayout(
     screenWidth,
     screenHeight,
-    PHYSICAL_EDGE_INSET * 2,
+    physicalEdgeInset * 2,
   );
   const [game, setGame] = useState(createPlayableGame);
   const [selection, setSelection] = useState<Selection | null>(null);
@@ -164,7 +167,7 @@ export default function HomeScreen() {
         if (!mounted) return;
         if (activeGameValue[1] && !newGameStarted.current) {
           const saved = JSON.parse(activeGameValue[1]) as { game?: typeof game; elapsedSeconds?: number };
-          if (saved.game?.tableau?.length === 7) setGame(saved.game);
+          if (saved.game?.tableau?.length === 7) setGame({ ...saved.game, level: saved.game.level ?? 1, recycles: saved.game.recycles ?? 0 });
           if (typeof saved.elapsedSeconds === "number") setElapsedSeconds(saved.elapsedSeconds);
         }
         if (recordsValue[1]) setRecords({ ...emptyRecords, ...(JSON.parse(recordsValue[1]) as Records) });
@@ -194,10 +197,10 @@ export default function HomeScreen() {
     return () => clearInterval(timer);
   }, [game, hydrated, paused]);
 
-  const startNewGame = () => {
+  const startNewGame = (level = game.level) => {
     newGameStarted.current = true;
     haptic.light();
-    setGame(() => createPlayableGame());
+    setGame(() => createPlayableGame(level));
     setSelection(null);
     setElapsedSeconds(0);
     setPaused(false);
@@ -227,7 +230,8 @@ export default function HomeScreen() {
     }
     if (isWon(nextGame)) {
       saveWin(nextGame);
-      setTimeout(() => Alert.alert("축하합니다", `솔리테어를 ${nextGame.moves}번의 이동으로 완성했어요.`, [{ text: "새 게임", onPress: startNewGame }]), 180);
+      const nextLevel = Math.min(nextGame.level + 1, 6);
+      setTimeout(() => Alert.alert("축하합니다", `레벨 ${nextGame.level}을 ${nextGame.moves}번의 이동으로 완성했어요. 다음 게임은 레벨 ${nextLevel}입니다.`, [{ text: "다음 레벨", onPress: () => startNewGame(nextLevel) }]), 180);
     }
   };
 
@@ -303,19 +307,24 @@ export default function HomeScreen() {
     applyGame(completed, isWon(completed));
   };
 
+  const difficulty = getDifficulty(game.level);
+
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
-      <View style={[styles.root, { paddingTop: PHYSICAL_EDGE_INSET, paddingBottom: PHYSICAL_EDGE_INSET }]}>
-        <View style={styles.header}>
+      <View style={[styles.root, { paddingTop: physicalEdgeInset, paddingBottom: physicalEdgeInset }, isLandscape && styles.rootLandscape]}>
+        <View style={[styles.header, isLandscape && styles.headerLandscape]}>
           <View>
             <Text style={styles.eyebrow}>OUR STYLE</Text>
-            <Text style={[styles.title, { fontSize: Math.round(27 * uiScale), lineHeight: Math.round(31 * uiScale) }]}>Solitaire</Text>
+            <View style={styles.titleLine}>
+              <Text style={[styles.title, { fontSize: Math.round(27 * uiScale), lineHeight: Math.round(31 * uiScale) }]}>Solitaire</Text>
+              <View style={styles.levelBadge}><Text style={styles.levelText}>LV {game.level} · {difficulty.label}</Text></View>
+            </View>
           </View>
           <View style={styles.headerActions}>
             <Pressable accessibilityRole="button" accessibilityLabel="자동 완성" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, pressed && styles.pressed]}>
               <Text style={styles.autoButtonText}>AUTO</Text>
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="새 게임" onPress={startNewGame} style={({ pressed }) => [styles.newButton, pressed && styles.pressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="새 게임" onPress={() => startNewGame()} style={({ pressed }) => [styles.newButton, pressed && styles.pressed]}>
               <Text style={styles.newButtonText}>＋</Text>
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="게임 메뉴" onPress={() => { haptic.light(); setPaused(true); setSheet("menu"); }} style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}>
@@ -324,20 +333,20 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={styles.stats}>
+        <View style={[styles.stats, isLandscape && styles.statsLandscape]}>
           <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.score}</Text><Text style={styles.statLabel}>점수</Text></View>
           <View style={styles.statDivider} />
           <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.moves}</Text><Text style={styles.statLabel}>이동</Text></View>
           <View style={styles.statDivider} />
           <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
-          {!compact ? <View style={styles.statusWrap}>
+          {!compact && !isLandscape ? <View style={styles.statusWrap}>
               <View style={[styles.statusDot, selection ? styles.statusDotSelected : styles.statusDotReady]} />
               <Text style={styles.statusText}>{hydrated ? (selection ? "이동할 곳을 탭하세요" : "카드를 선택하세요") : "게임 준비 중"}</Text>
             </View> : null}
         </View>
 
-        <View style={[styles.board, { width: boardWidth }]}>
-        <View style={styles.topPiles}>
+        <View style={[styles.board, { width: boardWidth }, isLandscape && styles.boardLandscape]}>
+        <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
             {game.stock.length ? (
               <CardBack width={cardWidth} onPress={drawStockCard} />
@@ -362,7 +371,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={[styles.tableau, { gap: tableauGap }]}>
+        <View style={[styles.tableau, { gap: tableauGap }, isLandscape && styles.tableauLandscape]}>
           {game.tableau.map((pile, column) => (
             <View key={`column-${column}`} style={[styles.tableauColumn, { width: cardWidth, minHeight: cardWidth * CARD_RATIO }]}>
               {pile.length === 0 ? <EmptySlot width={cardWidth} label="K" onPress={() => moveSelectionToTableau(column)} /> : null}
@@ -393,7 +402,7 @@ export default function HomeScreen() {
                     <Pressable onPress={() => { haptic.light(); setSheet("records"); }} style={({ pressed }) => [styles.sheetSecondaryButton, pressed && styles.pressed]}><Text style={styles.sheetSecondaryText}>기록</Text></Pressable>
                     <Pressable onPress={() => { haptic.light(); setSheet("rules"); }} style={({ pressed }) => [styles.sheetSecondaryButton, pressed && styles.pressed]}><Text style={styles.sheetSecondaryText}>규칙</Text></Pressable>
                   </View>
-                  <Pressable onPress={() => Alert.alert("새 게임을 시작할까요?", "진행 중인 게임은 자동 저장되지만 새 게임으로 전환됩니다.", [{ text: "취소", style: "cancel" }, { text: "새 게임", style: "destructive", onPress: startNewGame }])} style={({ pressed }) => [styles.sheetLinkButton, pressed && styles.pressed]}><Text style={styles.sheetLinkText}>새 게임 시작</Text></Pressable>
+                  <Pressable onPress={() => Alert.alert("새 게임을 시작할까요?", "진행 중인 게임은 자동 저장되지만 새 게임으로 전환됩니다.", [{ text: "취소", style: "cancel" }, { text: "새 게임", style: "destructive", onPress: () => startNewGame() }])} style={({ pressed }) => [styles.sheetLinkButton, pressed && styles.pressed]}><Text style={styles.sheetLinkText}>새 게임 시작</Text></Pressable>
                 </>
               ) : null}
               {sheet === "records" ? (
@@ -427,9 +436,14 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#11182C", paddingHorizontal: 12 },
+  rootLandscape: { paddingHorizontal: 16 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 6, paddingBottom: 12 },
+  headerLandscape: { paddingTop: 0, paddingBottom: 5 },
   eyebrow: { color: "#77D6C3", fontSize: 10, fontWeight: "800", letterSpacing: 2.2 },
   title: { color: "#FFFDF8", fontSize: 27, lineHeight: 31, fontWeight: "800", letterSpacing: -0.7 },
+  titleLine: { flexDirection: "row", alignItems: "center", gap: 8 },
+  levelBadge: { borderRadius: 10, paddingHorizontal: 7, paddingVertical: 4, backgroundColor: "#233958", borderWidth: 1, borderColor: "#3D5A85" },
+  levelText: { color: "#77D6C3", fontSize: 9, fontWeight: "900", letterSpacing: 0.4 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 7 },
   autoButton: { minHeight: 34, justifyContent: "center", paddingHorizontal: 11, borderRadius: 17, backgroundColor: "#233958", borderWidth: 1, borderColor: "#3D5A85" },
   autoButtonText: { color: "#77D6C3", fontSize: 10, fontWeight: "900", letterSpacing: 0.9 },
@@ -438,6 +452,7 @@ const styles = StyleSheet.create({
   menuButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: "#233958" },
   menuButtonText: { color: "#FFFDF8", fontSize: 19, lineHeight: 16, fontWeight: "900", marginTop: -8 },
   stats: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 8, marginBottom: 14 },
+  statsLandscape: { paddingVertical: 4, marginBottom: 8 },
   statValue: { color: "#FFFDF8", fontSize: 15, fontWeight: "800", textAlign: "center", fontVariant: ["tabular-nums"] },
   statLabel: { color: "#A6B4CE", fontSize: 9, fontWeight: "700", marginTop: 1, textAlign: "center" },
   statDivider: { width: 1, height: 22, marginHorizontal: 10, backgroundColor: "#2E4163" },
@@ -447,7 +462,9 @@ const styles = StyleSheet.create({
   statusDotSelected: { backgroundColor: "#FF7A66" },
   statusText: { color: "#A6B4CE", fontSize: 10, fontWeight: "600" },
   board: { alignSelf: "center" },
+  boardLandscape: { flex: 1, justifyContent: "flex-start" },
   topPiles: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
+  topPilesLandscape: { marginBottom: 8 },
   stockWasteGroup: { flexDirection: "row", gap: 6 },
   foundationGroup: { flexDirection: "row", gap: 4 },
   slot: { borderRadius: 7, borderWidth: 1.5, borderStyle: "dashed", borderColor: "#3C557D", alignItems: "center", justifyContent: "center", backgroundColor: "#182744" },
@@ -464,6 +481,7 @@ const styles = StyleSheet.create({
   backInner: { flex: 1, justifyContent: "center", alignItems: "center", borderRadius: 4, backgroundColor: "#1E3153", borderWidth: 1, borderColor: "#9BE4D5" },
   backMark: { color: "#77D6C3", fontSize: 26, fontWeight: "900" },
   tableau: { flex: 1, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
+  tableauLandscape: { flexGrow: 0 },
   tableauColumn: { position: "relative" },
   pressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
   modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(3, 7, 18, 0.76)" },

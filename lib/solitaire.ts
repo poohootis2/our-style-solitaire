@@ -17,6 +17,8 @@ export type GameState = {
   tableau: Card[][];
   score: number;
   moves: number;
+  level: number;
+  recycles: number;
 };
 
 export type CardSource =
@@ -56,6 +58,18 @@ export const rankLabels: Record<Rank, string> = {
   13: "K",
 };
 
+export type Difficulty = { drawCount: number; maxRecycles: number; label: string };
+
+export function getDifficulty(level: number): Difficulty {
+  if (level <= 1) return { drawCount: 1, maxRecycles: Number.POSITIVE_INFINITY, label: "입문" };
+  if (level === 2) return { drawCount: 3, maxRecycles: Number.POSITIVE_INFINITY, label: "도전" };
+  return {
+    drawCount: 3,
+    maxRecycles: Math.max(0, 6 - Math.min(level, 6)),
+    label: level >= 6 ? "마스터" : "전문가",
+  };
+}
+
 function makeDeck(): Card[] {
   return SUITS.flatMap((suit) =>
     Array.from({ length: 13 }, (_, offset) => ({
@@ -93,6 +107,8 @@ function cloneGame(game: GameState): GameState {
     tableau: game.tableau.map((pile) => [...pile]),
     score: game.score,
     moves: game.moves,
+    level: game.level ?? 1,
+    recycles: game.recycles ?? 0,
   };
 }
 
@@ -100,7 +116,7 @@ function withMove(game: GameState, scoreDelta = 0): GameState {
   return { ...game, moves: game.moves + 1, score: Math.max(0, game.score + scoreDelta) };
 }
 
-export function createNewGame(): GameState {
+export function createNewGame(level = 1): GameState {
   const deck = shuffle(makeDeck());
   const tableau: Card[][] = [];
   let deckIndex = 0;
@@ -121,6 +137,8 @@ export function createNewGame(): GameState {
     tableau,
     score: 0,
     moves: 0,
+    level,
+    recycles: 0,
   };
 }
 
@@ -141,16 +159,21 @@ export function canPlaceOnFoundation(card: Card, foundation: Card[]): boolean {
 
 export function drawFromStock(game: GameState): GameState {
   const next = cloneGame(game);
+  const difficulty = getDifficulty(next.level);
   if (next.stock.length === 0) {
     if (next.waste.length === 0) return game;
+    if (next.recycles >= difficulty.maxRecycles) return game;
     next.stock = next.waste.reverse().map((card) => ({ ...card, faceUp: false }));
     next.waste = [];
+    next.recycles += 1;
     return withMove(next);
   }
 
-  const drawn = next.stock.pop();
-  if (!drawn) return game;
-  next.waste.push({ ...drawn, faceUp: true });
+  for (let count = 0; count < difficulty.drawCount; count += 1) {
+    const drawn = next.stock.pop();
+    if (!drawn) break;
+    next.waste.push({ ...drawn, faceUp: true });
+  }
   return withMove(next);
 }
 
@@ -254,8 +277,8 @@ export function moveAvailableAcesToFoundation(game: GameState): GameState {
   return next;
 }
 
-export function createPlayableGame(): GameState {
-  return moveAvailableAcesToFoundation(createNewGame());
+export function createPlayableGame(level = 1): GameState {
+  return moveAvailableAcesToFoundation(createNewGame(level));
 }
 
 export function autoComplete(game: GameState): GameState {

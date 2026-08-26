@@ -5,6 +5,7 @@ import {
   canPlaceOnTableau,
   createNewGame,
   drawFromStock,
+  getDifficulty,
   moveAceToFoundation,
   moveAvailableAcesToFoundation,
   moveToFoundation,
@@ -26,6 +27,8 @@ const foundationGame = (waste: Card[], clubs: Card[] = []): GameState => ({
   tableau: [[], [], [], [], [], [], []],
   score: 0,
   moves: 0,
+  level: 1,
+  recycles: 0,
 });
 
 describe("클론다이크 규칙", () => {
@@ -55,6 +58,14 @@ describe("클론다이크 규칙", () => {
     expect(next.stock.length).toBe(game.stock.length - 1);
     expect(next.waste).toHaveLength(1);
     expect(next.waste[0].faceUp).toBe(true);
+  });
+
+  it("레벨 2부터는 스톡에서 세 장씩 공개되어 난이도가 올라간다", () => {
+    const game = createNewGame(2);
+    const next = drawFromStock(game);
+    expect(next.waste).toHaveLength(3);
+    expect(getDifficulty(2).drawCount).toBe(3);
+    expect(getDifficulty(4).maxRecycles).toBe(2);
   });
 
   it("A는 가능한 빈 파운데이션으로 자동 이동한다", () => {
