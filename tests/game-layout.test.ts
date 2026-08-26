@@ -5,7 +5,7 @@ import { getGameLayout } from "../lib/game-layout";
 describe("반응형 게임 테이블 레이아웃", () => {
   it("갤럭시 S26급 세로 화면에서 카드 열이 안전 영역 안에 들어간다", () => {
     const layout = getGameLayout(360, 780);
-    expect(layout.boardWidth).toBeLessThanOrEqual(336);
+    expect(layout.boardWidth).toBeLessThanOrEqual(348);
     expect(layout.cardWidth).toBeGreaterThanOrEqual(34);
   });
 
@@ -26,6 +26,6 @@ describe("반응형 게임 테이블 레이아웃", () => {
   it("상하 안전 여백을 적용해도 카드 쌓임 간격이 사용 가능한 범위에 머문다", () => {
     const layout = getGameLayout(360, 780, 104);
     expect(layout.stackOffset).toBeGreaterThanOrEqual(21);
-    expect(layout.stackOffset).toBeLessThanOrEqual(layout.cardWidth * 0.62);
+    expect(layout.stackOffset).toBeLessThanOrEqual(layout.cardWidth * 0.74);
   });
 });

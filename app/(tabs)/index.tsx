@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Animated, Easing, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Animated, AppState, Easing, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import * as ScreenOrientation from "expo-screen-orientation";
@@ -228,6 +228,8 @@ export default function HomeScreen() {
   const [hintMessage, setHintMessage] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
+  const gameRef = useRef(game);
+  const elapsedSecondsRef = useRef(elapsedSeconds);
   const flightProgress = useRef(new Animated.Value(0)).current;
   const selectPlayer = useAudioPlayer(require("../../assets/sounds/card-select.wav"));
   const movePlayer = useAudioPlayer(require("../../assets/sounds/card-move.wav"));
@@ -258,7 +260,17 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!hydrated) return;
     AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ game, elapsedSeconds })).catch(() => undefined);
+    gameRef.current = game;
+    elapsedSecondsRef.current = elapsedSeconds;
   }, [elapsedSeconds, game, hydrated]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") return;
+      AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ game: gameRef.current, elapsedSeconds: elapsedSecondsRef.current })).catch(() => undefined);
+    });
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -301,6 +313,8 @@ export default function HomeScreen() {
     setShowNewGameConfirm(false);
     setHintMessage(null);
     setUndoStack([]);
+    gameRef.current = freshGame;
+    elapsedSecondsRef.current = 0;
     AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ game: freshGame, elapsedSeconds: 0 })).catch(() => undefined);
   };
 
@@ -383,6 +397,8 @@ export default function HomeScreen() {
     setUndoStack((history) => history.slice(0, -1));
     setSelection(null);
     setHintMessage("이전 이동을 되돌렸습니다.");
+    gameRef.current = previousGame;
+    AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ game: previousGame, elapsedSeconds: elapsedSecondsRef.current })).catch(() => undefined);
     haptic.light();
   };
 
@@ -392,6 +408,8 @@ export default function HomeScreen() {
       return;
     }
     setUndoStack((history) => [...history.slice(-19), cloneGameState(game)]);
+    gameRef.current = nextGame;
+    AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ game: nextGame, elapsedSeconds: elapsedSecondsRef.current })).catch(() => undefined);
     setGame(nextGame);
     setSelection(null);
     playEffect("move");
