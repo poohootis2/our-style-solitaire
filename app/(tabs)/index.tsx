@@ -520,7 +520,7 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
-      <View style={[styles.root, { paddingTop: physicalEdgeInset, paddingBottom: physicalEdgeInset }, isLandscape && styles.rootLandscape]}>
+      <View style={[styles.root, { paddingTop: physicalEdgeInset, paddingBottom: physicalEdgeInset + 62 }, isLandscape && styles.rootLandscape]}>
         {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} progress={flightProgress} /> : null}
         <VictoryFireworks visible={showFireworks} />
         <View style={[styles.header, isLandscape && styles.headerLandscape]}>
@@ -728,15 +728,15 @@ const styles = StyleSheet.create({
   tableau: { flex: 1, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   tableauLandscape: { flexGrow: 0 },
   tableauColumn: { position: "relative" },
-  bottomControls: { flexDirection: "row", alignSelf: "center", gap: 10, marginTop: 8 },
-  bottomControlsLandscape: { marginTop: 4 },
+  bottomControls: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 10, flexDirection: "row", alignSelf: "center", justifyContent: "center", gap: 10 },
+  bottomControlsLandscape: { bottom: 4 },
   bottomButton: { minWidth: 126, minHeight: 44, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1 },
   hintButton: { backgroundColor: "#233958", borderColor: "#3D5A85" },
   undoButton: { backgroundColor: "#2A4268", borderColor: "#5B78A5" },
   undoButtonDisabled: { opacity: 0.38 },
   bottomButtonText: { color: "#FFFDF8", fontSize: 12, fontWeight: "900", letterSpacing: 0.7 },
-  hintToast: { alignSelf: "center", maxWidth: "92%", marginTop: 8, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 13, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
-  hintToastLandscape: { position: "absolute", bottom: 52, zIndex: 25 },
+  hintToast: { position: "absolute", left: 16, right: 16, bottom: 56, zIndex: 20, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 13, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
+  hintToastLandscape: { bottom: 60 },
   hintToastText: { color: "#BCEAE2", fontSize: 12, fontWeight: "700", textAlign: "center" },
   flyingCard: { position: "absolute", left: 16, bottom: 44, zIndex: 30, overflow: "hidden", borderRadius: 8, backgroundColor: "#FFFDF8", borderWidth: 2, borderColor: "#FF7A66", shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 9, elevation: 12 },
   flyingRank: { position: "absolute", top: 6, left: 7, fontSize: 16, fontWeight: "900" },
