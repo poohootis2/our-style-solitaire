@@ -5,7 +5,11 @@ import {
   canPlaceOnTableau,
   createNewGame,
   drawFromStock,
+  moveAceToFoundation,
+  moveAvailableAcesToFoundation,
+  moveToFoundation,
   type Card,
+  type GameState,
 } from "../lib/solitaire";
 
 const card = (rank: Card["rank"], suit: Card["suit"]): Card => ({
@@ -13,6 +17,15 @@ const card = (rank: Card["rank"], suit: Card["suit"]): Card => ({
   rank,
   suit,
   faceUp: true,
+});
+
+const foundationGame = (waste: Card[], clubs: Card[] = []): GameState => ({
+  stock: [],
+  waste,
+  foundations: { clubs, diamonds: [], hearts: [], spades: [] },
+  tableau: [[], [], [], [], [], [], []],
+  score: 0,
+  moves: 0,
 });
 
 describe("클론다이크 규칙", () => {
@@ -42,5 +55,26 @@ describe("클론다이크 규칙", () => {
     expect(next.stock.length).toBe(game.stock.length - 1);
     expect(next.waste).toHaveLength(1);
     expect(next.waste[0].faceUp).toBe(true);
+  });
+
+  it("A는 가능한 빈 파운데이션으로 자동 이동한다", () => {
+    const game = foundationGame([card(1, "hearts")]);
+    const next = moveAceToFoundation(game, { kind: "waste" });
+    expect(next?.foundations.hearts).toHaveLength(1);
+    expect(next?.waste).toHaveLength(0);
+  });
+
+  it("같은 무늬의 다음 순서 카드는 파운데이션으로 자동 이동할 수 있다", () => {
+    const game = foundationGame([card(2, "clubs")], [card(1, "clubs")]);
+    const next = moveToFoundation(game, { kind: "waste" });
+    expect(next?.foundations.clubs.map((item) => item.rank)).toEqual([1, 2]);
+  });
+
+  it("보이는 A는 모두 가능한 파운데이션으로 자동 배치한다", () => {
+    const game = foundationGame([card(1, "hearts")]);
+    game.tableau[0] = [card(1, "clubs")];
+    const next = moveAvailableAcesToFoundation(game);
+    expect(next.foundations.hearts).toHaveLength(1);
+    expect(next.foundations.clubs).toHaveLength(1);
   });
 });

@@ -7,11 +7,13 @@ import { getGameLayout } from "@/lib/game-layout";
 import { haptic } from "@/lib/haptics";
 import {
   autoComplete,
-  createNewGame,
+  createPlayableGame,
   drawFromStock,
   flipTableauCard,
   isWon,
   moveFoundationToTableau,
+  moveAceToFoundation,
+  moveAvailableAcesToFoundation,
   moveTableauToTableau,
   moveToFoundation,
   moveWasteToTableau,
@@ -49,17 +51,48 @@ function formatDuration(totalSeconds: number): string {
   return `${minutes}:${seconds}`;
 }
 
-function CardFace({ card, width, selected, onPress }: { card: Card; width: number; selected?: boolean; onPress?: () => void }) {
+function CardFace({
+  card,
+  width,
+  selected,
+  onPress,
+  onDoublePress,
+}: {
+  card: Card;
+  width: number;
+  selected?: boolean;
+  onPress?: () => void;
+  onDoublePress?: () => void;
+}) {
   const height = width * CARD_RATIO;
   const color = playingCardColor(card);
   const rankSize = Math.max(10, Math.round(width * 0.26));
   const suitSize = Math.max(9, Math.round(width * 0.22));
   const centerSize = Math.max(21, Math.round(width * 0.52));
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handlePress = () => {
+    if (!onDoublePress) {
+      onPress?.();
+      return;
+    }
+    if (tapTimer.current) {
+      clearTimeout(tapTimer.current);
+      tapTimer.current = null;
+      onDoublePress();
+      return;
+    }
+    tapTimer.current = setTimeout(() => {
+      tapTimer.current = null;
+      onPress?.();
+    }, 220);
+  };
+
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${cardLabel(card)} 카드`}
-      onPress={onPress}
+      onPress={handlePress}
       style={({ pressed }) => [
         styles.card,
         { width, height, borderColor: selected ? "#FF7A66" : "#F1EEE6" },
@@ -114,7 +147,7 @@ export default function HomeScreen() {
     screenHeight,
     PHYSICAL_EDGE_INSET * 2,
   );
-  const [game, setGame] = useState(createNewGame);
+  const [game, setGame] = useState(createPlayableGame);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -164,7 +197,7 @@ export default function HomeScreen() {
   const startNewGame = () => {
     newGameStarted.current = true;
     haptic.light();
-    setGame(() => createNewGame());
+    setGame(() => createPlayableGame());
     setSelection(null);
     setElapsedSeconds(0);
     setPaused(false);
@@ -214,10 +247,30 @@ export default function HomeScreen() {
     }
   };
 
+  const autoMoveToFoundation = (source: CardSource) => {
+    applyGame(moveToFoundation(game, source));
+  };
+
+  const drawStockCard = () => {
+    const drawnGame = drawFromStock(game);
+    const drawnCard = drawnGame.waste.at(-1);
+    if (drawnCard?.rank === 1) {
+      applyGame(moveAvailableAcesToFoundation(drawnGame));
+      return;
+    }
+    applyGame(drawnGame);
+  };
+
   const onTableauPress = (column: number, index: number, card: Card) => {
     const pile = game.tableau[column];
     if (!card.faceUp) {
-      applyGame(index === pile.length - 1 ? flipTableauCard(game, column) : null);
+      const flippedGame = index === pile.length - 1 ? flipTableauCard(game, column) : null;
+      const revealedCard = flippedGame?.tableau[column].at(-1);
+      if (flippedGame && revealedCard?.rank === 1) {
+        applyGame(moveAceToFoundation(flippedGame, { kind: "tableau", column, index: pile.length - 1 }));
+      } else {
+        applyGame(flippedGame);
+      }
       return;
     }
     if (selection) {
@@ -287,12 +340,12 @@ export default function HomeScreen() {
         <View style={styles.topPiles}>
           <View style={styles.stockWasteGroup}>
             {game.stock.length ? (
-              <CardBack width={cardWidth} onPress={() => applyGame(drawFromStock(game))} />
+              <CardBack width={cardWidth} onPress={drawStockCard} />
             ) : (
               <EmptySlot width={cardWidth} label={game.waste.length ? "↻" : ""} onPress={() => applyGame(drawFromStock(game))} />
             )}
             {game.waste.at(-1) ? (
-              <CardFace card={game.waste.at(-1)!} width={cardWidth} selected={selection?.kind === "waste"} onPress={onWastePress} />
+              <CardFace card={game.waste.at(-1)!} width={cardWidth} selected={selection?.kind === "waste"} onPress={onWastePress} onDoublePress={() => autoMoveToFoundation({ kind: "waste" })} />
             ) : (
               <EmptySlot width={cardWidth} label="" />
             )}
@@ -316,7 +369,7 @@ export default function HomeScreen() {
               {pile.map((card, index) => (
                 <View key={card.id} style={{ position: "absolute", top: index * stackOffset, left: 0, zIndex: index }}>
                   {card.faceUp ? (
-                    <CardFace card={card} width={cardWidth} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} />
+                    <CardFace card={card} width={cardWidth} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => autoMoveToFoundation({ kind: "tableau", column, index })} />
                   ) : (
                     <CardBack width={cardWidth} onPress={() => onTableauPress(column, index, card)} />
                   )}

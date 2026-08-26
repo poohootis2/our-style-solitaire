@@ -222,6 +222,42 @@ export function moveToFoundation(game: GameState, source: CardSource): GameState
   return withMove(next, 10);
 }
 
+export function moveAceToFoundation(game: GameState, source: CardSource): GameState | null {
+  const card = cardFromSource(game, source);
+  if (!card || card.rank !== 1) return null;
+  return moveToFoundation(game, source);
+}
+
+export function moveAvailableAcesToFoundation(game: GameState): GameState {
+  let next = game;
+  let moved = true;
+  while (moved) {
+    moved = false;
+    const wasteMove = moveAceToFoundation(next, { kind: "waste" });
+    if (wasteMove) {
+      next = wasteMove;
+      moved = true;
+      continue;
+    }
+    for (let column = 0; column < next.tableau.length; column += 1) {
+      const pile = next.tableau[column];
+      const topCard = pile.at(-1);
+      if (topCard?.rank !== 1) continue;
+      const tableauMove = moveAceToFoundation(next, { kind: "tableau", column, index: pile.length - 1 });
+      if (tableauMove) {
+        next = tableauMove;
+        moved = true;
+        break;
+      }
+    }
+  }
+  return next;
+}
+
+export function createPlayableGame(): GameState {
+  return moveAvailableAcesToFoundation(createNewGame());
+}
+
 export function autoComplete(game: GameState): GameState {
   let next = game;
   let moved = true;
