@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Animated, AppState, Easing, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Animated, AppState, Easing, ImageBackground, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import * as ScreenOrientation from "expo-screen-orientation";
@@ -93,33 +93,14 @@ type MedievalIconName = "auto" | "new" | "orientation" | "sound" | "menu" | "hin
 function MedievalBackdrop() {
   return (
     <View pointerEvents="none" style={styles.medievalBackdrop}>
-      <Svg width="100%" height="100%" viewBox="0 0 390 844" preserveAspectRatio="none">
-        <Rect width="390" height="844" fill="#101B31" />
-        <Rect x="0" y="0" width="46" height="844" fill="#263A5A" opacity="0.96" />
-        <Rect x="344" y="0" width="46" height="844" fill="#263A5A" opacity="0.96" />
-        <Path d="M0 0 H80 V105 H62 V78 H46 V105 H30 V78 H14 V105 H0 Z" fill="#49607F" opacity="0.96" />
-        <Path d="M390 0 H310 V105 H328 V78 H344 V105 H360 V78 H376 V105 H390 Z" fill="#49607F" opacity="0.96" />
-        <Path d="M0 844 V720 H15 V746 H29 V720 H43 V746 H57 V720 H75 V844 Z" fill="#49607F" opacity="0.94" />
-        <Path d="M390 844 V720 H375 V746 H361 V720 H347 V746 H333 V720 H315 V844 Z" fill="#49607F" opacity="0.94" />
-        <Path d="M4 130 H43 M4 178 H43 M4 226 H43 M4 274 H43 M4 322 H43 M4 370 H43 M4 418 H43 M4 466 H43 M4 514 H43 M4 562 H43 M4 610 H43" stroke="#627898" strokeWidth="3" opacity="0.72" />
-        <Path d="M347 130 H386 M347 178 H386 M347 226 H386 M347 274 H386 M347 322 H386 M347 370 H386 M347 418 H386 M347 466 H386 M347 514 H386 M347 562 H386 M347 610 H386" stroke="#627898" strokeWidth="3" opacity="0.72" />
-        <Path d="M46 120 L86 145 L46 170 Z" fill="#B35462" opacity="0.92" />
-        <Path d="M344 120 L304 145 L344 170 Z" fill="#2F827F" opacity="0.92" />
-        <Circle cx="27" cy="205" r="18" fill="#D98449" opacity="0.54" />
-        <Circle cx="363" cy="205" r="18" fill="#D98449" opacity="0.54" />
-        <Circle cx="27" cy="205" r="11" fill="#F3C969" opacity="0.98" />
-        <Circle cx="363" cy="205" r="11" fill="#F3C969" opacity="0.98" />
-        <Circle cx="27" cy="205" r="5" fill="#FFF3C9" />
-        <Circle cx="363" cy="205" r="5" fill="#FFF3C9" />
-        <Circle cx="29" cy="182" r="6" fill="#FFF3C9" />
-        <Circle cx="361" cy="182" r="6" fill="#FFF3C9" />
-        <Path d="M21 201 H37 L33 219 H25 Z" fill="#C2794A" />
-        <Path d="M353 201 H369 L365 219 H357 Z" fill="#C2794A" />
-        <Circle cx="98" cy="30" r="3.5" fill="#77D6C3" opacity="0.9" />
-        <Circle cx="292" cy="30" r="3.5" fill="#77D6C3" opacity="0.9" />
-        <Path d="M7 567 Q44 549 75 574" stroke="#7B92B4" strokeWidth="4" fill="none" opacity="0.82" />
-        <Path d="M383 567 Q346 549 315 574" stroke="#7B92B4" strokeWidth="4" fill="none" opacity="0.82" />
-      </Svg>
+      <ImageBackground
+        source={require("../../assets/images/medieval-great-hall.webp")}
+        resizeMode="cover"
+        style={styles.medievalBackdropFill}
+        imageStyle={styles.medievalBackdropImage}
+      >
+        <View style={styles.medievalBackdropOverlay} />
+      </ImageBackground>
     </View>
   );
 }
@@ -763,7 +744,10 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#11182C", paddingHorizontal: 12 },
-  medievalBackdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, opacity: 0.98 },
+  medievalBackdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
+  medievalBackdropFill: { flex: 1 },
+  medievalBackdropImage: { opacity: 0.94 },
+  medievalBackdropOverlay: { flex: 1, backgroundColor: "rgba(4, 10, 19, 0.30)" },
   rootLandscape: { paddingHorizontal: 16 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 6, paddingBottom: 12 },
   headerLandscape: { paddingTop: 0, paddingBottom: 3 },
