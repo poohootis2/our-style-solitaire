@@ -88,6 +88,53 @@ function RoyalPortrait({ rank }: { rank: 11 | 12 | 13 }) {
   );
 }
 
+type MedievalIconName = "auto" | "new" | "orientation" | "sound" | "menu" | "hint" | "undo";
+
+function MedievalBackdrop() {
+  return (
+    <View pointerEvents="none" style={styles.medievalBackdrop}>
+      <Svg width="100%" height="100%" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
+        <Rect width="390" height="844" fill="#101B31" />
+        <Path d="M0 0 H74 V102 H55 V78 H39 V102 H0 Z" fill="#263A5A" opacity="0.82" />
+        <Path d="M390 0 H316 V102 H335 V78 H351 V102 H390 Z" fill="#263A5A" opacity="0.82" />
+        <Path d="M0 844 V726 H18 V748 H35 V726 H56 V844 Z" fill="#263A5A" opacity="0.78" />
+        <Path d="M390 844 V726 H372 V748 H355 V726 H334 V844 Z" fill="#263A5A" opacity="0.78" />
+        <Path d="M0 128 C45 104 71 112 96 138" stroke="#3E567F" strokeWidth="4" fill="none" opacity="0.52" />
+        <Path d="M390 128 C345 104 319 112 294 138" stroke="#3E567F" strokeWidth="4" fill="none" opacity="0.52" />
+        <Circle cx="29" cy="182" r="13" fill="#F3C969" opacity="0.9" />
+        <Circle cx="361" cy="182" r="13" fill="#F3C969" opacity="0.9" />
+        <Circle cx="29" cy="182" r="6" fill="#FFF3C9" />
+        <Circle cx="361" cy="182" r="6" fill="#FFF3C9" />
+        <Path d="M21 201 H37 L33 219 H25 Z" fill="#C2794A" />
+        <Path d="M353 201 H369 L365 219 H357 Z" fill="#C2794A" />
+        <Circle cx="98" cy="30" r="2.5" fill="#77D6C3" opacity="0.6" />
+        <Circle cx="292" cy="30" r="2.5" fill="#77D6C3" opacity="0.6" />
+        <Path d="M7 567 Q44 549 75 574" stroke="#314A76" strokeWidth="3" fill="none" opacity="0.7" />
+        <Path d="M383 567 Q346 549 315 574" stroke="#314A76" strokeWidth="3" fill="none" opacity="0.7" />
+      </Svg>
+    </View>
+  );
+}
+
+function MedievalIcon({ name, size = 22 }: { name: MedievalIconName; size?: number }) {
+  const gold = "#F3C969";
+  const teal = "#77D6C3";
+  const coral = "#FF8A76";
+  const common = { strokeLinejoin: "round" as const, strokeLinecap: "round" as const };
+
+  return (
+    <Svg width={size} height={size} viewBox="0 0 32 32">
+      {name === "auto" ? <><Path d="M7 24 L21 10" stroke={gold} strokeWidth="5" strokeLinecap="round" /><Path d="M19 6 L20 10 L24 11 L20 12 L19 16 L18 12 L14 11 L18 10 Z" fill={teal} {...common} /><Circle cx="8" cy="24" r="3" fill={coral} {...common} /></> : null}
+      {name === "new" ? <><Path d="M7 27 V10 L12 5 H21 L25 10 V27 Z" fill="#5C87A7" {...common} /><Path d="M6 10 H26" stroke={gold} strokeWidth="4" {...common} /><Path d="M16 13 V23 M11 18 H21" stroke="#FFF3D1" strokeWidth="3" strokeLinecap="round" /></> : null}
+      {name === "orientation" ? <><Rect x="8" y="5" width="16" height="22" rx="3" fill="#314A76" {...common} /><Path d="M5 11 Q5 6 11 6 M10 3 L13 6 L10 9" stroke={teal} strokeWidth="3" fill="none" {...common} /><Path d="M27 21 Q27 26 21 26 M22 29 L19 26 L22 23" stroke={coral} strokeWidth="3" fill="none" {...common} /></> : null}
+      {name === "sound" ? <><Path d="M13 6 V24" stroke={gold} strokeWidth="3" {...common} /><Path d="M13 7 Q23 9 23 17 Q23 24 16 25" stroke={gold} strokeWidth="3" fill="none" {...common} /><Circle cx="11" cy="25" r="4" fill={coral} {...common} /><Path d="M25 11 Q30 16 25 21" stroke={teal} strokeWidth="2.5" fill="none" strokeLinecap="round" /></> : null}
+      {name === "menu" ? <><Path d="M16 4 L27 9 V17 Q25 25 16 29 Q7 25 5 17 V9 Z" fill="#314A76" {...common} /><Circle cx="16" cy="11" r="2" fill={gold} /><Circle cx="16" cy="17" r="2" fill={gold} /><Circle cx="16" cy="23" r="2" fill={gold} /></> : null}
+      {name === "hint" ? <><Path d="M10 13 Q10 5 16 5 Q22 5 22 13 V19 H10 Z" fill={gold} {...common} /><Path d="M13 22 H19 M14 26 H18" stroke={teal} strokeWidth="3" strokeLinecap="round" /><Circle cx="16" cy="13" r="3" fill="#FFF3D1" /></> : null}
+      {name === "undo" ? <><Path d="M25 10 H12 Q7 10 7 16 Q7 22 13 22 H23" stroke={gold} strokeWidth="4" fill="none" {...common} /><Path d="M12 5 L6 10 L12 15" stroke={coral} strokeWidth="4" fill="none" {...common} /><Path d="M16 13 V19" stroke={teal} strokeWidth="2" strokeLinecap="round" /></> : null}
+    </Svg>
+  );
+}
+
 function CardFace({
   card,
   width,
@@ -552,6 +599,7 @@ export default function HomeScreen() {
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
       <View style={[styles.root, { paddingTop: physicalEdgeInset, paddingBottom: physicalEdgeInset + 62 }, isLandscape && styles.rootLandscape]}>
+        <MedievalBackdrop />
         {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} progress={flightProgress} /> : null}
         <VictoryFireworks visible={showFireworks} />
         <View style={[styles.header, isLandscape && styles.headerLandscape]}>
@@ -564,19 +612,19 @@ export default function HomeScreen() {
           </View>
           <View style={styles.headerActions}>
             <Pressable accessibilityRole="button" accessibilityLabel="자동 완성" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, pressed && styles.pressed]}>
-              <Text style={styles.autoButtonText}>AUTO</Text>
+              <MedievalIcon name="auto" size={19} />
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="새 게임" onPress={requestNewGame} style={({ pressed }) => [styles.newButton, pressed && styles.pressed]}>
-              <Text style={styles.newButtonText}>＋</Text>
+              <MedievalIcon name="new" size={23} />
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={isLandscape ? "세로 모드로 전환" : "가로 모드로 전환"} onPress={toggleOrientation} style={({ pressed }) => [styles.orientationButton, pressed && styles.pressed]}>
-              <Text style={styles.orientationButtonText}>{isLandscape ? "▯" : "▭"}</Text>
+              <MedievalIcon name="orientation" size={19} />
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={soundEnabled ? "사운드 끄기" : "사운드 켜기"} onPress={() => setSoundEnabled((value) => !value)} style={({ pressed }) => [styles.soundButton, !soundEnabled && styles.soundButtonOff, pressed && styles.pressed]}>
-              <Text style={styles.soundButtonText}>{soundEnabled ? "♪" : "×"}</Text>
+              <MedievalIcon name="sound" size={19} />
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="게임 메뉴" onPress={() => { haptic.light(); setPaused(true); setSheet("menu"); }} style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}>
-              <Text style={styles.menuButtonText}>···</Text>
+              <MedievalIcon name="menu" size={19} />
             </Pressable>
           </View>
         </View>
@@ -639,10 +687,10 @@ export default function HomeScreen() {
 
         <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape]}>
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, styles.hintButton, pressed && styles.pressed]}>
-            <Text style={styles.bottomButtonText}>HINT</Text>
+            <View style={styles.bottomButtonContent}><MedievalIcon name="hint" size={20} /><Text style={styles.bottomButtonText}>힌트</Text></View>
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="실행 취소" disabled={undoStack.length === 0} onPress={undoLastMove} style={({ pressed }) => [styles.bottomButton, styles.undoButton, undoStack.length === 0 && styles.undoButtonDisabled, pressed && styles.pressed]}>
-            <Text style={styles.bottomButtonText}>↶  UNDO</Text>
+            <View style={styles.bottomButtonContent}><MedievalIcon name="undo" size={20} /><Text style={styles.bottomButtonText}>실행 취소</Text></View>
           </Pressable>
         </View>
         {hintMessage ? <View style={[styles.hintToast, isLandscape && styles.hintToastLandscape]}><Text style={styles.hintToastText}>{hintMessage}</Text></View> : null}
@@ -707,6 +755,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#11182C", paddingHorizontal: 12 },
+  medievalBackdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, opacity: 0.72 },
   rootLandscape: { paddingHorizontal: 16 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 6, paddingBottom: 12 },
   headerLandscape: { paddingTop: 0, paddingBottom: 3 },
@@ -767,6 +816,7 @@ const styles = StyleSheet.create({
   undoButton: { backgroundColor: "#2A4268", borderColor: "#5B78A5" },
   undoButtonDisabled: { opacity: 0.38 },
   bottomButtonText: { color: "#FFFDF8", fontSize: 12, fontWeight: "900", letterSpacing: 0.7 },
+  bottomButtonContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   hintToast: { position: "absolute", left: 16, right: 16, bottom: 56, zIndex: 20, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 13, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   hintToastLandscape: { bottom: 60 },
   hintToastText: { color: "#BCEAE2", fontSize: 12, fontWeight: "700", textAlign: "center" },
