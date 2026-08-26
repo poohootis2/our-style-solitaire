@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { ScreenContainer } from "@/components/screen-container";
+import { getGameLayout } from "@/lib/game-layout";
 import { haptic } from "@/lib/haptics";
 import {
   autoComplete,
@@ -50,6 +51,9 @@ function formatDuration(totalSeconds: number): string {
 function CardFace({ card, width, selected, onPress }: { card: Card; width: number; selected?: boolean; onPress?: () => void }) {
   const height = width * CARD_RATIO;
   const color = playingCardColor(card);
+  const rankSize = Math.max(10, Math.round(width * 0.26));
+  const suitSize = Math.max(9, Math.round(width * 0.22));
+  const centerSize = Math.max(21, Math.round(width * 0.52));
   return (
     <Pressable
       accessibilityRole="button"
@@ -62,12 +66,12 @@ function CardFace({ card, width, selected, onPress }: { card: Card; width: numbe
         pressed && styles.pressed,
       ]}
     >
-      <Text style={[styles.rankTop, { color }]}>{rankLabels[card.rank]}</Text>
-      <Text style={[styles.suitTop, { color }]}>{suitSymbols[card.suit]}</Text>
-      <Text style={[styles.suitCenter, { color }]}>{suitSymbols[card.suit]}</Text>
+      <Text style={[styles.rankTop, { color, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
+      <Text style={[styles.suitTop, { color, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
+      <Text style={[styles.suitCenter, { color, fontSize: centerSize }]}>{suitSymbols[card.suit]}</Text>
       <View style={styles.bottomMark}>
-        <Text style={[styles.rankBottom, { color }]}>{rankLabels[card.rank]}</Text>
-        <Text style={[styles.suitBottom, { color }]}>{suitSymbols[card.suit]}</Text>
+        <Text style={[styles.rankBottom, { color, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
+        <Text style={[styles.suitBottom, { color, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
       </View>
     </Pressable>
   );
@@ -103,9 +107,8 @@ function EmptySlot({ width, label, onPress }: { width: number; label: string; on
 }
 
 export default function HomeScreen() {
-  const { width: screenWidth } = useWindowDimensions();
-  const cardWidth = useMemo(() => Math.max(39, Math.min(57, (screenWidth - 32) / 7)), [screenWidth]);
-  const stackOffset = Math.max(25, Math.round(cardWidth * 0.58));
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const { boardWidth, cardWidth, compact, stackOffset, tableauGap, uiScale } = getGameLayout(screenWidth, screenHeight);
   const [game, setGame] = useState(createNewGame);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -113,6 +116,7 @@ export default function HomeScreen() {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [records, setRecords] = useState<Records>(emptyRecords);
   const [hydrated, setHydrated] = useState(false);
+  const newGameStarted = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -120,7 +124,7 @@ export default function HomeScreen() {
       try {
         const [activeGameValue, recordsValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY]);
         if (!mounted) return;
-        if (activeGameValue[1]) {
+        if (activeGameValue[1] && !newGameStarted.current) {
           const saved = JSON.parse(activeGameValue[1]) as { game?: typeof game; elapsedSeconds?: number };
           if (saved.game?.tableau?.length === 7) setGame(saved.game);
           if (typeof saved.elapsedSeconds === "number") setElapsedSeconds(saved.elapsedSeconds);
@@ -153,12 +157,14 @@ export default function HomeScreen() {
   }, [game, hydrated, paused]);
 
   const startNewGame = () => {
+    newGameStarted.current = true;
     haptic.light();
-    setGame(createNewGame());
+    setGame(() => createNewGame());
     setSelection(null);
     setElapsedSeconds(0);
     setPaused(false);
     setSheet(null);
+    AsyncStorage.removeItem(ACTIVE_GAME_KEY).catch(() => undefined);
   };
 
   const saveWin = (finishedGame: typeof game) => {
@@ -245,7 +251,7 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>OUR STYLE</Text>
-            <Text style={styles.title}>Solitaire</Text>
+            <Text style={[styles.title, { fontSize: Math.round(27 * uiScale), lineHeight: Math.round(31 * uiScale) }]}>Solitaire</Text>
           </View>
           <View style={styles.headerActions}>
             <Pressable accessibilityRole="button" accessibilityLabel="자동 완성" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, pressed && styles.pressed]}>
@@ -261,18 +267,19 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.stats}>
-          <View><Text style={styles.statValue}>{game.score}</Text><Text style={styles.statLabel}>점수</Text></View>
+          <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.score}</Text><Text style={styles.statLabel}>점수</Text></View>
           <View style={styles.statDivider} />
-          <View><Text style={styles.statValue}>{game.moves}</Text><Text style={styles.statLabel}>이동</Text></View>
+          <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.moves}</Text><Text style={styles.statLabel}>이동</Text></View>
           <View style={styles.statDivider} />
-          <View><Text style={styles.statValue}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
-          <View style={styles.statusWrap}>
-            <View style={[styles.statusDot, selection ? styles.statusDotSelected : styles.statusDotReady]} />
-            <Text style={styles.statusText}>{hydrated ? (selection ? "이동할 곳을 탭하세요" : "카드를 선택하세요") : "게임 준비 중"}</Text>
-          </View>
+          <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
+          {!compact ? <View style={styles.statusWrap}>
+              <View style={[styles.statusDot, selection ? styles.statusDotSelected : styles.statusDotReady]} />
+              <Text style={styles.statusText}>{hydrated ? (selection ? "이동할 곳을 탭하세요" : "카드를 선택하세요") : "게임 준비 중"}</Text>
+            </View> : null}
         </View>
 
-        <View style={[styles.topPiles, { gap: Math.max(7, (screenWidth - cardWidth * 7) / 6) }]}>
+        <View style={[styles.board, { width: boardWidth }]}>
+        <View style={styles.topPiles}>
           <View style={styles.stockWasteGroup}>
             {game.stock.length ? (
               <CardBack width={cardWidth} onPress={() => applyGame(drawFromStock(game))} />
@@ -285,7 +292,7 @@ export default function HomeScreen() {
               <EmptySlot width={cardWidth} label="" />
             )}
           </View>
-          <View style={styles.foundationGroup}>
+          <View style={[styles.foundationGroup, { gap: Math.max(3, Math.round(cardWidth * 0.08)) }]}>
             {SUITS.map((suit) => {
               const card = game.foundations[suit].at(-1);
               return card ? (
@@ -297,7 +304,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={[styles.tableau, { gap: Math.max(4, (screenWidth - cardWidth * 7) / 6) }]}>
+        <View style={[styles.tableau, { gap: tableauGap }]}>
           {game.tableau.map((pile, column) => (
             <View key={`column-${column}`} style={[styles.tableauColumn, { width: cardWidth, minHeight: cardWidth * CARD_RATIO }]}>
               {pile.length === 0 ? <EmptySlot width={cardWidth} label="K" onPress={() => moveSelectionToTableau(column)} /> : null}
@@ -312,6 +319,7 @@ export default function HomeScreen() {
               ))}
             </View>
           ))}
+        </View>
         </View>
 
         <Modal transparent visible={sheet !== null} animationType="fade" onRequestClose={() => { setPaused(false); setSheet(null); }}>
@@ -380,6 +388,7 @@ const styles = StyleSheet.create({
   statusDotReady: { backgroundColor: "#77D6C3" },
   statusDotSelected: { backgroundColor: "#FF7A66" },
   statusText: { color: "#A6B4CE", fontSize: 10, fontWeight: "600" },
+  board: { alignSelf: "center" },
   topPiles: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
   stockWasteGroup: { flexDirection: "row", gap: 6 },
   foundationGroup: { flexDirection: "row", gap: 4 },
