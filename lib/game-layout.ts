@@ -13,7 +13,7 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-export function getGameLayout(width: number, height: number): GameLayout {
+export function getGameLayout(width: number, height: number, verticalEdgeInset = 0): GameLayout {
   const isLandscape = width > height;
   const isTablet = Math.min(width, height) >= 600;
   const outerPadding = isTablet ? 36 : 24;
@@ -24,7 +24,7 @@ export function getGameLayout(width: number, height: number): GameLayout {
   const rawCardWidth = (availableWidth - tableauGap * 6) / 7;
   const cardWidth = Math.floor(clamp(rawCardWidth, 34, maxCardWidth));
   const boardWidth = cardWidth * 7 + tableauGap * 6;
-  const verticalRoom = Math.max(156, height - (isTablet ? 250 : 214));
+  const verticalRoom = Math.max(156, height - verticalEdgeInset - (isTablet ? 250 : 214));
   const stackOffset = Math.floor(clamp((verticalRoom - cardWidth * CARD_RATIO) / 6, 21, cardWidth * 0.62));
 
   return {

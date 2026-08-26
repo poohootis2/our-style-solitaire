@@ -21,4 +21,10 @@ describe("반응형 게임 테이블 레이아웃", () => {
     expect(layout.cardWidth).toBeLessThanOrEqual(44);
     expect(layout.stackOffset).toBeGreaterThanOrEqual(21);
   });
+
+  it("상하 안전 여백을 적용해도 카드 쌓임 간격이 사용 가능한 범위에 머문다", () => {
+    const layout = getGameLayout(360, 780, 104);
+    expect(layout.stackOffset).toBeGreaterThanOrEqual(21);
+    expect(layout.stackOffset).toBeLessThanOrEqual(layout.cardWidth * 0.62);
+  });
 });

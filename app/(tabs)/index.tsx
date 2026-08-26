@@ -31,6 +31,7 @@ type Records = { wins: number; bestScore: number; bestTimeSeconds: number | null
 const CARD_RATIO = 1.42;
 const ACTIVE_GAME_KEY = "our-style-solitaire:active-game";
 const RECORDS_KEY = "our-style-solitaire:records";
+const PHYSICAL_EDGE_INSET = 52;
 
 const emptyRecords: Records = { wins: 0, bestScore: 0, bestTimeSeconds: null };
 
@@ -108,7 +109,11 @@ function EmptySlot({ width, label, onPress }: { width: number; label: string; on
 
 export default function HomeScreen() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const { boardWidth, cardWidth, compact, stackOffset, tableauGap, uiScale } = getGameLayout(screenWidth, screenHeight);
+  const { boardWidth, cardWidth, compact, stackOffset, tableauGap, uiScale } = getGameLayout(
+    screenWidth,
+    screenHeight,
+    PHYSICAL_EDGE_INSET * 2,
+  );
   const [game, setGame] = useState(createNewGame);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -247,7 +252,7 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
-      <View style={styles.root}>
+      <View style={[styles.root, { paddingTop: PHYSICAL_EDGE_INSET, paddingBottom: PHYSICAL_EDGE_INSET }]}>
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>OUR STYLE</Text>
