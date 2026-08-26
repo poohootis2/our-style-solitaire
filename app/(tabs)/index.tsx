@@ -205,18 +205,14 @@ function EmptySlot({ width, label, onPress }: { width: number; label: string; on
 export default function HomeScreen() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [deviceOrientation, setDeviceOrientation] = useState<ScreenOrientation.Orientation | null>(null);
-  const [previewLandscape, setPreviewLandscape] = useState(false);
   const nativeLandscape = deviceOrientation === ScreenOrientation.Orientation.LANDSCAPE_LEFT || deviceOrientation === ScreenOrientation.Orientation.LANDSCAPE_RIGHT || screenWidth > screenHeight;
-  const isLandscape = Platform.OS === "web" ? previewLandscape : nativeLandscape;
-  const isWebPreviewLandscape = Platform.OS === "web" && previewLandscape;
-  const canvasWidth = isWebPreviewLandscape ? screenHeight : screenWidth;
-  const canvasHeight = isWebPreviewLandscape ? screenWidth : screenHeight;
+  const isLandscape = nativeLandscape;
   const physicalEdgeInset = isLandscape ? 10 : PHYSICAL_EDGE_INSET;
   const { boardWidth, cardWidth, compact, stackOffset, tableauGap, uiScale } = getGameLayout(
-    canvasWidth,
-    canvasHeight,
+    screenWidth,
+    screenHeight,
     physicalEdgeInset * 2,
-    isLandscape,
+    false,
   );
   const [game, setGame] = useState(createPlayableGame);
   const [selection, setSelection] = useState<Selection | null>(null);
@@ -318,8 +314,7 @@ export default function HomeScreen() {
     haptic.light();
     try {
       if (Platform.OS === "web") {
-        setPreviewLandscape(nextMode === "landscape");
-        ScreenOrientation.lockPlatformAsync({ screenOrientationLockWeb: nextMode === "landscape" ? ScreenOrientation.WebOrientationLock.LANDSCAPE : ScreenOrientation.WebOrientationLock.PORTRAIT }).catch(() => undefined);
+        await ScreenOrientation.lockPlatformAsync({ screenOrientationLockWeb: nextMode === "landscape" ? ScreenOrientation.WebOrientationLock.LANDSCAPE : ScreenOrientation.WebOrientationLock.PORTRAIT });
       } else {
         const target = nextMode === "landscape" ? ScreenOrientation.OrientationLock.LANDSCAPE_LEFT : ScreenOrientation.OrientationLock.PORTRAIT_UP;
         const supported = await ScreenOrientation.supportsOrientationLockAsync(target);
@@ -507,19 +502,7 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
-      <View style={[
-        styles.root,
-        { paddingTop: physicalEdgeInset, paddingBottom: physicalEdgeInset },
-        isLandscape && styles.rootLandscape,
-        isWebPreviewLandscape && {
-          position: "absolute",
-          width: canvasWidth,
-          height: canvasHeight,
-          top: (screenHeight - canvasHeight) / 2,
-          left: (screenWidth - canvasWidth) / 2,
-          transform: [{ rotate: "90deg" }],
-        },
-      ]}>
+      <View style={[styles.root, { paddingTop: physicalEdgeInset, paddingBottom: physicalEdgeInset }, isLandscape && styles.rootLandscape]}>
         {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} progress={flightProgress} /> : null}
         <VictoryFireworks visible={showFireworks} />
         <View style={[styles.header, isLandscape && styles.headerLandscape]}>
