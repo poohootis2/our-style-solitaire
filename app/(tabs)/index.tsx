@@ -3,6 +3,7 @@ import { Alert, Animated, AppState, Easing, Modal, PanResponder, Platform, Press
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import * as ScreenOrientation from "expo-screen-orientation";
+import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { getCardBackTheme, type CardBackTheme } from "@/lib/card-back-theme";
@@ -58,6 +59,35 @@ function formatDuration(totalSeconds: number): string {
   return `${minutes}:${seconds}`;
 }
 
+function RoyalPortrait({ rank }: { rank: 11 | 12 | 13 }) {
+  const isJack = rank === 11;
+  const isQueen = rank === 12;
+  const outfit = isJack ? "#314A76" : isQueen ? "#7A416B" : "#295D66";
+  const trim = isJack ? "#FF8A76" : isQueen ? "#E785B5" : "#D6A956";
+  const hair = isJack ? "#56392B" : isQueen ? "#4A2543" : "#302A25";
+
+  return (
+    <View pointerEvents="none" style={styles.royalPortrait}>
+      <Svg width="100%" height="100%" viewBox="0 0 100 128">
+        <Rect x="10" y="62" width="80" height="61" rx="17" fill={outfit} />
+        <Path d="M14 111 L28 75 L50 96 L72 75 L86 111" fill={trim} opacity="0.9" />
+        <Path d="M33 78 L50 96 L67 78" fill="#FFF3D1" />
+        <Circle cx="50" cy="48" r="24" fill="#F3BF99" />
+        <Path d={isQueen ? "M25 54 C23 19 40 16 50 26 C60 16 77 19 75 54 L67 45 C62 31 38 31 33 45 Z" : "M25 49 C25 19 42 19 50 27 C58 19 75 19 75 49 L69 42 C58 30 42 30 31 42 Z"} fill={hair} />
+        {isJack ? <Path d="M32 29 L43 15 L50 27 L57 15 L68 29 L62 31 L50 25 L38 31 Z" fill={trim} /> : null}
+        {isQueen ? <Path d="M27 29 L34 10 L43 23 L50 7 L57 23 L66 10 L73 29 Z" fill="#F3C969" /> : null}
+        {rank === 13 ? <Path d="M23 31 L30 8 L41 23 L50 5 L59 23 L70 8 L77 31 Z" fill="#F3C969" /> : null}
+        <Circle cx="41" cy="49" r="2.2" fill="#1A2030" />
+        <Circle cx="59" cy="49" r="2.2" fill="#1A2030" />
+        <Path d={isQueen ? "M42 61 Q50 66 58 61" : "M42 61 Q50 65 58 61"} stroke="#B96862" strokeWidth="2" fill="none" strokeLinecap="round" />
+        {rank === 13 ? <Path d="M38 66 Q50 76 62 66 L59 78 L41 78 Z" fill={hair} /> : null}
+        <Path d="M50 93 L50 116" stroke="#F3C969" strokeWidth="3" />
+        <Circle cx="50" cy="95" r="5" fill="#FFF3D1" stroke="#F3C969" strokeWidth="2" />
+      </Svg>
+    </View>
+  );
+}
+
 function CardFace({
   card,
   width,
@@ -78,6 +108,7 @@ function CardFace({
   const rankSize = Math.max(10, Math.round(width * 0.26));
   const suitSize = Math.max(9, Math.round(width * 0.22));
   const centerSize = Math.max(21, Math.round(width * 0.52));
+  const isRoyal = card.rank >= 11;
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragEndRef = useRef(onDragEnd);
   dragEndRef.current = onDragEnd;
@@ -118,7 +149,7 @@ function CardFace({
     >
       <Text style={[styles.rankTop, { color, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
       <Text style={[styles.suitTop, { color, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
-      <Text style={[styles.suitCenter, { color, fontSize: centerSize }]}>{suitSymbols[card.suit]}</Text>
+      {isRoyal ? <RoyalPortrait rank={card.rank as 11 | 12 | 13} /> : <Text style={[styles.suitCenter, { color, fontSize: centerSize }]}>{suitSymbols[card.suit]}</Text>}
       <View style={styles.bottomMark}>
         <Text style={[styles.rankBottom, { color, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
         <Text style={[styles.suitBottom, { color, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
@@ -719,6 +750,7 @@ const styles = StyleSheet.create({
   rankTop: { position: "absolute", top: 4, left: 5, fontSize: 14, lineHeight: 15, fontWeight: "900" },
   suitTop: { position: "absolute", top: 18, left: 6, fontSize: 12, lineHeight: 13, fontWeight: "900" },
   suitCenter: { position: "absolute", top: "31%", width: "100%", textAlign: "center", fontSize: 28, fontWeight: "900" },
+  royalPortrait: { position: "absolute", top: "24%", left: "13%", width: "74%", height: "61%" },
   bottomMark: { position: "absolute", right: 5, bottom: 3, transform: [{ rotate: "180deg" }], alignItems: "center" },
   rankBottom: { fontSize: 14, lineHeight: 15, fontWeight: "900" },
   suitBottom: { fontSize: 12, lineHeight: 12, fontWeight: "900" },
