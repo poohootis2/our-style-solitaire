@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Animated, Easing, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import * as ScreenOrientation from "expo-screen-orientation";
@@ -62,12 +62,14 @@ function CardFace({
   selected,
   onPress,
   onDoublePress,
+  onDragEnd,
 }: {
   card: Card;
   width: number;
   selected?: boolean;
   onPress?: () => void;
   onDoublePress?: () => void;
+  onDragEnd?: (dx: number, dy: number) => void;
 }) {
   const height = width * CARD_RATIO;
   const color = playingCardColor(card);
@@ -75,6 +77,12 @@ function CardFace({
   const suitSize = Math.max(9, Math.round(width * 0.22));
   const centerSize = Math.max(21, Math.round(width * 0.52));
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragEndRef = useRef(onDragEnd);
+  dragEndRef.current = onDragEnd;
+  const panResponder = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gesture) => Boolean(dragEndRef.current && (Math.abs(gesture.dx) > 8 || Math.abs(gesture.dy) > 8)),
+    onPanResponderRelease: (_, gesture) => dragEndRef.current?.(gesture.dx, gesture.dy),
+  })).current;
 
   const handlePress = () => {
     if (!onDoublePress) {
@@ -98,6 +106,7 @@ function CardFace({
       accessibilityRole="button"
       accessibilityLabel={`${cardLabel(card)} 카드`}
       onPress={handlePress}
+      {...(onDragEnd ? panResponder.panHandlers : {})}
       style={({ pressed }) => [
         styles.card,
         { width, height, borderColor: selected ? "#FF7A66" : "#F1EEE6" },
@@ -132,6 +141,52 @@ function CardBack({ width, theme, onPress }: { width: number; theme: CardBackThe
   );
 }
 
+function FlyingCard({ card, width, progress }: { card: Card; width: number; progress: Animated.Value }) {
+  const color = playingCardColor(card);
+  const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, width * 2.7] });
+  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, -width * 1.8] });
+  const scale = progress.interpolate({ inputRange: [0, 0.72, 1], outputRange: [1, 1.1, 0.6] });
+  const opacity = progress.interpolate({ inputRange: [0, 0.85, 1], outputRange: [1, 1, 0] });
+  return (
+    <Animated.View pointerEvents="none" style={[styles.flyingCard, { width, height: width * CARD_RATIO, opacity, transform: [{ translateX }, { translateY }, { scale }, { rotate: "7deg" }] }]}>
+      <Text style={[styles.flyingRank, { color }]}>{rankLabels[card.rank]}</Text>
+      <Text style={[styles.flyingSuit, { color }]}>{suitSymbols[card.suit]}</Text>
+    </Animated.View>
+  );
+}
+
+function FireworkParticle({ index, visible }: { index: number; visible: boolean }) {
+  const progress = useRef(new Animated.Value(0)).current;
+  const angle = (index / 18) * Math.PI * 2;
+  const radius = 92 + (index % 4) * 17;
+  const colors = ["#FF7A66", "#77D6C3", "#F3C969", "#9C85EE", "#FF9AD5"];
+
+  useEffect(() => {
+    if (!visible) {
+      progress.setValue(0);
+      return;
+    }
+    const animation = Animated.timing(progress, { toValue: 1, duration: 920 + (index % 3) * 120, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+    animation.start();
+    return () => animation.stop();
+  }, [index, progress, visible]);
+
+  const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(angle) * radius] });
+  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(angle) * radius] });
+  const opacity = progress.interpolate({ inputRange: [0, 0.65, 1], outputRange: [0, 1, 0] });
+  const scale = progress.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0.2, 1, 0.45] });
+  return <Animated.View pointerEvents="none" style={[styles.fireworkParticle, { backgroundColor: colors[index % colors.length], opacity, transform: [{ translateX }, { translateY }, { scale }] }]} />;
+}
+
+function VictoryFireworks({ visible }: { visible: boolean }) {
+  return (
+    <View pointerEvents="none" style={styles.fireworkLayer}>
+      {Array.from({ length: 36 }, (_, index) => <FireworkParticle key={index} index={index} visible={visible} />)}
+      {visible ? <Text style={styles.victoryText}>STAGE CLEAR</Text> : null}
+    </View>
+  );
+}
+
 function EmptySlot({ width, label, onPress }: { width: number; label: string; onPress?: () => void }) {
   return (
     <Pressable
@@ -147,7 +202,8 @@ function EmptySlot({ width, label, onPress }: { width: number; label: string; on
 
 export default function HomeScreen() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const isLandscape = screenWidth > screenHeight;
+  const [deviceOrientation, setDeviceOrientation] = useState<ScreenOrientation.Orientation | null>(null);
+  const isLandscape = deviceOrientation === ScreenOrientation.Orientation.LANDSCAPE_LEFT || deviceOrientation === ScreenOrientation.Orientation.LANDSCAPE_RIGHT || screenWidth > screenHeight;
   const physicalEdgeInset = isLandscape ? 10 : PHYSICAL_EDGE_INSET;
   const { boardWidth, cardWidth, compact, stackOffset, tableauGap, uiScale } = getGameLayout(
     screenWidth,
@@ -162,7 +218,11 @@ export default function HomeScreen() {
   const [records, setRecords] = useState<Records>(emptyRecords);
   const [hydrated, setHydrated] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
+  const [flyingCard, setFlyingCard] = useState<Card | null>(null);
+  const [showFireworks, setShowFireworks] = useState(false);
   const newGameStarted = useRef(false);
+  const flightProgress = useRef(new Animated.Value(0)).current;
   const selectPlayer = useAudioPlayer(require("../../assets/sounds/card-select.wav"));
   const movePlayer = useAudioPlayer(require("../../assets/sounds/card-move.wav"));
 
@@ -209,6 +269,15 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
+    if (Platform.OS === "web") return;
+    const subscription = ScreenOrientation.addOrientationChangeListener((event) => {
+      setDeviceOrientation(event.orientationInfo.orientation);
+    });
+    ScreenOrientation.getOrientationAsync().then(setDeviceOrientation).catch(() => undefined);
+    return () => ScreenOrientation.removeOrientationChangeListener(subscription);
+  }, []);
+
+  useEffect(() => {
     if (paused || !hydrated || isWon(game)) return;
     const timer = setInterval(() => setElapsedSeconds((seconds) => seconds + 1), 1000);
     return () => clearInterval(timer);
@@ -223,28 +292,28 @@ export default function HomeScreen() {
     setElapsedSeconds(0);
     setPaused(false);
     setSheet(null);
+    setShowNewGameConfirm(false);
     AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ game: freshGame, elapsedSeconds: 0 })).catch(() => undefined);
   };
 
   const requestNewGame = () => {
-    Alert.alert(
-      "새 게임을 시작할까요?",
-      "진행 중인 게임은 사라지고 새 카드로 다시 시작합니다.",
-      [
-        { text: "취소", style: "cancel" },
-        { text: "새 게임", style: "destructive", onPress: () => startNewGame() },
-      ],
-    );
+    setPaused(true);
+    setShowNewGameConfirm(true);
   };
 
   const toggleOrientation = async () => {
     const nextMode = isLandscape ? "portrait" : "landscape";
     haptic.light();
-    if (Platform.OS === "web") return;
     try {
-      await ScreenOrientation.lockAsync(
-        nextMode === "landscape" ? ScreenOrientation.OrientationLock.LANDSCAPE : ScreenOrientation.OrientationLock.PORTRAIT_UP,
-      );
+      if (Platform.OS === "web") {
+        await ScreenOrientation.lockPlatformAsync({ screenOrientationLockWeb: nextMode === "landscape" ? ScreenOrientation.WebOrientationLock.LANDSCAPE : ScreenOrientation.WebOrientationLock.PORTRAIT });
+      } else {
+        const target = nextMode === "landscape" ? ScreenOrientation.OrientationLock.LANDSCAPE_LEFT : ScreenOrientation.OrientationLock.PORTRAIT_UP;
+        const supported = await ScreenOrientation.supportsOrientationLockAsync(target);
+        if (!supported) throw new Error("unsupported orientation lock");
+        await ScreenOrientation.lockAsync(target);
+        setDeviceOrientation(await ScreenOrientation.getOrientationAsync());
+      }
     } catch {
       Alert.alert("화면 전환", "이 기기에서는 화면 방향을 전환할 수 없습니다.");
     }
@@ -269,7 +338,19 @@ export default function HomeScreen() {
     }
   };
 
-  const applyGame = (nextGame: typeof game | null, success = false) => {
+  const animateFlight = (card: Card) => {
+    setFlyingCard(card);
+    flightProgress.setValue(0);
+    Animated.timing(flightProgress, { toValue: 1, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setFlyingCard(null));
+  };
+
+  const cardFromSource = (source: CardSource): Card | undefined => {
+    if (source.kind === "waste") return game.waste.at(-1);
+    if (source.kind === "foundation") return game.foundations[source.suit].at(-1);
+    return game.tableau[source.column]?.[source.index];
+  };
+
+  const applyGame = (nextGame: typeof game | null, success = false, movedCard?: Card) => {
     if (!nextGame || nextGame === game) {
       haptic.error();
       return;
@@ -277,6 +358,7 @@ export default function HomeScreen() {
     setGame(nextGame);
     setSelection(null);
     playEffect("move");
+    if (movedCard) animateFlight(movedCard);
     if (success) {
       haptic.success();
     } else {
@@ -285,7 +367,9 @@ export default function HomeScreen() {
     if (isWon(nextGame)) {
       saveWin(nextGame);
       const nextLevel = Math.min(nextGame.level + 1, 6);
-      setTimeout(() => Alert.alert("축하합니다", `레벨 ${nextGame.level}을 ${nextGame.moves}번의 이동으로 완성했어요. 다음 게임은 레벨 ${nextLevel}입니다.`, [{ text: "다음 레벨", onPress: () => startNewGame(nextLevel) }]), 180);
+      setShowFireworks(true);
+      setTimeout(() => setShowFireworks(false), 1550);
+      setTimeout(() => Alert.alert("축하합니다", `레벨 ${nextGame.level}을 ${nextGame.moves}번의 이동으로 완성했어요. 다음 게임은 레벨 ${nextLevel}입니다.`, [{ text: "다음 레벨", onPress: () => startNewGame(nextLevel) }]), 1620);
     }
   };
 
@@ -297,17 +381,31 @@ export default function HomeScreen() {
 
   const moveSelectionToTableau = (toColumn: number) => {
     if (!selection) return;
+    const movingCard = cardFromSource(selection);
     if (selection.kind === "tableau") {
-      applyGame(moveTableauToTableau(game, selection.column, selection.index, toColumn));
+      applyGame(moveTableauToTableau(game, selection.column, selection.index, toColumn), false, movingCard);
     } else if (selection.kind === "waste") {
-      applyGame(moveWasteToTableau(game, toColumn));
+      applyGame(moveWasteToTableau(game, toColumn), false, movingCard);
     } else {
-      applyGame(moveFoundationToTableau(game, selection.suit, toColumn));
+      applyGame(moveFoundationToTableau(game, selection.suit, toColumn), false, movingCard);
     }
   };
 
+  const dragMoveCard = (source: CardSource, dx: number, dy: number) => {
+    const movingCard = cardFromSource(source);
+    if (!movingCard) return;
+    if (dy < -cardWidth * 0.45) {
+      applyGame(moveToFoundation(game, source), false, movingCard);
+      return;
+    }
+    if (source.kind !== "tableau") return;
+    const targetColumn = Math.max(0, Math.min(6, source.column + Math.round(dx / (cardWidth + tableauGap))));
+    if (targetColumn === source.column) return;
+    applyGame(moveTableauToTableau(game, source.column, source.index, targetColumn), false, movingCard);
+  };
+
   const autoMoveToFoundation = (source: CardSource) => {
-    applyGame(moveToFoundation(game, source));
+    applyGame(moveToFoundation(game, source), false, cardFromSource(source));
   };
 
   const drawStockCard = () => {
@@ -368,6 +466,8 @@ export default function HomeScreen() {
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
       <View style={[styles.root, { paddingTop: physicalEdgeInset, paddingBottom: physicalEdgeInset }, isLandscape && styles.rootLandscape]}>
+        {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} progress={flightProgress} /> : null}
+        <VictoryFireworks visible={showFireworks} />
         <View style={[styles.header, isLandscape && styles.headerLandscape]}>
           <View>
             <Text style={styles.eyebrow}>OUR STYLE</Text>
@@ -425,7 +525,7 @@ export default function HomeScreen() {
             {SUITS.map((suit) => {
               const card = game.foundations[suit].at(-1);
               return card ? (
-                <CardFace key={suit} card={card} width={cardWidth} selected={selection?.kind === "foundation" && selection.suit === suit} onPress={() => onFoundationPress(suit)} />
+                <CardFace key={suit} card={card} width={cardWidth} selected={selection?.kind === "foundation" && selection.suit === suit} onPress={() => onFoundationPress(suit)} onDragEnd={(dx, dy) => dragMoveCard({ kind: "foundation", suit }, dx, dy)} />
               ) : (
                 <EmptySlot key={suit} width={cardWidth} label={suitSymbols[suit]} onPress={() => onFoundationPress(suit)} />
               );
@@ -440,7 +540,7 @@ export default function HomeScreen() {
               {pile.map((card, index) => (
                 <View key={card.id} style={{ position: "absolute", top: index * stackOffset, left: 0, zIndex: index }}>
                   {card.faceUp ? (
-                    <CardFace card={card} width={cardWidth} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => autoMoveToFoundation({ kind: "tableau", column, index })} />
+                    <CardFace card={card} width={cardWidth} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => autoMoveToFoundation({ kind: "tableau", column, index })} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
                   ) : (
                     <CardBack width={cardWidth} theme={cardBackTheme} onPress={() => onTableauPress(column, index, card)} />
                   )}
@@ -488,6 +588,19 @@ export default function HomeScreen() {
                   <Pressable onPress={() => setSheet("menu")} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>알겠습니다</Text></Pressable>
                 </>
               ) : null}
+            </View>
+          </View>
+        </Modal>
+        <Modal transparent visible={showNewGameConfirm} animationType="fade" onRequestClose={() => { setShowNewGameConfirm(false); setPaused(false); }}>
+          <View style={styles.confirmBackdrop}>
+            <View style={styles.confirmCard}>
+              <Text style={styles.sheetEyebrow}>NEW GAME</Text>
+              <Text style={styles.sheetTitle}>새 게임을 시작할까요?</Text>
+              <Text style={styles.sheetCopy}>현재 진행 중인 카드와 점수는 새 게임으로 바뀝니다.</Text>
+              <View style={styles.confirmActions}>
+                <Pressable onPress={() => { setShowNewGameConfirm(false); setPaused(false); }} style={({ pressed }) => [styles.confirmCancel, pressed && styles.pressed]}><Text style={styles.confirmCancelText}>취소</Text></Pressable>
+                <Pressable onPress={() => startNewGame()} style={({ pressed }) => [styles.confirmStart, pressed && styles.pressed]}><Text style={styles.confirmStartText}>새 게임</Text></Pressable>
+              </View>
             </View>
           </View>
         </Modal>
@@ -550,6 +663,12 @@ const styles = StyleSheet.create({
   tableau: { flex: 1, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   tableauLandscape: { flexGrow: 0 },
   tableauColumn: { position: "relative" },
+  flyingCard: { position: "absolute", left: 16, bottom: 44, zIndex: 30, overflow: "hidden", borderRadius: 8, backgroundColor: "#FFFDF8", borderWidth: 2, borderColor: "#FF7A66", shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 9, elevation: 12 },
+  flyingRank: { position: "absolute", top: 6, left: 7, fontSize: 16, fontWeight: "900" },
+  flyingSuit: { position: "absolute", top: "31%", width: "100%", textAlign: "center", fontSize: 30, fontWeight: "900" },
+  fireworkLayer: { ...StyleSheet.absoluteFillObject, zIndex: 50, alignItems: "center", justifyContent: "center" },
+  fireworkParticle: { position: "absolute", width: 10, height: 10, borderRadius: 5, shadowColor: "#FFFFFF", shadowOpacity: 0.8, shadowRadius: 5, elevation: 10 },
+  victoryText: { position: "absolute", top: "43%", color: "#FFFDF8", fontSize: 28, fontWeight: "900", letterSpacing: 1.8, textShadowColor: "#FF7A66", textShadowRadius: 14 },
   pressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
   modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(3, 7, 18, 0.76)" },
   sheet: { backgroundColor: "#1E3153", borderTopLeftRadius: 26, borderTopRightRadius: 26, borderTopWidth: 1, borderColor: "#45628E", paddingHorizontal: 24, paddingTop: 26, paddingBottom: 34 },
@@ -569,4 +688,11 @@ const styles = StyleSheet.create({
   recordLabel: { color: "#A6B4CE", fontSize: 10, fontWeight: "700", marginTop: 5 },
   rulesText: { color: "#FFFDF8", fontSize: 15, lineHeight: 23, marginTop: 17 },
   rulesHint: { color: "#77D6C3", fontSize: 13, lineHeight: 20, marginTop: 13 },
+  confirmBackdrop: { flex: 1, justifyContent: "center", padding: 24, backgroundColor: "rgba(3, 7, 18, 0.76)" },
+  confirmCard: { borderRadius: 24, borderWidth: 1, borderColor: "#45628E", backgroundColor: "#1E3153", padding: 24 },
+  confirmActions: { flexDirection: "row", gap: 10, marginTop: 20 },
+  confirmCancel: { flex: 1, minHeight: 50, alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: "#2A4268", borderWidth: 1, borderColor: "#45628E" },
+  confirmCancelText: { color: "#FFFDF8", fontSize: 15, fontWeight: "900" },
+  confirmStart: { flex: 1, minHeight: 50, alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: "#FF7A66" },
+  confirmStartText: { color: "#11182C", fontSize: 15, fontWeight: "900" },
 });

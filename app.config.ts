@@ -87,7 +87,12 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
-    "expo-screen-orientation",
+    [
+      "expo-screen-orientation",
+      {
+        initialOrientation: "DEFAULT",
+      },
+    ],
     [
       "expo-audio",
       {
