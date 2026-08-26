@@ -10,9 +10,11 @@ import { getGameLayout } from "@/lib/game-layout";
 import { haptic } from "@/lib/haptics";
 import {
   autoComplete,
+  cloneGameState,
   createPlayableGame,
   drawFromStock,
   flipTableauCard,
+  findHint,
   getDifficulty,
   isWon,
   moveFoundationToTableau,
@@ -203,12 +205,15 @@ function EmptySlot({ width, label, onPress }: { width: number; label: string; on
 export default function HomeScreen() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [deviceOrientation, setDeviceOrientation] = useState<ScreenOrientation.Orientation | null>(null);
-  const isLandscape = deviceOrientation === ScreenOrientation.Orientation.LANDSCAPE_LEFT || deviceOrientation === ScreenOrientation.Orientation.LANDSCAPE_RIGHT || screenWidth > screenHeight;
+  const [previewLandscape, setPreviewLandscape] = useState(false);
+  const nativeLandscape = deviceOrientation === ScreenOrientation.Orientation.LANDSCAPE_LEFT || deviceOrientation === ScreenOrientation.Orientation.LANDSCAPE_RIGHT || screenWidth > screenHeight;
+  const isLandscape = Platform.OS === "web" ? previewLandscape : nativeLandscape;
   const physicalEdgeInset = isLandscape ? 10 : PHYSICAL_EDGE_INSET;
   const { boardWidth, cardWidth, compact, stackOffset, tableauGap, uiScale } = getGameLayout(
     screenWidth,
     screenHeight,
     physicalEdgeInset * 2,
+    isLandscape,
   );
   const [game, setGame] = useState(createPlayableGame);
   const [selection, setSelection] = useState<Selection | null>(null);
@@ -221,6 +226,8 @@ export default function HomeScreen() {
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
   const [flyingCard, setFlyingCard] = useState<Card | null>(null);
   const [showFireworks, setShowFireworks] = useState(false);
+  const [hintMessage, setHintMessage] = useState<string | null>(null);
+  const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
   const flightProgress = useRef(new Animated.Value(0)).current;
   const selectPlayer = useAudioPlayer(require("../../assets/sounds/card-select.wav"));
@@ -293,6 +300,8 @@ export default function HomeScreen() {
     setPaused(false);
     setSheet(null);
     setShowNewGameConfirm(false);
+    setHintMessage(null);
+    setUndoStack([]);
     AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ game: freshGame, elapsedSeconds: 0 })).catch(() => undefined);
   };
 
@@ -306,7 +315,8 @@ export default function HomeScreen() {
     haptic.light();
     try {
       if (Platform.OS === "web") {
-        await ScreenOrientation.lockPlatformAsync({ screenOrientationLockWeb: nextMode === "landscape" ? ScreenOrientation.WebOrientationLock.LANDSCAPE : ScreenOrientation.WebOrientationLock.PORTRAIT });
+        setPreviewLandscape(nextMode === "landscape");
+        ScreenOrientation.lockPlatformAsync({ screenOrientationLockWeb: nextMode === "landscape" ? ScreenOrientation.WebOrientationLock.LANDSCAPE : ScreenOrientation.WebOrientationLock.PORTRAIT }).catch(() => undefined);
       } else {
         const target = nextMode === "landscape" ? ScreenOrientation.OrientationLock.LANDSCAPE_LEFT : ScreenOrientation.OrientationLock.PORTRAIT_UP;
         const supported = await ScreenOrientation.supportsOrientationLockAsync(target);
@@ -350,11 +360,40 @@ export default function HomeScreen() {
     return game.tableau[source.column]?.[source.index];
   };
 
+  const showHint = () => {
+    const hint = findHint(game);
+    if (!hint) {
+      setHintMessage("지금은 새로운 이동을 찾기 어렵습니다. 실행 취소를 사용해 보세요.");
+      haptic.error();
+      return;
+    }
+    setHintMessage(hint.message);
+    if (hint.source && hint.action !== "flip") {
+      const card = cardFromSource(hint.source);
+      if (card) setSelection({ ...hint.source, cardId: card.id });
+    }
+    haptic.light();
+  };
+
+  const undoLastMove = () => {
+    const previousGame = undoStack.at(-1);
+    if (!previousGame) {
+      haptic.error();
+      return;
+    }
+    setGame(cloneGameState(previousGame));
+    setUndoStack((history) => history.slice(0, -1));
+    setSelection(null);
+    setHintMessage("이전 이동을 되돌렸습니다.");
+    haptic.light();
+  };
+
   const applyGame = (nextGame: typeof game | null, success = false, movedCard?: Card) => {
     if (!nextGame || nextGame === game) {
       haptic.error();
       return;
     }
+    setUndoStack((history) => [...history.slice(-19), cloneGameState(game)]);
     setGame(nextGame);
     setSelection(null);
     playEffect("move");
@@ -551,6 +590,16 @@ export default function HomeScreen() {
         </View>
         </View>
 
+        <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, styles.hintButton, pressed && styles.pressed]}>
+            <Text style={styles.bottomButtonText}>HINT</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="실행 취소" disabled={undoStack.length === 0} onPress={undoLastMove} style={({ pressed }) => [styles.bottomButton, styles.undoButton, undoStack.length === 0 && styles.undoButtonDisabled, pressed && styles.pressed]}>
+            <Text style={styles.bottomButtonText}>↶  UNDO</Text>
+          </Pressable>
+        </View>
+        {hintMessage ? <View style={[styles.hintToast, isLandscape && styles.hintToastLandscape]}><Text style={styles.hintToastText}>{hintMessage}</Text></View> : null}
+
         <Modal transparent visible={sheet !== null} animationType="fade" onRequestClose={() => { setPaused(false); setSheet(null); }}>
           <View style={styles.modalBackdrop}>
             <View style={styles.sheet}>
@@ -663,6 +712,16 @@ const styles = StyleSheet.create({
   tableau: { flex: 1, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   tableauLandscape: { flexGrow: 0 },
   tableauColumn: { position: "relative" },
+  bottomControls: { flexDirection: "row", alignSelf: "center", gap: 10, marginTop: 8 },
+  bottomControlsLandscape: { marginTop: 4 },
+  bottomButton: { minWidth: 126, minHeight: 44, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1 },
+  hintButton: { backgroundColor: "#233958", borderColor: "#3D5A85" },
+  undoButton: { backgroundColor: "#2A4268", borderColor: "#5B78A5" },
+  undoButtonDisabled: { opacity: 0.38 },
+  bottomButtonText: { color: "#FFFDF8", fontSize: 12, fontWeight: "900", letterSpacing: 0.7 },
+  hintToast: { alignSelf: "center", maxWidth: "92%", marginTop: 8, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 13, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
+  hintToastLandscape: { position: "absolute", bottom: 52, zIndex: 25 },
+  hintToastText: { color: "#BCEAE2", fontSize: 12, fontWeight: "700", textAlign: "center" },
   flyingCard: { position: "absolute", left: 16, bottom: 44, zIndex: 30, overflow: "hidden", borderRadius: 8, backgroundColor: "#FFFDF8", borderWidth: 2, borderColor: "#FF7A66", shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 9, elevation: 12 },
   flyingRank: { position: "absolute", top: 6, left: 7, fontSize: 16, fontWeight: "900" },
   flyingSuit: { position: "absolute", top: "31%", width: "100%", textAlign: "center", fontSize: 30, fontWeight: "900" },

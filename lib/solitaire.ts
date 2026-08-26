@@ -26,6 +26,13 @@ export type CardSource =
   | { kind: "waste" }
   | { kind: "foundation"; suit: Suit };
 
+export type Hint = {
+  message: string;
+  source?: CardSource;
+  targetColumn?: number;
+  action: "foundation" | "tableau" | "flip" | "draw";
+};
+
 export const SUITS: Suit[] = ["clubs", "diamonds", "hearts", "spades"];
 
 export const suitSymbols: Record<Suit, string> = {
@@ -110,6 +117,10 @@ function cloneGame(game: GameState): GameState {
     level: game.level ?? 1,
     recycles: game.recycles ?? 0,
   };
+}
+
+export function cloneGameState(game: GameState): GameState {
+  return cloneGame(game);
 }
 
 function withMove(game: GameState, scoreDelta = 0): GameState {
@@ -304,6 +315,48 @@ export function autoComplete(game: GameState): GameState {
     }
   }
   return next;
+}
+
+export function findHint(game: GameState): Hint | null {
+  const wasteCard = game.waste.at(-1);
+  if (wasteCard && canPlaceOnFoundation(wasteCard, game.foundations[wasteCard.suit])) {
+    return { action: "foundation", message: `${rankLabels[wasteCard.rank]}${suitSymbols[wasteCard.suit]}를 파운데이션으로 옮기세요.`, source: { kind: "waste" } };
+  }
+
+  for (let column = 0; column < game.tableau.length; column += 1) {
+    const pile = game.tableau[column];
+    const top = pile.at(-1);
+    if (!top) continue;
+    if (!top.faceUp) return { action: "flip", message: `${column + 1}번째 열의 카드를 뒤집으세요.`, source: { kind: "tableau", column, index: pile.length - 1 } };
+    if (canPlaceOnFoundation(top, game.foundations[top.suit])) {
+      return { action: "foundation", message: `${rankLabels[top.rank]}${suitSymbols[top.suit]}를 파운데이션으로 옮기세요.`, source: { kind: "tableau", column, index: pile.length - 1 } };
+    }
+  }
+
+  for (let fromColumn = 0; fromColumn < game.tableau.length; fromColumn += 1) {
+    const pile = game.tableau[fromColumn];
+    for (let index = 0; index < pile.length; index += 1) {
+      const movingCard = pile[index];
+      if (!movingCard.faceUp) continue;
+      for (let toColumn = 0; toColumn < game.tableau.length; toColumn += 1) {
+        if (fromColumn === toColumn) continue;
+        if (canPlaceOnTableau(movingCard, game.tableau[toColumn].at(-1))) {
+          return { action: "tableau", message: `${rankLabels[movingCard.rank]}${suitSymbols[movingCard.suit]}를 ${toColumn + 1}번째 열로 옮기세요.`, source: { kind: "tableau", column: fromColumn, index }, targetColumn: toColumn };
+        }
+      }
+    }
+  }
+
+  if (wasteCard) {
+    for (let column = 0; column < game.tableau.length; column += 1) {
+      if (canPlaceOnTableau(wasteCard, game.tableau[column].at(-1))) {
+        return { action: "tableau", message: `웨이스트의 ${rankLabels[wasteCard.rank]}${suitSymbols[wasteCard.suit]}를 ${column + 1}번째 열로 옮기세요.`, source: { kind: "waste" }, targetColumn: column };
+      }
+    }
+  }
+
+  if (game.stock.length || game.waste.length) return { action: "draw", message: "스톡을 탭해 다음 카드를 확인하세요." };
+  return null;
 }
 
 export function isWon(game: GameState): boolean {

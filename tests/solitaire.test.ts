@@ -5,6 +5,7 @@ import {
   canPlaceOnTableau,
   createNewGame,
   drawFromStock,
+  findHint,
   getDifficulty,
   moveAceToFoundation,
   moveAvailableAcesToFoundation,
@@ -87,5 +88,16 @@ describe("클론다이크 규칙", () => {
     const next = moveAvailableAcesToFoundation(game);
     expect(next.foundations.hearts).toHaveLength(1);
     expect(next.foundations.clubs).toHaveLength(1);
+  });
+
+  it("힌트는 가능한 파운데이션 이동을 우선 안내한다", () => {
+    const game = foundationGame([card(1, "hearts")]);
+    expect(findHint(game)).toMatchObject({ action: "foundation", source: { kind: "waste" } });
+  });
+
+  it("힌트는 이동이 없을 때 스톡 드로우를 안내한다", () => {
+    const game = foundationGame([]);
+    game.stock = [card(9, "spades")];
+    expect(findHint(game)).toMatchObject({ action: "draw" });
   });
 });

@@ -13,8 +13,8 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-export function getGameLayout(width: number, height: number, verticalEdgeInset = 0): GameLayout {
-  const isLandscape = width > height;
+export function getGameLayout(width: number, height: number, verticalEdgeInset = 0, forceLandscape = false): GameLayout {
+  const isLandscape = forceLandscape || width > height;
   const isTablet = Math.min(width, height) >= 600;
   const outerPadding = isLandscape ? 32 : isTablet ? 36 : 24;
   const tableauGap = isTablet ? 9 : isLandscape ? 7 : 6;
