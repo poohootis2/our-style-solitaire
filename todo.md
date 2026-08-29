@@ -45,3 +45,5 @@
 - [x] 외부 환경에서 실행·Android APK 빌드하는 명령어 안내서 작성
 - [x] Android Studio 로컬 Debug APK 빌드용 Android 프로젝트 생성 및 초보자 안내 보강
 - [x] Android Studio 초보자용 APK 생성·휴대폰 설치 절차 안내서 작성
+- [ ] Android Studio Gradle 네이티브 모듈 variant 오류 수정 및 로컬 APK 재빌드 검증
+- [x] Android Studio 없이 명령어만으로 APK를 만드는 Windows 빌드 안내 보강
