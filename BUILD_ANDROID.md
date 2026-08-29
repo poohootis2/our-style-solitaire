@@ -1,157 +1,156 @@
-# Our Style Solitaire 1.6.0 — 외부 환경 실행 및 Android APK 빌드
+# Our Style Solitaire 1.6.0 — Android Studio로 APK 만들기
 
-이 안내서는 압축 파일을 다른 컴퓨터로 옮긴 뒤 **Our Style Solitaire**를 실행하고, 휴대폰에 직접 설치할 수 있는 **APK**를 만드는 절차를 정리합니다. 휴대폰에는 Expo 또는 Expo Go를 설치할 필요가 없습니다. APK를 내려받아 설치하면 됩니다.
+이 문서는 **Expo EAS Build를 사용하지 않고** Windows 컴퓨터의 Android Studio에서 직접 설치용 APK를 만드는 방법을 설명합니다. Expo 계정, Expo Go, EAS 빌드 한도가 필요하지 않습니다. 휴대폰에는 최종적으로 APK 파일만 설치하면 됩니다.
 
-## 1. 필요한 개발 환경
+> 가장 쉬운 순서는 `압축 해제 → 프로그램 설치 → 명령어 4줄 실행 → Android Studio에서 APK 생성`입니다. 아래 명령어는 복사해서 그대로 붙여넣으면 됩니다.
 
-| 항목 | 권장 버전 또는 도구 | 용도 |
+## 1. 먼저 준비할 것
+
+| 준비 항목 | 권장 사항 | 설명 |
 | --- | --- | --- |
-| Node.js | 22 LTS | JavaScript·Expo 도구 실행 |
-| pnpm | 9.12 이상 | 프로젝트 의존성 설치 |
-| Expo 계정 | 무료 계정 가능 | 클라우드 APK 빌드(EAS Build) |
-| Android Studio + JDK | Android Studio 최신판 + JDK 17 | 로컬 Android 빌드 시 필요 |
+| Windows 컴퓨터 | Windows 10 또는 11, 여유 공간 15GB 이상 | Android Studio와 Android SDK 설치 공간 |
+| Node.js | 22 LTS | Expo 프로젝트를 Android 프로젝트로 변환할 때 사용 |
+| Android Studio | 최신 안정 버전 | Android APK 생성 프로그램 |
+| Java | Android Studio의 Embedded JDK 17 | Gradle Android 빌드에 사용 |
+| 휴대폰 | Android, USB 케이블 또는 파일 전송 | APK 설치와 테스트 |
 
-프로젝트의 Android 앱 ID는 `com.app.ourstylesolitaire`, 버전은 `1.6.0`, Android 버전 코드는 `16`으로 설정되어 있습니다.
+## 2. Android Studio 설치
 
-## 2. 프로젝트 압축 해제 및 기본 검증
+[Android Studio 공식 다운로드 페이지](https://developer.android.com/studio)에서 설치 파일을 내려받아 설치합니다. 설치 과정에서 기본 선택 항목인 **Android SDK**, **Android SDK Platform**, **Android Virtual Device**를 모두 선택합니다.
 
-터미널을 열어 다운로드한 ZIP 파일을 압축 해제한 뒤, 다음 명령을 실행합니다.
+설치가 끝나면 Android Studio를 한 번 실행합니다. 처음 설정 화면이 나오면 **Standard**를 선택하고 기본 설정으로 완료합니다.
 
-```sh
-unzip Our-Style-Solitaire-v1.6.0-source.zip -d our-style-solitaire
-cd our-style-solitaire
+Android Studio 상단 메뉴에서 **Tools → SDK Manager**를 열어 다음 항목이 설치되어 있는지 확인합니다.
 
-# Node.js에 포함된 Corepack으로 pnpm 버전을 준비합니다.
+| SDK Manager 항목 | 필요한 상태 |
+| --- | --- |
+| Android SDK Platform 35 이상 | 설치됨 |
+| Android SDK Build-Tools | 설치됨 |
+| Android SDK Command-line Tools | 설치됨 |
+| Android SDK Platform-Tools | 설치됨 |
+
+설치되어 있지 않은 항목은 체크한 뒤 **Apply**를 눌러 설치합니다. Android Studio에 포함된 Java를 사용하므로 별도의 Java 설치는 보통 필요하지 않습니다.
+
+## 3. Node.js 설치
+
+[Node.js 공식 사이트](https://nodejs.org/)에서 **LTS 버전**을 설치합니다. 설치가 끝나면 Windows에서 **PowerShell**을 엽니다.
+
+Node.js가 정상 설치되었는지 다음 명령으로 확인합니다.
+
+```powershell
+node --version
+npm --version
+```
+
+두 명령 모두 숫자로 된 버전을 보여주면 정상입니다.
+
+## 4. ZIP 압축 해제
+
+다운로드한 `Our-Style-Solitaire-v1.6.0-source.zip` 파일을 바탕화면이나 문서 폴더에 압축 해제합니다. 압축 해제된 폴더 안에 `package.json`, `app`, `assets`, `app.config.ts`가 보여야 합니다.
+
+압축 해제된 프로젝트 폴더 안에서 마우스 오른쪽 버튼을 누른 뒤 **터미널에서 열기** 또는 **PowerShell에서 열기**를 선택합니다. 아래 명령을 순서대로 실행합니다.
+
+```powershell
 corepack enable
 corepack prepare pnpm@9.12.0 --activate
-
-# package.json과 pnpm-lock.yaml 기준으로 의존성을 설치합니다.
 pnpm install --frozen-lockfile
-
-# 코드 검증
 pnpm check
-pnpm test
-pnpm lint
 ```
 
-웹 미리보기로 먼저 확인하려면 다음 명령을 사용합니다.
+`pnpm check` 마지막에 오류가 없으면 다음 단계로 진행합니다. 이 프로젝트는 ZIP에 Android 네이티브 폴더를 포함하지 않으므로, 아래 명령으로 한 번 생성합니다.
 
-```sh
-pnpm dev
-```
-
-## 3. 권장 방식: EAS Build로 설치 가능한 APK 만들기
-
-EAS Build는 Android 개발 도구를 로컬에 전부 설치하지 않고도 서명된 APK를 만드는 가장 간단한 방법입니다. Android에서 직접 설치할 파일은 기본 AAB가 아니라 `APK` 형식으로 빌드해야 합니다.[1]
-
-먼저 Expo 계정에 로그인하고 프로젝트를 EAS에 연결합니다. 계정이 없다면 [Expo 가입 페이지](https://expo.dev/signup)에서 무료로 만들 수 있습니다.[2]
-
-```sh
-# 전역 설치 없이 최신 EAS CLI를 실행합니다.
-npx eas-cli@latest login
-npx eas-cli@latest whoami
-
-# 최초 1회만 실행합니다. 질문이 나오면 Android 빌드를 선택합니다.
-npx eas-cli@latest build:configure
-```
-
-프로젝트 루트에 생성된 `eas.json`을 아래 내용으로 교체하거나, `preview` 프로필을 추가합니다.
-
-```json
-{
-  "build": {
-    "preview": {
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      }
-    },
-    "production": {
-      "android": {
-        "buildType": "app-bundle"
-      }
-    }
-  }
-}
-```
-
-그 다음 APK 빌드를 시작합니다.
-
-```sh
-npx eas-cli@latest build --platform android --profile preview
-```
-
-처음 빌드할 때 Android 서명 키를 묻는다면 **Generate new keystore**를 선택하면 됩니다. 빌드가 끝나면 터미널과 빌드 상세 페이지에 표시되는 APK URL을 휴대폰으로 열어 다운로드하고 설치합니다.[2]
-
-> `preview` 프로필의 `android.buildType: "apk"` 설정이 없으면 기본 출력물은 직접 설치할 수 없는 AAB일 수 있습니다.[1]
-
-## 4. 휴대폰에 APK 설치하기
-
-휴대폰에서 APK URL을 열고 파일을 내려받습니다. 설치가 차단되면 브라우저 또는 파일 관리자에 대해 **이 출처의 앱 설치 허용**을 켠 뒤 설치를 다시 누릅니다. 설치가 끝나면 홈 화면의 **Our Style Solitaire** 아이콘으로 실행합니다.
-
-USB 연결 상태에서 컴퓨터로 설치하려면 Android SDK의 `adb`를 사용합니다.
-
-```sh
-adb devices
-adb install -r path/to/our-style-solitaire.apk
-```
-
-`-r` 옵션은 기존에 설치된 동일 앱을 유지한 채 새 버전으로 교체합니다.
-
-## 5. 대안: Android Studio에서 로컬 Debug APK 만들기
-
-인터넷 빌드를 사용하지 않고 로컬에서 설치용 Debug APK를 만들 수도 있습니다. Android Studio에서 Android SDK와 JDK 17을 설치한 후, 환경 변수 `ANDROID_HOME`과 `JAVA_HOME`을 운영체제에 맞게 설정합니다.
-
-```sh
-cd our-style-solitaire
-pnpm install --frozen-lockfile
-
-# Expo 설정으로 Android 네이티브 프로젝트를 생성합니다.
+```powershell
 npx expo prebuild --platform android
-
-# Debug APK를 생성합니다.
-cd android
-./gradlew assembleDebug
 ```
 
-생성 파일 경로는 다음과 같습니다.
+이 명령은 **APK를 만드는 명령이 아니라 Android Studio가 열 수 있는 `android` 폴더를 생성하는 명령**입니다. Expo 계정 로그인은 필요하지 않습니다.
+
+## 5. Android Studio에서 프로젝트 열기
+
+Android Studio를 실행하고 시작 화면에서 **Open**을 누릅니다. 프로젝트 전체 폴더가 아니라 방금 생성된 다음 폴더를 선택합니다.
 
 ```text
-android/app/build/outputs/apk/debug/app-debug.apk
+our-style-solitaire\android
 ```
 
-해당 파일을 휴대폰으로 복사해 설치하거나, USB 연결 후 아래 명령으로 설치합니다.
+Android Studio가 Gradle 파일을 읽고 동기화하는 동안 기다립니다. 아래쪽에 **Gradle sync finished**와 비슷한 완료 표시가 나오면 다음 단계로 진행합니다. 처음에는 필요한 Gradle 파일을 내려받기 때문에 시간이 걸릴 수 있습니다.
 
-```sh
-adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+## 6. APK 파일 생성하기
+
+Android Studio 상단 메뉴에서 다음 순서로 선택합니다.
+
+```text
+Build
+→ Generate App Bundles or APKs
+→ Generate APKs
 ```
 
-Debug APK는 개인 테스트용입니다. 외부 배포나 Google Play 등록에는 EAS Build의 `production` 프로필 또는 서명 설정이 완료된 Release 빌드를 사용해야 합니다.
+메뉴 이름이 조금 다르면 **Build → Build APK(s)**를 선택해도 됩니다. Debug APK 생성이 완료되면 오른쪽 아래에 **locate** 링크가 나타납니다. 링크를 누르면 다음 위치의 파일이 열립니다.
 
-## 6. 자주 쓰는 명령어
+```text
+our-style-solitaire\android\app\build\outputs\apk\debug\app-debug.apk
+```
 
-| 목적 | 명령어 |
+이 `app-debug.apk` 파일이 휴대폰에 직접 설치할 수 있는 APK입니다. 파일을 카카오톡, 이메일, USB 케이블, 또는 Google Drive로 휴대폰에 옮길 수 있습니다.
+
+## 7. 휴대폰에 설치하기
+
+휴대폰에서 APK 파일을 누릅니다. 설치가 차단되면 설정 화면에서 현재 파일을 열어본 브라우저 또는 파일 관리자에 대해 **이 출처의 앱 설치 허용**을 켭니다. 다시 APK 파일을 누르고 설치합니다.
+
+설치가 끝나면 앱 목록에서 **Our Style Solitaire**를 실행합니다. 이 방식은 Expo Go가 필요하지 않습니다.
+
+USB 케이블로 컴퓨터에서 바로 설치하려면 Android Studio 설치와 함께 제공되는 `adb`를 사용합니다.
+
+```powershell
+adb devices
+adb install -r .\android\app\build\outputs\apk\debug\app-debug.apk
+```
+
+휴대폰에 **USB 디버깅 허용** 창이 나타나면 허용을 누릅니다.
+
+## 8. 다음 버전 APK를 다시 만들 때
+
+코드를 수정한 뒤에는 프로젝트 폴더에서 다음 명령을 실행합니다.
+
+```powershell
+pnpm install --frozen-lockfile
+npx expo prebuild --platform android
+```
+
+그 다음 Android Studio에서 `our-style-solitaire\android` 폴더를 다시 열고, **Build → Generate APKs**를 실행합니다. 이미 `android` 폴더가 있다면 `prebuild`가 기존 네이티브 파일을 덮어쓸 수 있으므로, 코드 수정 없이 APK만 다시 만들 때는 Android Studio 메뉴에서 바로 APK를 생성하면 됩니다.
+
+## 9. 자주 발생하는 문제
+
+| 문제 | 해결 방법 |
 | --- | --- |
-| 의존성 설치 | `pnpm install --frozen-lockfile` |
-| 웹 미리보기 실행 | `pnpm dev` |
-| 타입 검사 | `pnpm check` |
-| 게임 규칙 테스트 | `pnpm test` |
-| 린트 검사 | `pnpm lint` |
-| 설치용 APK 빌드 | `npx eas-cli@latest build --platform android --profile preview` |
-| 최신 EAS 빌드 확인 | `npx eas-cli@latest build:list --platform android` |
-| USB로 APK 설치 | `adb install -r path/to/file.apk` |
+| `pnpm`을 찾을 수 없음 | `corepack enable`을 다시 실행한 뒤 PowerShell을 새로 엽니다. |
+| `npx expo prebuild`가 실패함 | Node.js LTS가 설치되어 있는지 확인하고 프로젝트 루트에서 실행합니다. 루트에는 `package.json`이 있어야 합니다. |
+| Gradle Sync 실패 | Android Studio의 SDK Manager에서 Platform 35, Build-Tools, Platform-Tools를 설치하고 다시 Sync합니다. |
+| Java 또는 JDK 오류 | Android Studio의 Settings → Build Tools → Gradle에서 **Gradle JDK**를 Embedded JDK로 선택합니다. |
+| APK 설치가 차단됨 | 휴대폰 설정에서 현재 브라우저 또는 파일 관리자에 대한 알 수 없는 앱 설치를 허용합니다. |
+| `adb devices`에 기기가 없음 | USB 디버깅을 켜고, 데이터 전송이 가능한 USB 케이블을 사용하며, 휴대폰의 허용 창을 승인합니다. |
+| 카드 배경이나 사운드가 안 보임 | Android Studio에서 반드시 프로젝트의 `android` 폴더를 열고 다시 APK를 생성합니다. `assets`가 포함된 프로젝트 루트에서 prebuild를 실행해야 합니다. |
 
-## 7. 문제 해결
+## 핵심 명령어만 다시 보기
 
-| 증상 | 해결 방법 |
-| --- | --- |
-| `pnpm` 명령을 찾을 수 없음 | `corepack enable` 후 `corepack prepare pnpm@9.12.0 --activate`를 다시 실행합니다. |
-| EAS 로그인 실패 | `npx eas-cli@latest logout` 후 `npx eas-cli@latest login`을 다시 실행합니다. |
-| APK 대신 AAB가 생성됨 | `eas.json`의 `preview.android.buildType`이 정확히 `apk`인지 확인합니다. |
-| 휴대폰 설치가 차단됨 | 다운로드한 브라우저 또는 파일 관리자에 대한 알 수 없는 앱 설치 권한을 허용합니다. |
-| 로컬 Gradle 빌드 실패 | Android Studio SDK·Build Tools·JDK 17 경로와 `JAVA_HOME`, `ANDROID_HOME` 설정을 점검합니다. |
+```powershell
+# 프로젝트 폴더에서 실행
+corepack enable
+corepack prepare pnpm@9.12.0 --activate
+pnpm install --frozen-lockfile
+pnpm check
+npx expo prebuild --platform android
 
-## References
+# APK 생성은 Android Studio에서
+# Build → Generate App Bundles or APKs → Generate APKs
+```
 
-[1]: https://docs.expo.dev/build-reference/apk/ "Expo: Build APKs for Android Emulators and devices"
-[2]: https://docs.expo.dev/build/setup/ "Expo: Create your first build"
+> 이 프로젝트의 설치용 테스트 APK는 `android/app/build/outputs/apk/debug/app-debug.apk`에 생성됩니다. 개인 휴대폰 테스트에는 Debug APK로 충분하며, Google Play 등록용 Release 서명 APK는 별도의 서명 설정이 필요합니다.
+
+## 참고 자료
+
+[Android Studio 공식 다운로드](https://developer.android.com/studio)
+
+[Expo Prebuild 공식 문서](https://docs.expo.dev/workflow/prebuild/)
+
+[Expo Android APK 참고 문서](https://docs.expo.dev/build-reference/apk/)
