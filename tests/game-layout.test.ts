@@ -28,4 +28,16 @@ describe("반응형 게임 테이블 레이아웃", () => {
     expect(layout.stackOffset).toBeGreaterThanOrEqual(21);
     expect(layout.stackOffset).toBeLessThanOrEqual(layout.cardWidth * 0.74);
   });
+
+  it("Fold4 접은 전면 화면에서는 7열 보드가 좌우를 넘지 않는다", () => {
+    const layout = getGameLayout(360, 748, 52);
+    expect(layout.boardWidth).toBeLessThanOrEqual(344);
+    expect(layout.cardWidth).toBeGreaterThanOrEqual(34);
+  });
+
+  it("Fold4 펼친 내부 화면에서는 가장 깊은 tableau도 하단을 넘지 않는다", () => {
+    const layout = getGameLayout(768, 1812, 52);
+    const deepestColumnHeight = layout.cardWidth * 1.42 + layout.stackOffset * 6;
+    expect(deepestColumnHeight).toBeLessThanOrEqual(1812 - 52 - 250);
+  });
 });

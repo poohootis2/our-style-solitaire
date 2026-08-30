@@ -47,3 +47,7 @@
 - [x] Android Studio 초보자용 APK 생성·휴대폰 설치 절차 안내서 작성
 - [ ] Android Studio Gradle 네이티브 모듈 variant 오류 수정 및 로컬 APK 재빌드 검증
 - [x] Android Studio 없이 명령어만으로 APK를 만드는 Windows 빌드 안내 보강
+- [ ] Windows sdkmanager 설치 경로·PATH 확인 및 APK 빌드 준비 재개
+- [ ] Android CLI의 SDK 패키지 이름 인식 오류 확인 및 올바른 설치 명령 적용
+- [ ] Android APK가 시작 로고 화면에서 멈추는 원인 진단 및 수정
+- [x] 갤럭시 Fold4 접은 전면·펼친 내부 화면에서 카드 잘림 및 숫자·문양 겹침 수정

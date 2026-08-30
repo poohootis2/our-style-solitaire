@@ -144,6 +144,8 @@ function CardFace({
   const rankSize = Math.max(10, Math.round(width * 0.26));
   const suitSize = Math.max(9, Math.round(width * 0.22));
   const centerSize = Math.max(21, Math.round(width * 0.52));
+  const markInset = Math.max(4, Math.round(width * 0.075));
+  const suitTopOffset = Math.max(16, rankSize + Math.round(width * 0.12));
   const isRoyal = card.rank >= 11;
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragEndRef = useRef(onDragEnd);
@@ -183,10 +185,10 @@ function CardFace({
         pressed && styles.pressed,
       ]}
     >
-      <Text style={[styles.rankTop, { color, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
-      <Text style={[styles.suitTop, { color, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
+      <Text style={[styles.rankTop, { color, top: markInset, left: markInset, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
+      <Text style={[styles.suitTop, { color, top: suitTopOffset, left: markInset, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
       {isRoyal ? <RoyalPortrait rank={card.rank as 11 | 12 | 13} /> : <Text style={[styles.suitCenter, { color, fontSize: centerSize }]}>{suitSymbols[card.suit]}</Text>}
-      <View style={styles.bottomMark}>
+      <View style={[styles.bottomMark, { right: markInset, bottom: markInset * 0.65 }]}>
         <Text style={[styles.rankBottom, { color, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
         <Text style={[styles.suitBottom, { color, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
       </View>
@@ -599,20 +601,20 @@ export default function HomeScreen() {
               <View style={styles.levelBadge}><Text style={styles.levelText}>LV {game.level} · {difficulty.label}</Text></View>
             </View>
           </View>
-          <View style={styles.headerActions}>
-            <Pressable accessibilityRole="button" accessibilityLabel="자동 완성" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, pressed && styles.pressed]}>
+          <View style={[styles.headerActions, compact && styles.headerActionsCompact]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="자동 완성" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, compact && styles.autoButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="auto" size={19} />
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="새 게임" onPress={requestNewGame} style={({ pressed }) => [styles.newButton, pressed && styles.pressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="새 게임" onPress={requestNewGame} style={({ pressed }) => [styles.newButton, compact && styles.newButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="new" size={23} />
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={isLandscape ? "세로 모드로 전환" : "가로 모드로 전환"} onPress={toggleOrientation} style={({ pressed }) => [styles.orientationButton, pressed && styles.pressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={isLandscape ? "세로 모드로 전환" : "가로 모드로 전환"} onPress={toggleOrientation} style={({ pressed }) => [styles.orientationButton, compact && styles.iconButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="orientation" size={19} />
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={soundEnabled ? "사운드 끄기" : "사운드 켜기"} onPress={() => setSoundEnabled((value) => !value)} style={({ pressed }) => [styles.soundButton, !soundEnabled && styles.soundButtonOff, pressed && styles.pressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={soundEnabled ? "사운드 끄기" : "사운드 켜기"} onPress={() => setSoundEnabled((value) => !value)} style={({ pressed }) => [styles.soundButton, compact && styles.iconButtonCompact, !soundEnabled && styles.soundButtonOff, pressed && styles.pressed]}>
               <MedievalIcon name="sound" size={19} />
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="게임 메뉴" onPress={() => { haptic.light(); setPaused(true); setSheet("menu"); }} style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="게임 메뉴" onPress={() => { haptic.light(); setPaused(true); setSheet("menu"); }} style={({ pressed }) => [styles.menuButton, compact && styles.iconButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="menu" size={19} />
             </Pressable>
           </View>
@@ -757,12 +759,16 @@ const styles = StyleSheet.create({
   levelBadge: { borderRadius: 10, paddingHorizontal: 7, paddingVertical: 4, backgroundColor: "#233958", borderWidth: 1, borderColor: "#3D5A85" },
   levelText: { color: "#77D6C3", fontSize: 9, fontWeight: "900", letterSpacing: 0.4 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 7 },
+  headerActionsCompact: { gap: 3 },
   autoButton: { minHeight: 34, justifyContent: "center", paddingHorizontal: 11, borderRadius: 17, backgroundColor: "#233958", borderWidth: 1, borderColor: "#3D5A85" },
   autoButtonText: { color: "#77D6C3", fontSize: 10, fontWeight: "900", letterSpacing: 0.9 },
+  autoButtonCompact: { paddingHorizontal: 7, minHeight: 30 },
   newButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 18, backgroundColor: "#FF7A66" },
   newButtonText: { color: "#11182C", fontSize: 22, lineHeight: 24, fontWeight: "600" },
+  newButtonCompact: { width: 30, height: 30, borderRadius: 15 },
   orientationButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: "#233958", borderWidth: 1, borderColor: "#3D5A85" },
   orientationButtonText: { color: "#77D6C3", fontSize: 17, lineHeight: 20, fontWeight: "900" },
+  iconButtonCompact: { width: 28, height: 28, borderRadius: 14 },
   soundButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: "#233958", borderWidth: 1, borderColor: "#3D5A85" },
   soundButtonOff: { backgroundColor: "#1A2944", borderColor: "#294264" },
   soundButtonText: { color: "#77D6C3", fontSize: 18, lineHeight: 20, fontWeight: "900" },
@@ -788,8 +794,8 @@ const styles = StyleSheet.create({
   slotLabel: { color: "#58739D", fontSize: 15, fontWeight: "900" },
   card: { position: "relative", overflow: "hidden", borderRadius: 7, borderWidth: 1, backgroundColor: "#FFFDF8", shadowColor: "#050912", shadowOpacity: 0.3, shadowRadius: 3, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
   cardSelected: { transform: [{ translateY: -7 }], borderWidth: 2.5, shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 8, elevation: 8 },
-  rankTop: { position: "absolute", top: 4, left: 5, fontSize: 14, lineHeight: 15, fontWeight: "900" },
-  suitTop: { position: "absolute", top: 18, left: 6, fontSize: 12, lineHeight: 13, fontWeight: "900" },
+  rankTop: { position: "absolute", fontSize: 14, lineHeight: 15, fontWeight: "900" },
+  suitTop: { position: "absolute", fontSize: 12, lineHeight: 13, fontWeight: "900" },
   suitCenter: { position: "absolute", top: "31%", width: "100%", textAlign: "center", fontSize: 28, fontWeight: "900" },
   royalPortrait: { position: "absolute", top: "24%", left: "13%", width: "74%", height: "61%" },
   bottomMark: { position: "absolute", right: 5, bottom: 3, transform: [{ rotate: "180deg" }], alignItems: "center" },
