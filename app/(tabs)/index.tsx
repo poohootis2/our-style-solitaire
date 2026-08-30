@@ -271,10 +271,14 @@ function CardAttackEffect({ kind, combo }: { kind: AttackKind; combo: boolean })
     return () => animation.stop();
   }, [combo, progress]);
   const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, 92] });
-  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, -118] });
-  const scale = progress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.45, 1.1, 0.2] });
-  const opacity = progress.interpolate({ inputRange: [0, 0.75, 1], outputRange: [0, 1, 0] });
-  return <Animated.Text pointerEvents="none" style={[styles.cardAttackEffect, { color: colors[kind], opacity, transform: [{ translateX }, { translateY }, { scale }] }]}>{symbols[kind]}</Animated.Text>;
+  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, -170] });
+  const scale = progress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.78, 1.05, 0.42] });
+  const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "720deg"] });
+  const opacity = progress.interpolate({ inputRange: [0, 0.82, 1], outputRange: [1, 1, 0] });
+  return <Animated.View pointerEvents="none" style={[styles.attackCard, { opacity, borderColor: colors[kind], transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}>
+    <Text style={[styles.attackCardRank, { color: colors[kind] }]}>A</Text>
+    <Text style={[styles.attackCardSuit, { color: colors[kind] }]}>{symbols[kind]}</Text>
+  </Animated.View>;
 }
 
 type AttackKind = Suit;
@@ -901,14 +905,16 @@ const styles = StyleSheet.create({
   monsterSpriteWrapCompact: { width: 32, height: 38 },
   monsterSprite: { width: 50, height: 54 },
   monsterSpriteCompact: { width: 34, height: 38 },
-  monsterInfo: { width: 56, alignItems: "flex-start" },
-  monsterInfoCompact: { width: 44 },
+  monsterInfo: { width: 56, alignItems: "flex-start", transform: [{ translateX: 10 }] },
+  monsterInfoCompact: { width: 44, transform: [{ translateX: 10 }] },
   monsterName: { color: "#F3C969", fontSize: 7, fontWeight: "900", letterSpacing: 0.5 },
   monsterBar: { width: "100%", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
   monsterHp: { color: "#BCEAE2", fontSize: 8, fontWeight: "800", marginTop: 2 },
   monsterProjectile: { position: "absolute", left: 8, top: 12, fontSize: 24, fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 7 },
-  cardAttackEffect: { position: "absolute", left: "43%", top: "43%", zIndex: 45, fontSize: 28, fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 8 },
+  attackCard: { position: "absolute", left: "43%", top: "43%", zIndex: 45, width: 34, height: 48, borderRadius: 6, borderWidth: 2, backgroundColor: "#FFFDF8", shadowColor: "#FFFFFF", shadowOpacity: 0.9, shadowRadius: 8, elevation: 12 },
+  attackCardRank: { position: "absolute", top: 3, left: 4, fontSize: 12, fontWeight: "900" },
+  attackCardSuit: { position: "absolute", top: 15, width: "100%", textAlign: "center", fontSize: 21, fontWeight: "900" },
   damageText: { position: "absolute", top: -2, right: -18, color: "#FFD66E", fontSize: 16, fontWeight: "900", textShadowColor: "#5B1F38", textShadowRadius: 4 },
   monsterDefeated: { opacity: 0.28 },
   defeatBurst: { position: "absolute", width: 8, height: 8, left: 22, top: 24, alignItems: "center", justifyContent: "center" },
