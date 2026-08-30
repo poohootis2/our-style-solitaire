@@ -283,7 +283,7 @@ function MonsterBattle({ hp, attackKind, attackToken, combo, compact = false }: 
     Animated.timing(attackProgress, { toValue: 1, duration: combo ? 520 : 360, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setAttackVisible(false));
   }, [attackToken, attackProgress, combo]);
 
-  const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-5, 5] });
+  const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-24, 24] });
   const projectileTranslate = attackProgress.interpolate({ inputRange: [0, 1], outputRange: [0, 92] });
   const projectileScale = attackProgress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.5, 1.15, 0.2] });
   const attackColors: Record<AttackKind, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
@@ -687,11 +687,11 @@ export default function HomeScreen() {
           <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.moves}</Text><Text style={styles.statLabel}>이동</Text></View>
           <View style={styles.statDivider} />
           <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
-          {!compact && !isLandscape ? <View style={styles.statusWrap}>
-              <View style={[styles.statusDot, selection ? styles.statusDotSelected : styles.statusDotReady]} />
-              <Text style={styles.statusText}>{hydrated ? (selection ? "이동할 곳을 탭하세요" : "카드를 선택하세요") : "게임 준비 중"}</Text>
-            </View> : null}
-            <MonsterBattle compact={compact && !isLandscape} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} />
+          <MonsterBattle compact={compact && !isLandscape} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} />
+          <View style={[styles.statusWrap, compact && styles.statusWrapCompact]}>
+            <View style={[styles.statusDot, selection ? styles.statusDotSelected : styles.statusDotReady]} />
+            <Text numberOfLines={1} style={styles.statusText}>{hydrated ? (selection ? "이동할 곳을 탭하세요" : "카드를 선택하세요") : "게임 준비 중"}</Text>
+          </View>
         </View>
 
         <View style={[styles.board, { width: boardWidth }, isLandscape && styles.boardLandscape]}>
@@ -841,19 +841,20 @@ const styles = StyleSheet.create({
   statValue: { color: "#FFFDF8", fontSize: 15, fontWeight: "800", textAlign: "center", fontVariant: ["tabular-nums"] },
   statLabel: { color: "#A6B4CE", fontSize: 9, fontWeight: "700", marginTop: 1, textAlign: "center" },
   statDivider: { width: 1, height: 22, marginHorizontal: 10, backgroundColor: "#2E4163" },
-  statusWrap: { flex: 1, marginLeft: 8, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6 },
+  statusWrap: { flex: 1, minWidth: 92, marginLeft: 8, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6 },
+  statusWrapCompact: { minWidth: 0, marginLeft: 4, gap: 3 },
   statusDot: { width: 7, height: 7, borderRadius: 4 },
   statusDotReady: { backgroundColor: "#77D6C3" },
   statusDotSelected: { backgroundColor: "#FF7A66" },
   statusText: { color: "#A6B4CE", fontSize: 10, fontWeight: "600" },
-  monsterBattle: { flex: 1, minWidth: 132, maxWidth: 190, marginLeft: 10, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6 },
-  monsterBattleCompact: { minWidth: 104, maxWidth: 118, marginLeft: 4, gap: 3 },
+  monsterBattle: { flex: 1.4, minWidth: 154, maxWidth: 236, marginLeft: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, overflow: "visible" },
+  monsterBattleCompact: { flex: 1.1, minWidth: 82, maxWidth: 128, marginLeft: 4, gap: 3 },
   monsterSpriteWrap: { width: 50, height: 54, alignItems: "center", justifyContent: "center", position: "relative" },
   monsterSpriteWrapCompact: { width: 32, height: 38 },
   monsterSprite: { width: 50, height: 54 },
   monsterSpriteCompact: { width: 34, height: 38 },
-  monsterInfo: { width: 82, alignItems: "flex-start" },
-  monsterInfoCompact: { width: 64 },
+  monsterInfo: { width: 62, alignItems: "flex-start" },
+  monsterInfoCompact: { width: 48 },
   monsterName: { color: "#F3C969", fontSize: 7, fontWeight: "900", letterSpacing: 0.5 },
   monsterBar: { width: "100%", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
