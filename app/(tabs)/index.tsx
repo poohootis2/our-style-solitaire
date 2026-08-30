@@ -262,15 +262,19 @@ function VictoryFireworks({ visible }: { visible: boolean }) {
 
 type AttackKind = Suit;
 
-function MonsterBattle({ hp, attackKind, attackToken, combo, compact = false }: { hp: number; attackKind: AttackKind; attackToken: number; combo: boolean; compact?: boolean }) {
+function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = false }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; combo: boolean; compact?: boolean }) {
   const monsterMotion = useRef(new Animated.Value(0)).current;
   const attackProgress = useRef(new Animated.Value(0)).current;
   const [attackVisible, setAttackVisible] = useState(false);
+  const [damageVisible, setDamageVisible] = useState(false);
+  const [defeatVisible, setDefeatVisible] = useState(false);
+  const damageProgress = useRef(new Animated.Value(0)).current;
+  const defeatProgress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const motion = Animated.loop(Animated.sequence([
-      Animated.timing(monsterMotion, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(monsterMotion, { toValue: 0, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(monsterMotion, { toValue: 1, duration: 1950, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(monsterMotion, { toValue: 0, duration: 1950, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
     ]));
     motion.start();
     return () => motion.stop();
@@ -279,21 +283,41 @@ function MonsterBattle({ hp, attackKind, attackToken, combo, compact = false }: 
   useEffect(() => {
     if (!attackToken) return;
     setAttackVisible(true);
+    setDamageVisible(true);
     attackProgress.setValue(0);
-    Animated.timing(attackProgress, { toValue: 1, duration: combo ? 520 : 360, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setAttackVisible(false));
-  }, [attackToken, attackProgress, combo]);
+    damageProgress.setValue(0);
+    Animated.parallel([
+      Animated.timing(attackProgress, { toValue: 1, duration: combo ? 520 : 360, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(damageProgress, { toValue: 1, duration: 780, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start(() => { setAttackVisible(false); setDamageVisible(false); });
+  }, [attackToken, attackProgress, damageProgress, combo]);
+
+  useEffect(() => {
+    const defeated = hp <= 0;
+    setDefeatVisible(defeated);
+    if (defeated) {
+      defeatProgress.setValue(0);
+      Animated.timing(defeatProgress, { toValue: 1, duration: 900, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    }
+  }, [defeatProgress, hp]);
 
   const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-24, 24] });
   const projectileTranslate = attackProgress.interpolate({ inputRange: [0, 1], outputRange: [0, 92] });
   const projectileScale = attackProgress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.5, 1.15, 0.2] });
+  const damageTranslateY = damageProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
+  const damageOpacity = damageProgress.interpolate({ inputRange: [0, 0.65, 1], outputRange: [0, 1, 0] });
+  const defeatScale = defeatProgress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0.3, 1.6, 2.8] });
+  const defeatOpacity = defeatProgress.interpolate({ inputRange: [0, 0.45, 1], outputRange: [1, 1, 0] });
   const attackColors: Record<AttackKind, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
   const attackSymbols: Record<AttackKind, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
 
   return (
     <View style={[styles.monsterBattle, compact && styles.monsterBattleCompact]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
       <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { transform: [{ translateX: monsterTranslate }] }]}>
-        <Image source={MONSTER_IMAGE} resizeMode="contain" style={[styles.monsterSprite, compact && styles.monsterSpriteCompact]} />
+        <Image source={MONSTER_IMAGE} resizeMode="contain" style={[styles.monsterSprite, compact && styles.monsterSpriteCompact, defeatVisible && styles.monsterDefeated]} />
         {attackVisible ? <Animated.Text style={[styles.monsterProjectile, { color: attackColors[attackKind], transform: [{ translateX: projectileTranslate }, { scale: projectileScale }] }]}>{attackSymbols[attackKind]}</Animated.Text> : null}
+        {damageVisible ? <Animated.Text style={[styles.damageText, { opacity: damageOpacity, transform: [{ translateY: damageTranslateY }] }]}>−{damage}</Animated.Text> : null}
+        {defeatVisible ? <Animated.View pointerEvents="none" style={[styles.defeatBurst, { opacity: defeatOpacity, transform: [{ scale: defeatScale }] }]}>{Array.from({ length: 12 }, (_, index) => <Text key={index} style={[styles.defeatSpark, { transform: [{ rotate: `${index * 30}deg` }, { translateY: -24 }] }]}>{index % 2 ? "✦" : "•"}</Text>)}</Animated.View> : null}
       </Animated.View>
       <View style={[styles.monsterInfo, compact && styles.monsterInfoCompact]}>
         <Text style={styles.monsterName}>CORAL GOLEM</Text>
@@ -342,6 +366,7 @@ export default function HomeScreen() {
   const [showFireworks, setShowFireworks] = useState(false);
   const [hintMessage, setHintMessage] = useState<string | null>(null);
   const [attackKind, setAttackKind] = useState<AttackKind>("clubs");
+  const [lastDamage, setLastDamage] = useState(0);
   const [attackToken, setAttackToken] = useState(0);
   const [comboAttack, setComboAttack] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
@@ -530,7 +555,9 @@ export default function HomeScreen() {
     const nextFoundationCount = SUITS.reduce((total, suit) => total + nextGame.foundations[suit].length, 0);
     if (nextFoundationCount > previousFoundationCount) {
       const changedSuit = movedCard?.suit ?? SUITS.find((suit) => nextGame.foundations[suit].length > game.foundations[suit].length) ?? "clubs";
+      const damage = (nextFoundationCount - previousFoundationCount) * 5;
       const isCombo = nextFoundationCount - previousFoundationCount > 1;
+      setLastDamage(damage);
       setAttackKind(changedSuit);
       setComboAttack(isCombo);
       setAttackToken((token) => token + 1);
@@ -554,7 +581,8 @@ export default function HomeScreen() {
       const nextLevel = Math.min(nextGame.level + 1, 6);
       setShowFireworks(true);
       setTimeout(() => setShowFireworks(false), 1550);
-      setTimeout(() => Alert.alert("축하합니다", `레벨 ${nextGame.level}을 ${nextGame.moves}번의 이동으로 완성했어요. 다음 게임은 레벨 ${nextLevel}입니다.`, [{ text: "다음 레벨", onPress: () => startNewGame(nextLevel) }]), 1620);
+      setHintMessage(`보스 처치! 레벨 ${nextLevel}로 이동합니다.`);
+      setTimeout(() => startNewGame(nextLevel), 2350);
     }
   };
 
@@ -687,7 +715,7 @@ export default function HomeScreen() {
           <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.moves}</Text><Text style={styles.statLabel}>이동</Text></View>
           <View style={styles.statDivider} />
           <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
-          <MonsterBattle compact={compact && !isLandscape} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} />
+          <MonsterBattle compact={compact && !isLandscape} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} />
           <View style={[styles.statusWrap, compact && styles.statusWrapCompact]}>
             <View style={[styles.statusDot, selection ? styles.statusDotSelected : styles.statusDotReady]} />
             <Text numberOfLines={1} style={styles.statusText}>{hydrated ? (selection ? "이동할 곳을 탭하세요" : "카드를 선택하세요") : "게임 준비 중"}</Text>
@@ -853,13 +881,17 @@ const styles = StyleSheet.create({
   monsterSpriteWrapCompact: { width: 32, height: 38 },
   monsterSprite: { width: 50, height: 54 },
   monsterSpriteCompact: { width: 34, height: 38 },
-  monsterInfo: { width: 62, alignItems: "flex-start" },
-  monsterInfoCompact: { width: 48 },
+  monsterInfo: { width: 56, alignItems: "flex-start" },
+  monsterInfoCompact: { width: 44 },
   monsterName: { color: "#F3C969", fontSize: 7, fontWeight: "900", letterSpacing: 0.5 },
   monsterBar: { width: "100%", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
   monsterHp: { color: "#BCEAE2", fontSize: 8, fontWeight: "800", marginTop: 2 },
   monsterProjectile: { position: "absolute", left: 8, top: 12, fontSize: 24, fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 7 },
+  damageText: { position: "absolute", top: -2, right: -18, color: "#FFD66E", fontSize: 16, fontWeight: "900", textShadowColor: "#5B1F38", textShadowRadius: 4 },
+  monsterDefeated: { opacity: 0.28 },
+  defeatBurst: { position: "absolute", width: 8, height: 8, left: 22, top: 24, alignItems: "center", justifyContent: "center" },
+  defeatSpark: { position: "absolute", color: "#FFD66E", fontSize: 19, fontWeight: "900", textShadowColor: "#FF6F8A", textShadowRadius: 8 },
   board: { alignSelf: "center" },
   boardLandscape: { flex: 1, justifyContent: "flex-start" },
   topPiles: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
