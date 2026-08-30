@@ -128,19 +128,26 @@ function withMove(game: GameState, scoreDelta = 0): GameState {
 }
 
 function createGuidedGame(level: number): GameState {
-  const tableau = SUITS.map((suit) => Array.from({ length: 7 }, (_, index) => ({
-    id: `${suit}-${7 - index}`,
-    suit,
-    rank: (7 - index) as Rank,
-    faceUp: true,
-  })));
-  while (tableau.length < 7) tableau.push([]);
-  const stock = SUITS.flatMap((suit) => Array.from({ length: 6 }, (_, index) => ({
-    id: `${suit}-${13 - index}`,
-    suit,
-    rank: (13 - index) as Rank,
-    faceUp: false,
-  })));
+  // Deterministic descending deck keeps the early levels predictable while
+  // still using the standard 7-column Klondike deal: only each column's top card is face up.
+  const deck = Array.from({ length: 13 }, (_, rankOffset) =>
+    SUITS.map((suit) => ({
+      id: `${suit}-${13 - rankOffset}`,
+      suit,
+      rank: (13 - rankOffset) as Rank,
+      faceUp: false,
+    })),
+  ).flat();
+  const tableau: Card[][] = [];
+  let deckIndex = 0;
+  for (let column = 0; column < 7; column += 1) {
+    tableau.push(deck.slice(deckIndex, deckIndex + column + 1).map((card, index) => ({
+      ...card,
+      faceUp: index === column,
+    })));
+    deckIndex += column + 1;
+  }
+  const stock = deck.slice(deckIndex).map((card) => ({ ...card, faceUp: false }));
   return { stock, waste: [], foundations: emptyFoundations(), tableau, score: 0, moves: 0, level, recycles: 0 };
 }
 
