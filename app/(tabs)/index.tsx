@@ -707,6 +707,7 @@ export default function HomeScreen() {
         {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} progress={flightProgress} /> : null}
         <VictoryFireworks visible={showFireworks} />
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} /> : null}
+        <AdBanner />
         <View style={[styles.header, isLandscape && styles.headerLandscape]}>
           <View>
             <Text style={styles.eyebrow}>OUR STYLE</Text>
@@ -791,7 +792,6 @@ export default function HomeScreen() {
         </View>
         </View>
 
-        <AdBanner />
         <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape]}>
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, styles.hintButton, pressed && styles.pressed]}>
             <View style={styles.bottomButtonContent}><MedievalIcon name="hint" size={20} /><Text style={styles.bottomButtonText}>힌트</Text></View>

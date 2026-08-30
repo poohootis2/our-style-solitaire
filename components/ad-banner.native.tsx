@@ -9,7 +9,7 @@ export function AdBanner() {
     <View style={styles.container} accessibilityLabel="광고 배너">
       <BannerAd
         unitId={BANNER_AD_UNIT_ID}
-        size={BannerAdSize.BANNER}
+        size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
         requestOptions={{ requestNonPersonalizedAdsOnly: false }}
       />
     </View>

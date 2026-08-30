@@ -16,6 +16,7 @@
 - [ ] Google Play Debug 서명 거부를 해결하고 Release 서명 AAB 생성
 - [x] AdMob 앱 ID·배너 광고 단위 ID 통합 및 Release AAB 표시 검증
 - [x] AdMob 배너 광고 위치를 게임 UI에 맞게 선택·조정
+- [x] 가로형 AdMob 배너를 OUR STYLE 제목 위쪽으로 이동하고 하단 조작부와 분리
 - [x] A 이후 2·3·4가 반복되는 카드 초기 배치·드로우 무작위성 개선
 - [x] 새 게임 확인 및 시작 흐름 오류 수정
 - [x] 갤럭시 S26급 세로 화면에서 카드 열 잘림 제거
