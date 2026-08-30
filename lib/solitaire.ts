@@ -68,12 +68,12 @@ export const rankLabels: Record<Rank, string> = {
 export type Difficulty = { drawCount: number; maxRecycles: number; label: string };
 
 export function getDifficulty(level: number): Difficulty {
-  if (level <= 1) return { drawCount: 1, maxRecycles: Number.POSITIVE_INFINITY, label: "입문" };
-  if (level === 2) return { drawCount: 3, maxRecycles: Number.POSITIVE_INFINITY, label: "도전" };
+  if (level <= 3) return { drawCount: 1, maxRecycles: Number.POSITIVE_INFINITY, label: level === 1 ? "입문" : "도전" };
+  if (level <= 5) return { drawCount: 2, maxRecycles: Math.max(1, 6 - level), label: "전문가" };
   return {
     drawCount: 3,
     maxRecycles: Math.max(0, 6 - Math.min(level, 6)),
-    label: level >= 6 ? "마스터" : "전문가",
+    label: "마스터",
   };
 }
 
@@ -127,7 +127,25 @@ function withMove(game: GameState, scoreDelta = 0): GameState {
   return { ...game, moves: game.moves + 1, score: Math.max(0, game.score + scoreDelta) };
 }
 
+function createGuidedGame(level: number): GameState {
+  const tableau = SUITS.map((suit) => Array.from({ length: 7 }, (_, index) => ({
+    id: `${suit}-${7 - index}`,
+    suit,
+    rank: (7 - index) as Rank,
+    faceUp: true,
+  })));
+  while (tableau.length < 7) tableau.push([]);
+  const stock = SUITS.flatMap((suit) => Array.from({ length: 6 }, (_, index) => ({
+    id: `${suit}-${13 - index}`,
+    suit,
+    rank: (13 - index) as Rank,
+    faceUp: false,
+  })));
+  return { stock, waste: [], foundations: emptyFoundations(), tableau, score: 0, moves: 0, level, recycles: 0 };
+}
+
 export function createNewGame(level = 1): GameState {
+  if (level <= 3) return createGuidedGame(level);
   const deck = shuffle(makeDeck());
   const tableau: Card[][] = [];
   let deckIndex = 0;

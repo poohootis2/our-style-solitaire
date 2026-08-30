@@ -33,8 +33,8 @@ const foundationGame = (waste: Card[], clubs: Card[] = []): GameState => ({
 });
 
 describe("클론다이크 규칙", () => {
-  it("새 게임은 52장의 카드를 정확히 배치한다", () => {
-    const game = createNewGame();
+  it("고난도 랜덤 새 게임은 52장의 카드를 정확히 배치한다", () => {
+    const game = createNewGame(6);
     const totalCards = game.stock.length + game.waste.length + game.tableau.flat().length;
     expect(totalCards).toBe(52);
     expect(game.tableau.map((pile) => pile.length)).toEqual([1, 2, 3, 4, 5, 6, 7]);
@@ -61,12 +61,27 @@ describe("클론다이크 규칙", () => {
     expect(next.waste[0].faceUp).toBe(true);
   });
 
-  it("레벨 2부터는 스톡에서 세 장씩 공개되어 난이도가 올라간다", () => {
-    const game = createNewGame(2);
-    const next = drawFromStock(game);
-    expect(next.waste).toHaveLength(3);
-    expect(getDifficulty(2).drawCount).toBe(3);
-    expect(getDifficulty(4).maxRecycles).toBe(2);
+  it("레벨 1~3은 해결 가능한 보장 배치로 시작한다", () => {
+    const game = createNewGame(3);
+    expect(game.tableau.map((pile) => pile.length)).toEqual([7, 7, 7, 7, 0, 0, 0]);
+    expect(game.tableau.flat().every((card) => card.faceUp)).toBe(true);
+    expect(game.stock).toHaveLength(24);
+    expect(game.tableau.flat().length + game.stock.length).toBe(52);
+  });
+
+  it("레벨 1~3은 한 장, 레벨 4~5는 두 장, 레벨 6 이상은 세 장씩 공개한다", () => {
+    expect(getDifficulty(1).drawCount).toBe(1);
+    expect(getDifficulty(3).drawCount).toBe(1);
+    expect(getDifficulty(4).drawCount).toBe(2);
+    expect(getDifficulty(5).drawCount).toBe(2);
+    expect(getDifficulty(6).drawCount).toBe(3);
+
+    const level3 = drawFromStock(createNewGame(3));
+    const level4 = drawFromStock(createNewGame(4));
+    const level6 = drawFromStock(createNewGame(6));
+    expect(level3.waste).toHaveLength(1);
+    expect(level4.waste).toHaveLength(2);
+    expect(level6.waste).toHaveLength(3);
   });
 
   it("A는 가능한 빈 파운데이션으로 자동 이동한다", () => {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Animated, AppState, Easing, ImageBackground, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Animated, AppState, Easing, Image, ImageBackground, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import * as ScreenOrientation from "expo-screen-orientation";
@@ -43,6 +43,7 @@ const RECORDS_KEY = "our-style-solitaire:records";
 const SOUND_ENABLED_KEY = "our-style-solitaire:sound-enabled";
 const PHYSICAL_EDGE_INSET = 52;
 const MAX_UNDO_STEPS = 3;
+const MONSTER_IMAGE = require("../../assets/images/monsters/boss_coral_golem_king.png");
 
 const emptyRecords: Records = { wins: 0, bestScore: 0, bestTimeSeconds: null };
 
@@ -259,6 +260,50 @@ function VictoryFireworks({ visible }: { visible: boolean }) {
   );
 }
 
+type AttackKind = Suit;
+
+function MonsterBattle({ hp, attackKind, attackToken, combo, compact = false }: { hp: number; attackKind: AttackKind; attackToken: number; combo: boolean; compact?: boolean }) {
+  const monsterMotion = useRef(new Animated.Value(0)).current;
+  const attackProgress = useRef(new Animated.Value(0)).current;
+  const [attackVisible, setAttackVisible] = useState(false);
+
+  useEffect(() => {
+    const motion = Animated.loop(Animated.sequence([
+      Animated.timing(monsterMotion, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(monsterMotion, { toValue: 0, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]));
+    motion.start();
+    return () => motion.stop();
+  }, [monsterMotion]);
+
+  useEffect(() => {
+    if (!attackToken) return;
+    setAttackVisible(true);
+    attackProgress.setValue(0);
+    Animated.timing(attackProgress, { toValue: 1, duration: combo ? 520 : 360, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setAttackVisible(false));
+  }, [attackToken, attackProgress, combo]);
+
+  const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-5, 5] });
+  const projectileTranslate = attackProgress.interpolate({ inputRange: [0, 1], outputRange: [0, 92] });
+  const projectileScale = attackProgress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.5, 1.15, 0.2] });
+  const attackColors: Record<AttackKind, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
+  const attackSymbols: Record<AttackKind, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
+
+  return (
+    <View style={[styles.monsterBattle, compact && styles.monsterBattleCompact]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
+      <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { transform: [{ translateX: monsterTranslate }] }]}>
+        <Image source={MONSTER_IMAGE} resizeMode="contain" style={[styles.monsterSprite, compact && styles.monsterSpriteCompact]} />
+        {attackVisible ? <Animated.Text style={[styles.monsterProjectile, { color: attackColors[attackKind], transform: [{ translateX: projectileTranslate }, { scale: projectileScale }] }]}>{attackSymbols[attackKind]}</Animated.Text> : null}
+      </Animated.View>
+      <View style={[styles.monsterInfo, compact && styles.monsterInfoCompact]}>
+        <Text style={styles.monsterName}>CORAL GOLEM</Text>
+        <View style={styles.monsterBar}><View style={[styles.monsterBarFill, { width: `${Math.max(0, Math.min(100, hp))}%` }]} /></View>
+        <Text style={styles.monsterHp}>{Math.round(hp)}%</Text>
+      </View>
+    </View>
+  );
+}
+
 function EmptySlot({ width, label, onPress }: { width: number; label: string; onPress?: () => void }) {
   return (
     <Pressable
@@ -296,6 +341,9 @@ export default function HomeScreen() {
   const [flyingCard, setFlyingCard] = useState<Card | null>(null);
   const [showFireworks, setShowFireworks] = useState(false);
   const [hintMessage, setHintMessage] = useState<string | null>(null);
+  const [attackKind, setAttackKind] = useState<AttackKind>("clubs");
+  const [attackToken, setAttackToken] = useState(0);
+  const [comboAttack, setComboAttack] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
   const gameRef = useRef(game);
@@ -303,6 +351,7 @@ export default function HomeScreen() {
   const flightProgress = useRef(new Animated.Value(0)).current;
   const selectPlayer = useAudioPlayer(require("../../assets/sounds/card-select.wav"));
   const movePlayer = useAudioPlayer(require("../../assets/sounds/card-move.wav"));
+  const attackPlayer = useAudioPlayer(require("../../assets/sounds/card-attack.mp3"));
 
   useEffect(() => {
     let mounted = true;
@@ -419,9 +468,9 @@ export default function HomeScreen() {
     }));
   };
 
-  const playEffect = (effect: "select" | "move") => {
+  const playEffect = (effect: "select" | "move" | "attack") => {
     if (!soundEnabled) return;
-    const player = effect === "select" ? selectPlayer : movePlayer;
+    const player = effect === "select" ? selectPlayer : effect === "move" ? movePlayer : attackPlayer;
     try {
       player.seekTo(0);
       player.play();
@@ -476,6 +525,17 @@ export default function HomeScreen() {
     if (!nextGame || nextGame === game) {
       haptic.error();
       return;
+    }
+    const previousFoundationCount = SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0);
+    const nextFoundationCount = SUITS.reduce((total, suit) => total + nextGame.foundations[suit].length, 0);
+    if (nextFoundationCount > previousFoundationCount) {
+      const changedSuit = movedCard?.suit ?? SUITS.find((suit) => nextGame.foundations[suit].length > game.foundations[suit].length) ?? "clubs";
+      const isCombo = nextFoundationCount - previousFoundationCount > 1;
+      setAttackKind(changedSuit);
+      setComboAttack(isCombo);
+      setAttackToken((token) => token + 1);
+      playEffect("attack");
+      if (isCombo) setTimeout(() => setComboAttack(false), 650);
     }
     setUndoStack((history) => [...history.slice(-(MAX_UNDO_STEPS - 1)), cloneGameState(game)]);
     gameRef.current = nextGame;
@@ -631,6 +691,7 @@ export default function HomeScreen() {
               <View style={[styles.statusDot, selection ? styles.statusDotSelected : styles.statusDotReady]} />
               <Text style={styles.statusText}>{hydrated ? (selection ? "이동할 곳을 탭하세요" : "카드를 선택하세요") : "게임 준비 중"}</Text>
             </View> : null}
+            <MonsterBattle compact={compact && !isLandscape} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} />
         </View>
 
         <View style={[styles.board, { width: boardWidth }, isLandscape && styles.boardLandscape]}>
@@ -785,6 +846,19 @@ const styles = StyleSheet.create({
   statusDotReady: { backgroundColor: "#77D6C3" },
   statusDotSelected: { backgroundColor: "#FF7A66" },
   statusText: { color: "#A6B4CE", fontSize: 10, fontWeight: "600" },
+  monsterBattle: { flex: 1, minWidth: 132, maxWidth: 190, marginLeft: 10, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6 },
+  monsterBattleCompact: { minWidth: 104, maxWidth: 118, marginLeft: 4, gap: 3 },
+  monsterSpriteWrap: { width: 50, height: 54, alignItems: "center", justifyContent: "center", position: "relative" },
+  monsterSpriteWrapCompact: { width: 32, height: 38 },
+  monsterSprite: { width: 50, height: 54 },
+  monsterSpriteCompact: { width: 34, height: 38 },
+  monsterInfo: { width: 82, alignItems: "flex-start" },
+  monsterInfoCompact: { width: 64 },
+  monsterName: { color: "#F3C969", fontSize: 7, fontWeight: "900", letterSpacing: 0.5 },
+  monsterBar: { width: "100%", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
+  monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
+  monsterHp: { color: "#BCEAE2", fontSize: 8, fontWeight: "800", marginTop: 2 },
+  monsterProjectile: { position: "absolute", left: 8, top: 12, fontSize: 24, fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 7 },
   board: { alignSelf: "center" },
   boardLandscape: { flex: 1, justifyContent: "flex-start" },
   topPiles: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
