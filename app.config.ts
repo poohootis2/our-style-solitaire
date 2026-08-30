@@ -88,6 +88,12 @@ const config: ExpoConfig = {
   plugins: [
     "expo-router",
     [
+      "react-native-google-mobile-ads",
+      {
+        androidAppId: "ca-app-pub-1567553177387474~9687767806",
+      },
+    ],
+    [
       "expo-screen-orientation",
       {
         initialOrientation: "DEFAULT",

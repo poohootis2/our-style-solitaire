@@ -6,6 +6,7 @@ import * as ScreenOrientation from "expo-screen-orientation";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 import { ScreenContainer } from "@/components/screen-container";
+import { AdBanner } from "@/components/ad-banner";
 import { getCardBackTheme, type CardBackTheme } from "@/lib/card-back-theme";
 import { getGameLayout } from "@/lib/game-layout";
 import { haptic } from "@/lib/haptics";
@@ -790,6 +791,7 @@ export default function HomeScreen() {
         </View>
         </View>
 
+        <AdBanner />
         <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape]}>
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, styles.hintButton, pressed && styles.pressed]}>
             <View style={styles.bottomButtonContent}><MedievalIcon name="hint" size={20} /><Text style={styles.bottomButtonText}>힌트</Text></View>
@@ -942,8 +944,8 @@ const styles = StyleSheet.create({
   tableau: { flex: 1, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   tableauLandscape: { flexGrow: 0 },
   tableauColumn: { position: "relative" },
-  bottomControls: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 10, flexDirection: "row", alignSelf: "center", justifyContent: "center", gap: 10 },
-  bottomControlsLandscape: { bottom: 4 },
+  bottomControls: { position: "absolute", left: 0, right: 0, bottom: 58, zIndex: 10, flexDirection: "row", alignSelf: "center", justifyContent: "center", gap: 10 },
+  bottomControlsLandscape: { bottom: 58 },
   bottomButton: { minWidth: 126, minHeight: 44, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1 },
   hintButton: { backgroundColor: "#233958", borderColor: "#3D5A85" },
   undoButton: { backgroundColor: "#2A4268", borderColor: "#5B78A5" },
