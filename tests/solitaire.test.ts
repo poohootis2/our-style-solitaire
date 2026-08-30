@@ -61,13 +61,17 @@ describe("클론다이크 규칙", () => {
     expect(next.waste[0].faceUp).toBe(true);
   });
 
-  it("레벨 1~3은 표준 7열 보장 배치로 시작한다", () => {
-    const game = createNewGame(3);
-    expect(game.tableau.map((pile) => pile.length)).toEqual([1, 2, 3, 4, 5, 6, 7]);
-    expect(game.tableau.map((pile) => pile.at(-1)?.faceUp)).toEqual([true, true, true, true, true, true, true]);
-    expect(game.tableau.flat().filter((card) => card.faceUp)).toHaveLength(7);
-    expect(game.stock).toHaveLength(24);
-    expect(Object.values(game.foundations).every((pile) => pile.length === 0)).toBe(true);
+  it("모든 레벨은 무작위 셔플된 표준 7열 배치로 시작한다", () => {
+    const first = createNewGame(1);
+    const second = createNewGame(3);
+    for (const game of [first, second]) {
+      expect(game.tableau.map((pile) => pile.length)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+      expect(game.tableau.map((pile) => pile.at(-1)?.faceUp)).toEqual([true, true, true, true, true, true, true]);
+      expect(game.tableau.flat().filter((card) => card.faceUp)).toHaveLength(7);
+      expect(game.stock).toHaveLength(24);
+      expect(Object.values(game.foundations).every((pile) => pile.length === 0)).toBe(true);
+    }
+    expect(first.tableau.flat().map((card) => card.id)).not.toEqual(second.tableau.flat().map((card) => card.id));
   });
 
   it("레벨 1~3은 한 장, 레벨 4~5는 두 장, 레벨 6 이상은 세 장씩 공개한다", () => {

@@ -127,32 +127,10 @@ function withMove(game: GameState, scoreDelta = 0): GameState {
   return { ...game, moves: game.moves + 1, score: Math.max(0, game.score + scoreDelta) };
 }
 
-function createGuidedGame(level: number): GameState {
-  // Deterministic descending deck keeps the early levels predictable while
-  // still using the standard 7-column Klondike deal: only each column's top card is face up.
-  const deck = Array.from({ length: 13 }, (_, rankOffset) =>
-    SUITS.map((suit) => ({
-      id: `${suit}-${13 - rankOffset}`,
-      suit,
-      rank: (13 - rankOffset) as Rank,
-      faceUp: false,
-    })),
-  ).flat();
-  const tableau: Card[][] = [];
-  let deckIndex = 0;
-  for (let column = 0; column < 7; column += 1) {
-    tableau.push(deck.slice(deckIndex, deckIndex + column + 1).map((card, index) => ({
-      ...card,
-      faceUp: index === column,
-    })));
-    deckIndex += column + 1;
-  }
-  const stock = deck.slice(deckIndex).map((card) => ({ ...card, faceUp: false }));
-  return { stock, waste: [], foundations: emptyFoundations(), tableau, score: 0, moves: 0, level, recycles: 0 };
-}
-
 export function createNewGame(level = 1): GameState {
-  if (level <= 3) return createGuidedGame(level);
+  // Every level starts from a fresh Fisher–Yates shuffle. Difficulty changes
+  // only the stock draw rule, never the card order, so low levels do not reveal
+  // predictable A-2-3-4 sequences.
   const deck = shuffle(makeDeck());
   const tableau: Card[][] = [];
   let deckIndex = 0;
@@ -314,7 +292,9 @@ export function moveAvailableAcesToFoundation(game: GameState): GameState {
 }
 
 export function createPlayableGame(level = 1): GameState {
-  return moveAvailableAcesToFoundation(createNewGame(level));
+  // Keep all four foundations empty at the start. Aces can still be moved
+  // automatically when they are drawn or when the player requests it.
+  return createNewGame(level);
 }
 
 export function autoComplete(game: GameState): GameState {
