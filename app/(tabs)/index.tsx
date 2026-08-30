@@ -42,6 +42,7 @@ const ACTIVE_GAME_KEY = "our-style-solitaire:active-game";
 const RECORDS_KEY = "our-style-solitaire:records";
 const SOUND_ENABLED_KEY = "our-style-solitaire:sound-enabled";
 const PHYSICAL_EDGE_INSET = 52;
+const MAX_UNDO_STEPS = 3;
 
 const emptyRecords: Records = { wins: 0, bestScore: 0, bestTimeSeconds: null };
 
@@ -476,7 +477,7 @@ export default function HomeScreen() {
       haptic.error();
       return;
     }
-    setUndoStack((history) => [...history.slice(-19), cloneGameState(game)]);
+    setUndoStack((history) => [...history.slice(-(MAX_UNDO_STEPS - 1)), cloneGameState(game)]);
     gameRef.current = nextGame;
     AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ game: nextGame, elapsedSeconds: elapsedSecondsRef.current })).catch(() => undefined);
     setGame(nextGame);
@@ -680,8 +681,8 @@ export default function HomeScreen() {
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, styles.hintButton, pressed && styles.pressed]}>
             <View style={styles.bottomButtonContent}><MedievalIcon name="hint" size={20} /><Text style={styles.bottomButtonText}>힌트</Text></View>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="실행 취소" disabled={undoStack.length === 0} onPress={undoLastMove} style={({ pressed }) => [styles.bottomButton, styles.undoButton, undoStack.length === 0 && styles.undoButtonDisabled, pressed && styles.pressed]}>
-            <View style={styles.bottomButtonContent}><MedievalIcon name="undo" size={20} /><Text style={styles.bottomButtonText}>실행 취소</Text></View>
+          <Pressable accessibilityRole="button" accessibilityLabel={`실행 취소, ${undoStack.length}회 남음`} disabled={undoStack.length === 0} onPress={undoLastMove} style={({ pressed }) => [styles.bottomButton, styles.undoButton, undoStack.length === 0 && styles.undoButtonDisabled, pressed && styles.pressed]}>
+            <View style={styles.bottomButtonContent}><MedievalIcon name="undo" size={20} /><Text style={styles.bottomButtonText}>실행 취소 ({undoStack.length})</Text></View>
           </Pressable>
         </View>
         {hintMessage ? <View style={[styles.hintToast, isLandscape && styles.hintToastLandscape]}><Text style={styles.hintToastText}>{hintMessage}</Text></View> : null}

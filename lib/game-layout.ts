@@ -24,7 +24,7 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const isLandscape = forceLandscape || width > height;
   const shortestSide = Math.min(width, height);
   const isTablet = shortestSide >= 600;
-  const isFoldedCover = !isLandscape && width < 390;
+  const isFoldedCover = !isLandscape && width <= 430;
   const outerPadding = isLandscape ? 24 : isTablet ? 30 : isFoldedCover ? 8 : 12;
   const tableauGap = isTablet ? 8 : isLandscape ? 6 : isFoldedCover ? 2 : 4;
   const maxBoardWidth = isTablet ? 680 : isLandscape ? 720 : 560;
@@ -37,7 +37,8 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const reservedHeight = isLandscape ? 142 : isTablet ? 250 : isFoldedCover ? 230 : 214;
   const usableTableauHeight = Math.max(210, height - verticalEdgeInset - reservedHeight);
   const heightCardLimit = usableTableauHeight / (CARD_RATIO + TABLEAU_STEPS * 0.62);
-  const cardWidth = Math.floor(clamp(Math.min(rawCardWidth, widthCardLimit, heightCardLimit), 34, widthCardLimit));
+  const foldableOrLandscapeReduction = isLandscape || (isTablet && !isFoldedCover) ? 0.9 : 1;
+  const cardWidth = Math.floor(clamp(Math.min(rawCardWidth, widthCardLimit, heightCardLimit) * foldableOrLandscapeReduction, 34, widthCardLimit));
   const cardHeight = cardWidth * CARD_RATIO;
   const availableStackOffset = (usableTableauHeight - cardHeight) / TABLEAU_STEPS;
   const minimumStackOffset = isFoldedCover ? 19 : isLandscape ? 13 : 22;
@@ -49,6 +50,6 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
     tableauGap,
     stackOffset,
     uiScale: isTablet ? 1.22 : width >= 420 ? 1.08 : 1,
-    compact: width < 390,
+    compact: width <= 430,
   };
 }
