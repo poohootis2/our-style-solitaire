@@ -260,6 +260,23 @@ function VictoryFireworks({ visible }: { visible: boolean }) {
   );
 }
 
+function CardAttackEffect({ kind, combo }: { kind: AttackKind; combo: boolean }) {
+  const progress = useRef(new Animated.Value(0)).current;
+  const symbols: Record<AttackKind, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
+  const colors: Record<AttackKind, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
+  useEffect(() => {
+    progress.setValue(0);
+    const animation = Animated.timing(progress, { toValue: 1, duration: combo ? 520 : 360, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+    animation.start();
+    return () => animation.stop();
+  }, [combo, progress]);
+  const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, 92] });
+  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, -118] });
+  const scale = progress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.45, 1.1, 0.2] });
+  const opacity = progress.interpolate({ inputRange: [0, 0.75, 1], outputRange: [0, 1, 0] });
+  return <Animated.Text pointerEvents="none" style={[styles.cardAttackEffect, { color: colors[kind], opacity, transform: [{ translateX }, { translateY }, { scale }] }]}>{symbols[kind]}</Animated.Text>;
+}
+
 type AttackKind = Suit;
 
 function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = false }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; combo: boolean; compact?: boolean }) {
@@ -560,9 +577,11 @@ export default function HomeScreen() {
       setLastDamage(damage);
       setAttackKind(changedSuit);
       setComboAttack(isCombo);
-      setAttackToken((token) => token + 1);
-      playEffect("attack");
-      if (isCombo) setTimeout(() => setComboAttack(false), 650);
+      setTimeout(() => {
+        setAttackToken((token) => token + 1);
+        playEffect("attack");
+      }, 360);
+      if (isCombo) setTimeout(() => setComboAttack(false), 900);
     }
     setUndoStack((history) => [...history.slice(-(MAX_UNDO_STEPS - 1)), cloneGameState(game)]);
     gameRef.current = nextGame;
@@ -682,6 +701,7 @@ export default function HomeScreen() {
         <MedievalBackdrop />
         {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} progress={flightProgress} /> : null}
         <VictoryFireworks visible={showFireworks} />
+        {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} /> : null}
         <View style={[styles.header, isLandscape && styles.headerLandscape]}>
           <View>
             <Text style={styles.eyebrow}>OUR STYLE</Text>
@@ -888,6 +908,7 @@ const styles = StyleSheet.create({
   monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
   monsterHp: { color: "#BCEAE2", fontSize: 8, fontWeight: "800", marginTop: 2 },
   monsterProjectile: { position: "absolute", left: 8, top: 12, fontSize: 24, fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 7 },
+  cardAttackEffect: { position: "absolute", left: "43%", top: "43%", zIndex: 45, fontSize: 28, fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 8 },
   damageText: { position: "absolute", top: -2, right: -18, color: "#FFD66E", fontSize: 16, fontWeight: "900", textShadowColor: "#5B1F38", textShadowRadius: 4 },
   monsterDefeated: { opacity: 0.28 },
   defeatBurst: { position: "absolute", width: 8, height: 8, left: 22, top: 24, alignItems: "center", justifyContent: "center" },
