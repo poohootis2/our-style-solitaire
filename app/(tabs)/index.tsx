@@ -345,7 +345,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
         {damageVisible ? <Animated.Text style={[styles.damageText, { opacity: damageOpacity, transform: [{ translateY: damageTranslateY }] }]}>−{damage}</Animated.Text> : null}
         {defeatVisible ? <Animated.View pointerEvents="none" style={[styles.defeatBurst, { opacity: defeatOpacity, transform: [{ scale: defeatScale }] }]}>{Array.from({ length: 12 }, (_, index) => <Text key={index} style={[styles.defeatSpark, { transform: [{ rotate: `${index * 30}deg` }, { translateY: -24 }] }]}>{index % 2 ? "✦" : "•"}</Text>)}</Animated.View> : null}
       </Animated.View>
-      <View style={[styles.monsterInfo, compact && styles.monsterInfoCompact]}>
+      <View style={[styles.monsterInfo, compact && styles.monsterInfoCompact, !landscape && styles.monsterInfoPortrait]}>
         <Text style={styles.monsterName}>CORAL GOLEM</Text>
         <View style={styles.monsterBar}><View style={[styles.monsterBarFill, { width: `${Math.max(0, Math.min(100, hp))}%` }]} /></View>
         <Text style={styles.monsterHp}>{Math.round(hp)}%</Text>
@@ -381,7 +381,9 @@ export default function HomeScreen() {
   // persistent home or three-button bar still overlays the game window.
   const systemBottomInset = Platform.OS !== "web" ? Math.max(insets.bottom, isLandscape ? 48 : 36) : insets.bottom;
   const rootBottomPadding = isLandscape ? systemBottomInset + 8 : PHYSICAL_EDGE_INSET + 62;
-  const layoutExtraReservedHeight = isLandscape ? 12 : 58;
+  // Reserve the additional header spacing used by the inline landscape banner.
+  // This keeps the banner, title, and action buttons on separate visual lanes.
+  const layoutExtraReservedHeight = isLandscape ? 18 : 58;
   const bottomControlsBottom = isLandscape ? systemBottomInset + 4 : Math.max(58, systemBottomInset + 16);
   const portraitBannerBottom = bottomControlsBottom + 48;
   const { boardWidth, cardWidth, cardRatio, compact, stackOffset, tableauGap, uiScale } = getGameLayout(
@@ -807,7 +809,7 @@ export default function HomeScreen() {
           <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.moves}</Text><Text style={styles.statLabel}>이동</Text></View>
           <View style={styles.statDivider} />
           <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
-          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} travelDistance={isLandscape ? Math.max(110, Math.min(260, Math.round(safeScreenWidth * 0.2))) : 24} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} />
+          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} travelDistance={isLandscape ? Math.max(110, Math.min(260, Math.round(safeScreenWidth * 0.2))) : 44} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} />
           <View style={[styles.statusWrap, isLandscape && styles.statusWrapLandscape, compactControls && !isLandscape && styles.statusWrapCompact]}>
             <View style={[styles.statusDot, selection ? styles.statusDotSelected : styles.statusDotReady]} />
             <Text numberOfLines={1} style={styles.statusText}>{hydrated ? (selection ? "이동할 곳을 탭하세요" : "카드를 선택하세요") : "게임 준비 중"}</Text>
@@ -937,7 +939,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 6, paddingBottom: 12 },
   headerLandscape: { paddingTop: 0, paddingBottom: 3 },
   headerLandscapeCompact: { paddingBottom: 1 },
-  landscapeHeaderBanner: { flex: 1, minWidth: 0, maxWidth: 320, height: 50, marginHorizontal: 8, alignItems: "center", justifyContent: "center" },
+  landscapeHeaderBanner: { flex: 1, minWidth: 0, maxWidth: 320, height: 50, marginHorizontal: 14, alignItems: "center", justifyContent: "center" },
   eyebrow: { color: "#77D6C3", fontSize: 10, fontWeight: "800", letterSpacing: 2.2 },
   title: { color: "#FFFDF8", fontSize: 27, lineHeight: 31, fontWeight: "800", letterSpacing: -0.7 },
   titleLine: { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -981,6 +983,7 @@ const styles = StyleSheet.create({
   monsterSpriteCompact: { width: 34, height: 38 },
   monsterInfo: { width: 56, alignItems: "flex-start", transform: [{ translateX: 10 }] },
   monsterInfoCompact: { width: 44, transform: [{ translateX: 10 }] },
+  monsterInfoPortrait: { transform: [{ translateX: 20 }] },
   monsterName: { color: "#F3C969", fontSize: 7, fontWeight: "900", letterSpacing: 0.5 },
   monsterBar: { width: "100%", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
