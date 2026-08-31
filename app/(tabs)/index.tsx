@@ -45,6 +45,7 @@ const RECORDS_KEY = "our-style-solitaire:records";
 const SOUND_ENABLED_KEY = "our-style-solitaire:sound-enabled";
 const PHYSICAL_EDGE_INSET = 52;
 const MAX_UNDO_STEPS = 3;
+const CARD_ATTACK_FLIGHT_DURATION = 500;
 const MONSTER_IMAGE = require("../../assets/images/monsters/boss_coral_golem_king.png");
 
 const emptyRecords: Records = { wins: 0, bestScore: 0, bestTimeSeconds: null };
@@ -265,20 +266,20 @@ function VictoryFireworks({ visible }: { visible: boolean }) {
   );
 }
 
-function CardAttackEffect({ kind, combo }: { kind: AttackKind; combo: boolean }) {
+function CardAttackEffect({ kind, combo, travelX, travelY }: { kind: AttackKind; combo: boolean; travelX: number; travelY: number }) {
   const progress = useRef(new Animated.Value(0)).current;
   const symbols: Record<AttackKind, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
   const colors: Record<AttackKind, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
   useEffect(() => {
     progress.setValue(0);
-    const animation = Animated.timing(progress, { toValue: 1, duration: combo ? 520 : 360, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+    const animation = Animated.timing(progress, { toValue: 1, duration: combo ? 640 : CARD_ATTACK_FLIGHT_DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true });
     animation.start();
     return () => animation.stop();
   }, [combo, progress]);
-  const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, 92] });
-  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, -170] });
-  const scale = progress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.78, 1.05, 0.42] });
-  const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "720deg"] });
+  const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelX] });
+  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY] });
+  const scale = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [0.8, 1.06, 0.76] });
+  const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "900deg"] });
   const opacity = progress.interpolate({ inputRange: [0, 0.82, 1], outputRange: [1, 1, 0] });
   return <Animated.View pointerEvents="none" style={[styles.attackCard, { opacity, borderColor: colors[kind], transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}>
     <Text style={[styles.attackCardRank, { color: colors[kind] }]}>A</Text>
@@ -299,8 +300,8 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
 
   useEffect(() => {
     const motion = Animated.loop(Animated.sequence([
-      Animated.timing(monsterMotion, { toValue: 1, duration: 1950, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(monsterMotion, { toValue: 0, duration: 1950, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(monsterMotion, { toValue: 1, duration: 2145, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(monsterMotion, { toValue: 0, duration: 2145, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
     ]));
     motion.start();
     return () => motion.stop();
@@ -649,7 +650,7 @@ export default function HomeScreen() {
       setTimeout(() => {
         setAttackToken((token) => token + 1);
         playEffect("attack");
-      }, 360);
+      }, CARD_ATTACK_FLIGHT_DURATION);
       if (isCombo) setTimeout(() => setComboAttack(false), 900);
     }
     setUndoStack((history) => [...history.slice(-(MAX_UNDO_STEPS - 1)), cloneGameState(game)]);
@@ -774,7 +775,7 @@ export default function HomeScreen() {
         <MedievalBackdrop />
         {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={cardRatio} progress={flightProgress} /> : null}
         <VictoryFireworks visible={showFireworks} />
-        {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} /> : null}
+        {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} travelX={Math.round(safeScreenWidth * (isLandscape ? 0.04 : 0.05))} travelY={-Math.round(safeScreenHeight * (isLandscape ? 0.45 : 0.68))} /> : null}
         <View style={[styles.header, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact]}>
           <View>
             <Text style={styles.eyebrow}>OUR STYLE</Text>
@@ -983,13 +984,13 @@ const styles = StyleSheet.create({
   monsterSpriteCompact: { width: 34, height: 38 },
   monsterInfo: { width: 56, alignItems: "flex-start", transform: [{ translateX: 10 }] },
   monsterInfoCompact: { width: 44, transform: [{ translateX: 10 }] },
-  monsterInfoPortrait: { transform: [{ translateX: 20 }] },
+  monsterInfoPortrait: { transform: [{ translateX: 30 }] },
   monsterName: { color: "#F3C969", fontSize: 7, fontWeight: "900", letterSpacing: 0.5 },
   monsterBar: { width: "100%", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
   monsterHp: { color: "#BCEAE2", fontSize: 8, fontWeight: "800", marginTop: 2 },
   monsterProjectile: { position: "absolute", left: 8, top: 12, fontSize: 24, fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 7 },
-  attackCard: { position: "absolute", left: "43%", top: "43%", zIndex: 45, width: 34, height: 48, borderRadius: 6, borderWidth: 2, backgroundColor: "#FFFDF8", shadowColor: "#FFFFFF", shadowOpacity: 0.9, shadowRadius: 8, elevation: 12 },
+  attackCard: { position: "absolute", left: "43%", bottom: "14%", zIndex: 45, width: 34, height: 48, borderRadius: 6, borderWidth: 2, backgroundColor: "#FFFDF8", shadowColor: "#FFFFFF", shadowOpacity: 0.9, shadowRadius: 8, elevation: 12 },
   attackCardRank: { position: "absolute", top: 3, left: 4, fontSize: 12, fontWeight: "900" },
   attackCardSuit: { position: "absolute", top: 15, width: "100%", textAlign: "center", fontSize: 21, fontWeight: "900" },
   damageText: { position: "absolute", top: -2, right: -18, color: "#FFD66E", fontSize: 16, fontWeight: "900", textShadowColor: "#5B1F38", textShadowRadius: 4 },
