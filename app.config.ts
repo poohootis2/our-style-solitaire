@@ -66,6 +66,9 @@ const config: ExpoConfig = {
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
     permissions: ["POST_NOTIFICATIONS"],
+    // The game has no boot-time work, scheduled notifications, or foreground service.
+    // Keep Android 15 BOOT_COMPLETED restrictions from being reintroduced by a transitive module.
+    blockedPermissions: ["android.permission.RECEIVE_BOOT_COMPLETED"],
     intentFilters: [
       {
         action: "VIEW",
@@ -87,6 +90,8 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    "./plugins/withAndroidGameCategory",
+    "./plugins/withAndroidEdgeToEdgeStyles",
     [
       "react-native-google-mobile-ads",
       {
@@ -103,13 +108,6 @@ const config: ExpoConfig = {
       "expo-audio",
       {
         microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone.",
-      },
-    ],
-    [
-      "expo-video",
-      {
-        supportsBackgroundPlayback: true,
-        supportsPictureInPicture: true,
       },
     ],
     [

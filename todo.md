@@ -105,3 +105,8 @@
 - [x] Google Play 요구 SHA1 지문과 다른 keystore로 서명된 AAB 문제 해결
 - [x] 카드 공격을 몬스터 발아래 이동선까지 회전 비행시키고 몬스터 상태 패널·이동속도 조정
 - [x] Google Play 등록용 게임 소개·개인정보처리방침·스크린샷 중심의 간단한 공식 홈페이지 제작
+- [ ] Google Sites 공개 홈페이지의 기본 제목·빈 본문 문제를 수정하고 실제 게임 소개·개인정보처리방침 반영
+- [ ] Google Sites 공개 개인정보처리방침 본문이 비어 보이는 문제를 편집·재게시 후 외부 URL에서 검증
+- [x] Android 15 BOOT_COMPLETED·포그라운드 서비스 경고의 실제 Manifest 원인 확인 및 필요 시 제거/대체
+- [x] Android 15 대화면·edge-to-edge deprecated API 경고 확인 및 안전영역·반응형 레이아웃 점검
+- [x] 수정 후 TypeScript·테스트·Android 설정 검증 및 Windows 재빌드 안내
