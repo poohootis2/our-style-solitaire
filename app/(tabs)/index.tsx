@@ -410,12 +410,22 @@ export default function HomeScreen() {
   const [comboAttack, setComboAttack] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gameRef = useRef(game);
   const elapsedSecondsRef = useRef(elapsedSeconds);
   const flightProgress = useRef(new Animated.Value(0)).current;
   const selectPlayer = useAudioPlayer(require("../../assets/sounds/card-select.wav"));
   const movePlayer = useAudioPlayer(require("../../assets/sounds/card-move.wav"));
   const attackPlayer = useAudioPlayer(require("../../assets/sounds/card-attack.mp3"));
+
+  const showTimedHint = (message: string) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setHintMessage(message);
+    toastTimeoutRef.current = setTimeout(() => {
+      setHintMessage(null);
+      toastTimeoutRef.current = null;
+    }, 2000);
+  };
 
   const setSoundEffectsEnabled = (enabled: boolean) => {
     for (const player of [selectPlayer, movePlayer, attackPlayer]) {
@@ -427,9 +437,13 @@ export default function HomeScreen() {
       }
     }
     setSoundEnabled(enabled);
-    setHintMessage(enabled ? "효과음을 켰습니다." : "효과음을 껐습니다.");
+    showTimedHint(enabled ? "효과음을 켰습니다." : "효과음을 껐습니다.");
     haptic.light();
   };
+
+  useEffect(() => () => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -741,11 +755,11 @@ export default function HomeScreen() {
   const runAutoComplete = () => {
     const completed = autoComplete(game);
     if (completed === game) {
-      setHintMessage("지금은 자동 정리할 수 있는 카드가 없습니다.");
+      showTimedHint("지금은 자동 정리할 수 있는 카드가 없습니다.");
       haptic.error();
       return;
     }
-    setHintMessage("가능한 카드를 자동으로 정리했습니다.");
+    showTimedHint("가능한 카드를 자동으로 정리했습니다.");
     applyGame(completed, isWon(completed));
   };
 
