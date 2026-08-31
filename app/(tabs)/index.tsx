@@ -381,13 +381,15 @@ export default function HomeScreen() {
   // persistent home or three-button bar still overlays the game window.
   const systemBottomInset = Platform.OS !== "web" ? Math.max(insets.bottom, isLandscape ? 48 : 36) : insets.bottom;
   const rootBottomPadding = isLandscape ? systemBottomInset + 8 : PHYSICAL_EDGE_INSET + 62;
-  const landscapeReservedHeight = isLandscape ? 50 + (compactLandscape ? 0 : 40) : 0;
+  const layoutExtraReservedHeight = isLandscape ? 12 : 58;
+  const bottomControlsBottom = isLandscape ? systemBottomInset + 4 : Math.max(58, systemBottomInset + 16);
+  const portraitBannerBottom = bottomControlsBottom + 48;
   const { boardWidth, cardWidth, cardRatio, compact, stackOffset, tableauGap, uiScale } = getGameLayout(
     safeScreenWidth,
     safeScreenHeight,
     rootTopPadding + rootBottomPadding,
     isLandscape,
-    landscapeReservedHeight,
+    layoutExtraReservedHeight,
   );
   const compactControls = compact || compactLandscape;
   const [game, setGame] = useState(createPlayableGame);
@@ -749,7 +751,6 @@ export default function HomeScreen() {
         {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={cardRatio} progress={flightProgress} /> : null}
         <VictoryFireworks visible={showFireworks} />
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} /> : null}
-        <AdBanner compact={isLandscape} />
         <View style={[styles.header, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact]}>
           <View>
             <Text style={styles.eyebrow}>OUR STYLE</Text>
@@ -758,6 +759,7 @@ export default function HomeScreen() {
               <View style={styles.levelBadge}><Text style={styles.levelText}>LV {game.level} · {difficulty.label}</Text></View>
             </View>
           </View>
+          {isLandscape ? <View style={styles.landscapeHeaderBanner}><AdBanner compact inline /></View> : null}
           <View style={[styles.headerActions, compactControls && styles.headerActionsCompact]}>
             <Pressable accessibilityRole="button" accessibilityLabel="가능한 카드 자동 정리" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, compactControls && styles.autoButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="auto" size={19} />
@@ -834,7 +836,8 @@ export default function HomeScreen() {
         </View>
         </View>
 
-        <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, { bottom: isLandscape ? systemBottomInset + 4 : Math.max(58, systemBottomInset + 16) }]}>
+        {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
+        <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, { bottom: bottomControlsBottom }]}>
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, styles.hintButton, pressed && styles.pressed]}>
             <View style={styles.bottomButtonContent}><MedievalIcon name="hint" size={20} /><Text style={styles.bottomButtonText}>힌트</Text></View>
           </Pressable>
@@ -912,6 +915,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 6, paddingBottom: 12 },
   headerLandscape: { paddingTop: 0, paddingBottom: 3 },
   headerLandscapeCompact: { paddingBottom: 1 },
+  landscapeHeaderBanner: { flex: 1, minWidth: 0, maxWidth: 320, height: 50, marginHorizontal: 8, alignItems: "center", justifyContent: "center" },
   eyebrow: { color: "#77D6C3", fontSize: 10, fontWeight: "800", letterSpacing: 2.2 },
   title: { color: "#FFFDF8", fontSize: 27, lineHeight: 31, fontWeight: "800", letterSpacing: -0.7 },
   titleLine: { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -990,6 +994,7 @@ const styles = StyleSheet.create({
   tableau: { flex: 1, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   tableauLandscape: { flexGrow: 0 },
   tableauColumn: { position: "relative" },
+  portraitAdBanner: { position: "absolute", left: 0, right: 0, zIndex: 9 },
   bottomControls: { position: "absolute", left: 0, right: 0, bottom: 58, zIndex: 10, flexDirection: "row", alignSelf: "center", justifyContent: "center", gap: 10 },
   bottomControlsLandscape: { bottom: 4 },
   bottomControlsLandscapeCompact: { gap: 8 },
