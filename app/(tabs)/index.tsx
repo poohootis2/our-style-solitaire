@@ -22,7 +22,6 @@ import {
   isWon,
   moveFoundationToTableau,
   moveAceToFoundation,
-  moveAvailableAcesToFoundation,
   moveTableauToTableau,
   moveToFoundation,
   moveWasteToTableau,
@@ -41,6 +40,7 @@ type Records = { wins: number; bestScore: number; bestTimeSeconds: number | null
 
 const CARD_RATIO = 1.42;
 const ACTIVE_GAME_KEY = "our-style-solitaire:active-game";
+const ACTIVE_GAME_SAVE_VERSION = 3;
 const RECORDS_KEY = "our-style-solitaire:records";
 const SOUND_ENABLED_KEY = "our-style-solitaire:sound-enabled";
 const PHYSICAL_EDGE_INSET = 52;
@@ -438,9 +438,15 @@ export default function HomeScreen() {
         const [activeGameValue, recordsValue, soundEnabledValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY]);
         if (!mounted) return;
         if (activeGameValue[1] && !newGameStarted.current) {
-          const saved = JSON.parse(activeGameValue[1]) as { game?: typeof game; elapsedSeconds?: number };
-          if (saved.game?.tableau?.length === 7) setGame({ ...saved.game, level: saved.game.level ?? 1, recycles: saved.game.recycles ?? 0 });
-          if (typeof saved.elapsedSeconds === "number") setElapsedSeconds(saved.elapsedSeconds);
+          const saved = JSON.parse(activeGameValue[1]) as { saveVersion?: number; game?: typeof game; elapsedSeconds?: number };
+          if (saved.saveVersion === ACTIVE_GAME_SAVE_VERSION && saved.game?.tableau?.length === 7) {
+            setGame({ ...saved.game, level: saved.game.level ?? 1, recycles: saved.game.recycles ?? 0 });
+            if (typeof saved.elapsedSeconds === "number") setElapsedSeconds(saved.elapsedSeconds);
+          } else {
+            // Older builds could retain the previous fixed tutorial arrangement.
+            // Do not bring that order into the current random-deal implementation.
+            AsyncStorage.removeItem(ACTIVE_GAME_KEY).catch(() => undefined);
+          }
         }
         if (recordsValue[1]) setRecords({ ...emptyRecords, ...(JSON.parse(recordsValue[1]) as Records) });
         if (soundEnabledValue[1]) setSoundEnabled(soundEnabledValue[1] === "true");
@@ -456,7 +462,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!hydrated) return;
-    AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ game, elapsedSeconds })).catch(() => undefined);
+    AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ saveVersion: ACTIVE_GAME_SAVE_VERSION, game, elapsedSeconds })).catch(() => undefined);
     gameRef.current = game;
     elapsedSecondsRef.current = elapsedSeconds;
   }, [elapsedSeconds, game, hydrated]);
@@ -464,7 +470,7 @@ export default function HomeScreen() {
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
       if (nextState === "active") return;
-      AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ game: gameRef.current, elapsedSeconds: elapsedSecondsRef.current })).catch(() => undefined);
+      AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ saveVersion: ACTIVE_GAME_SAVE_VERSION, game: gameRef.current, elapsedSeconds: elapsedSecondsRef.current })).catch(() => undefined);
     });
     return () => subscription.remove();
   }, []);
@@ -523,7 +529,7 @@ export default function HomeScreen() {
     setUndoStack([]);
     gameRef.current = freshGame;
     elapsedSecondsRef.current = 0;
-    AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ game: freshGame, elapsedSeconds: 0 })).catch(() => undefined);
+    AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ saveVersion: ACTIVE_GAME_SAVE_VERSION, game: freshGame, elapsedSeconds: 0 })).catch(() => undefined);
   };
 
   const requestNewGame = () => {
@@ -606,7 +612,7 @@ export default function HomeScreen() {
     setSelection(null);
     setHintMessage("이전 이동을 되돌렸습니다.");
     gameRef.current = previousGame;
-    AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ game: previousGame, elapsedSeconds: elapsedSecondsRef.current })).catch(() => undefined);
+    AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ saveVersion: ACTIVE_GAME_SAVE_VERSION, game: previousGame, elapsedSeconds: elapsedSecondsRef.current })).catch(() => undefined);
     haptic.light();
   };
 
@@ -632,7 +638,7 @@ export default function HomeScreen() {
     }
     setUndoStack((history) => [...history.slice(-(MAX_UNDO_STEPS - 1)), cloneGameState(game)]);
     gameRef.current = nextGame;
-    AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ game: nextGame, elapsedSeconds: elapsedSecondsRef.current })).catch(() => undefined);
+    AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ saveVersion: ACTIVE_GAME_SAVE_VERSION, game: nextGame, elapsedSeconds: elapsedSecondsRef.current })).catch(() => undefined);
     setGame(nextGame);
     setSelection(null);
     playEffect("move");
@@ -691,7 +697,9 @@ export default function HomeScreen() {
     const drawnGame = drawFromStock(game);
     const drawnCard = drawnGame.waste.at(-1);
     if (drawnCard?.rank === 1) {
-      applyGame(moveAvailableAcesToFoundation(drawnGame));
+      // Preserve the requested A-card auto move, but move only the A that was
+      // just revealed. Never sweep other visible A cards into foundations.
+      applyGame(moveAceToFoundation(drawnGame, { kind: "waste" }) ?? drawnGame);
       return;
     }
     applyGame(drawnGame);
