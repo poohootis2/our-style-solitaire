@@ -92,7 +92,7 @@ function RoyalPortrait({ rank }: { rank: 11 | 12 | 13 }) {
   );
 }
 
-type MedievalIconName = "auto" | "new" | "orientation" | "sound" | "menu" | "hint" | "undo";
+type MedievalIconName = "auto" | "new" | "orientation" | "sound" | "soundOff" | "menu" | "hint" | "undo";
 
 function MedievalBackdrop() {
   return (
@@ -121,6 +121,7 @@ function MedievalIcon({ name, size = 22 }: { name: MedievalIconName; size?: numb
       {name === "new" ? <><Path d="M7 27 V10 L12 5 H21 L25 10 V27 Z" fill="#5C87A7" {...common} /><Path d="M6 10 H26" stroke={gold} strokeWidth="4" {...common} /><Path d="M16 13 V23 M11 18 H21" stroke="#FFF3D1" strokeWidth="3" strokeLinecap="round" /></> : null}
       {name === "orientation" ? <><Rect x="8" y="5" width="16" height="22" rx="3" fill="#314A76" {...common} /><Path d="M5 11 Q5 6 11 6 M10 3 L13 6 L10 9" stroke={teal} strokeWidth="3" fill="none" {...common} /><Path d="M27 21 Q27 26 21 26 M22 29 L19 26 L22 23" stroke={coral} strokeWidth="3" fill="none" {...common} /></> : null}
       {name === "sound" ? <><Path d="M13 6 V24" stroke={gold} strokeWidth="3" {...common} /><Path d="M13 7 Q23 9 23 17 Q23 24 16 25" stroke={gold} strokeWidth="3" fill="none" {...common} /><Circle cx="11" cy="25" r="4" fill={coral} {...common} /><Path d="M25 11 Q30 16 25 21" stroke={teal} strokeWidth="2.5" fill="none" strokeLinecap="round" /></> : null}
+      {name === "soundOff" ? <><Path d="M13 6 V24" stroke="#7C8BA5" strokeWidth="3" {...common} /><Path d="M13 7 Q23 9 23 17 Q23 24 16 25" stroke="#7C8BA5" strokeWidth="3" fill="none" {...common} /><Circle cx="11" cy="25" r="4" fill="#7C8BA5" {...common} /><Path d="M6 6 L27 27" stroke={coral} strokeWidth="4" strokeLinecap="round" /></> : null}
       {name === "menu" ? <><Path d="M16 4 L27 9 V17 Q25 25 16 29 Q7 25 5 17 V9 Z" fill="#314A76" {...common} /><Circle cx="16" cy="11" r="2" fill={gold} /><Circle cx="16" cy="17" r="2" fill={gold} /><Circle cx="16" cy="23" r="2" fill={gold} /></> : null}
       {name === "hint" ? <><Path d="M10 13 Q10 5 16 5 Q22 5 22 13 V19 H10 Z" fill={gold} {...common} /><Path d="M13 22 H19 M14 26 H18" stroke={teal} strokeWidth="3" strokeLinecap="round" /><Circle cx="16" cy="13" r="3" fill="#FFF3D1" /></> : null}
       {name === "undo" ? <><Path d="M25 10 H12 Q7 10 7 16 Q7 22 13 22 H23" stroke={gold} strokeWidth="4" fill="none" {...common} /><Path d="M12 5 L6 10 L12 15" stroke={coral} strokeWidth="4" fill="none" {...common} /><Path d="M16 13 V19" stroke={teal} strokeWidth="2" strokeLinecap="round" /></> : null}
@@ -287,7 +288,7 @@ function CardAttackEffect({ kind, combo }: { kind: AttackKind; combo: boolean })
 
 type AttackKind = Suit;
 
-function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = false }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; combo: boolean; compact?: boolean }) {
+function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = false, landscape = false, travelDistance = 24 }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; combo: boolean; compact?: boolean; landscape?: boolean; travelDistance?: number }) {
   const monsterMotion = useRef(new Animated.Value(0)).current;
   const attackProgress = useRef(new Animated.Value(0)).current;
   const [attackVisible, setAttackVisible] = useState(false);
@@ -326,7 +327,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
     }
   }, [defeatProgress, hp]);
 
-  const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-24, 24] });
+  const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-travelDistance, travelDistance] });
   const projectileTranslate = attackProgress.interpolate({ inputRange: [0, 1], outputRange: [0, 92] });
   const projectileScale = attackProgress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.5, 1.15, 0.2] });
   const damageTranslateY = damageProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
@@ -337,7 +338,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
   const attackSymbols: Record<AttackKind, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
 
   return (
-    <View style={[styles.monsterBattle, compact && styles.monsterBattleCompact]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
+    <View style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
       <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { transform: [{ translateX: monsterTranslate }] }]}>
         <Image source={MONSTER_IMAGE} resizeMode="contain" style={[styles.monsterSprite, compact && styles.monsterSpriteCompact, defeatVisible && styles.monsterDefeated]} />
         {attackVisible ? <Animated.Text style={[styles.monsterProjectile, { color: attackColors[attackKind], transform: [{ translateX: projectileTranslate }, { scale: projectileScale }] }]}>{attackSymbols[attackKind]}</Animated.Text> : null}
@@ -378,7 +379,7 @@ export default function HomeScreen() {
   const rootTopPadding = isLandscape ? 4 : PHYSICAL_EDGE_INSET;
   // Some edge-to-edge Android devices report a zero bottom inset while the
   // persistent home or three-button bar still overlays the game window.
-  const systemBottomInset = isLandscape && Platform.OS !== "web" ? Math.max(insets.bottom, 48) : insets.bottom;
+  const systemBottomInset = Platform.OS !== "web" ? Math.max(insets.bottom, isLandscape ? 48 : 36) : insets.bottom;
   const rootBottomPadding = isLandscape ? systemBottomInset + 8 : PHYSICAL_EDGE_INSET + 62;
   const landscapeReservedHeight = isLandscape ? 50 + (compactLandscape ? 0 : 40) : 0;
   const { boardWidth, cardWidth, cardRatio, compact, stackOffset, tableauGap, uiScale } = getGameLayout(
@@ -413,6 +414,20 @@ export default function HomeScreen() {
   const selectPlayer = useAudioPlayer(require("../../assets/sounds/card-select.wav"));
   const movePlayer = useAudioPlayer(require("../../assets/sounds/card-move.wav"));
   const attackPlayer = useAudioPlayer(require("../../assets/sounds/card-attack.mp3"));
+
+  const setSoundEffectsEnabled = (enabled: boolean) => {
+    for (const player of [selectPlayer, movePlayer, attackPlayer]) {
+      try {
+        player.volume = enabled ? 1 : 0;
+        if (!enabled) player.pause();
+      } catch {
+        // Sound state must never block the game when a native player is unavailable.
+      }
+    }
+    setSoundEnabled(enabled);
+    setHintMessage(enabled ? "효과음을 켰습니다." : "효과음을 껐습니다.");
+    haptic.light();
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -461,6 +476,17 @@ export default function HomeScreen() {
     if (!hydrated) return;
     AsyncStorage.setItem(SOUND_ENABLED_KEY, String(soundEnabled)).catch(() => undefined);
   }, [hydrated, soundEnabled]);
+
+  useEffect(() => {
+    for (const player of [selectPlayer, movePlayer, attackPlayer]) {
+      try {
+        player.volume = soundEnabled ? 1 : 0;
+        if (!soundEnabled) player.pause();
+      } catch {
+        // Keep the persisted preference even if a player is still loading.
+      }
+    }
+  }, [attackPlayer, movePlayer, selectPlayer, soundEnabled]);
 
   useEffect(() => {
     setAudioModeAsync({ playsInSilentMode: true }).catch(() => undefined);
@@ -705,9 +731,11 @@ export default function HomeScreen() {
   const runAutoComplete = () => {
     const completed = autoComplete(game);
     if (completed === game) {
+      setHintMessage("지금은 자동 정리할 수 있는 카드가 없습니다.");
       haptic.error();
       return;
     }
+    setHintMessage("가능한 카드를 자동으로 정리했습니다.");
     applyGame(completed, isWon(completed));
   };
 
@@ -731,7 +759,7 @@ export default function HomeScreen() {
             </View>
           </View>
           <View style={[styles.headerActions, compactControls && styles.headerActionsCompact]}>
-            <Pressable accessibilityRole="button" accessibilityLabel="자동 완성" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, compactControls && styles.autoButtonCompact, pressed && styles.pressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="가능한 카드 자동 정리" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, compactControls && styles.autoButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="auto" size={19} />
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="새 게임" onPress={requestNewGame} style={({ pressed }) => [styles.newButton, compactControls && styles.newButtonCompact, pressed && styles.pressed]}>
@@ -740,8 +768,8 @@ export default function HomeScreen() {
             <Pressable accessibilityRole="button" accessibilityLabel={isLandscape ? "세로 모드로 전환" : "가로 모드로 전환"} onPress={toggleOrientation} style={({ pressed }) => [styles.orientationButton, compactControls && styles.iconButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="orientation" size={19} />
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={soundEnabled ? "사운드 끄기" : "사운드 켜기"} onPress={() => setSoundEnabled((value) => !value)} style={({ pressed }) => [styles.soundButton, compactControls && styles.iconButtonCompact, !soundEnabled && styles.soundButtonOff, pressed && styles.pressed]}>
-              <MedievalIcon name="sound" size={19} />
+            <Pressable accessibilityRole="button" accessibilityLabel={soundEnabled ? "효과음 끄기" : "효과음 켜기"} onPress={() => setSoundEffectsEnabled(!soundEnabled)} style={({ pressed }) => [styles.soundButton, compactControls && styles.iconButtonCompact, !soundEnabled && styles.soundButtonOff, pressed && styles.pressed]}>
+              <MedievalIcon name={soundEnabled ? "sound" : "soundOff"} size={19} />
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="게임 메뉴" onPress={() => { haptic.light(); setPaused(true); setSheet("menu"); }} style={({ pressed }) => [styles.menuButton, compactControls && styles.iconButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="menu" size={19} />
@@ -755,8 +783,8 @@ export default function HomeScreen() {
           <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.moves}</Text><Text style={styles.statLabel}>이동</Text></View>
           <View style={styles.statDivider} />
           <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
-          <MonsterBattle compact={compact || compactLandscape} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} />
-          <View style={[styles.statusWrap, compactControls && styles.statusWrapCompact]}>
+          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} travelDistance={isLandscape ? Math.max(110, Math.min(260, Math.round(safeScreenWidth * 0.2))) : 24} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} />
+          <View style={[styles.statusWrap, isLandscape && styles.statusWrapLandscape, compactControls && !isLandscape && styles.statusWrapCompact]}>
             <View style={[styles.statusDot, selection ? styles.statusDotSelected : styles.statusDotReady]} />
             <Text numberOfLines={1} style={styles.statusText}>{hydrated ? (selection ? "이동할 곳을 탭하세요" : "카드를 선택하세요") : "게임 준비 중"}</Text>
           </View>
@@ -806,7 +834,7 @@ export default function HomeScreen() {
         </View>
         </View>
 
-        <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, { bottom: isLandscape ? systemBottomInset + 4 : 58 }]}>
+        <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, { bottom: isLandscape ? systemBottomInset + 4 : Math.max(58, systemBottomInset + 16) }]}>
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, styles.hintButton, pressed && styles.pressed]}>
             <View style={styles.bottomButtonContent}><MedievalIcon name="hint" size={20} /><Text style={styles.bottomButtonText}>힌트</Text></View>
           </Pressable>
@@ -912,12 +940,14 @@ const styles = StyleSheet.create({
   statLabel: { color: "#A6B4CE", fontSize: 9, fontWeight: "700", marginTop: 1, textAlign: "center" },
   statDivider: { width: 1, height: 22, marginHorizontal: 10, backgroundColor: "#2E4163" },
   statusWrap: { flex: 1, minWidth: 92, marginLeft: 8, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6 },
+  statusWrapLandscape: { flex: 0, width: 140, minWidth: 140 },
   statusWrapCompact: { minWidth: 0, marginLeft: 4, gap: 3 },
   statusDot: { width: 7, height: 7, borderRadius: 4 },
   statusDotReady: { backgroundColor: "#77D6C3" },
   statusDotSelected: { backgroundColor: "#FF7A66" },
   statusText: { color: "#A6B4CE", fontSize: 10, fontWeight: "600" },
   monsterBattle: { flex: 1.4, minWidth: 154, maxWidth: 236, marginLeft: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, overflow: "visible" },
+  monsterBattleLandscape: { flex: 1, minWidth: 250, maxWidth: 9999 },
   monsterBattleCompact: { flex: 1.1, minWidth: 82, maxWidth: 128, marginLeft: 4, gap: 3 },
   monsterSpriteWrap: { width: 50, height: 54, alignItems: "center", justifyContent: "center", position: "relative" },
   monsterSpriteWrapCompact: { width: 32, height: 38 },

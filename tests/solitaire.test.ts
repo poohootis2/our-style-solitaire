@@ -74,6 +74,15 @@ describe("클론다이크 규칙", () => {
     expect(first.tableau.flat().map((card) => card.id)).not.toEqual(second.tableau.flat().map((card) => card.id));
   });
 
+  it("저난도 새 게임도 파운데이션이나 A 카드 순서를 미리 채우지 않는다", () => {
+    const games = Array.from({ length: 6 }, () => createNewGame(1));
+    for (const game of games) {
+      expect(Object.values(game.foundations).flat()).toHaveLength(0);
+      expect(game.tableau.flat().filter((item) => item.faceUp && item.rank === 1)).not.toHaveLength(4);
+    }
+    expect(new Set(games.map((game) => [...game.tableau.flat(), ...game.stock].map((item) => item.id).join(","))).size).toBeGreaterThan(1);
+  });
+
   it("레벨 1~3은 한 장, 레벨 4~5는 두 장, 레벨 6 이상은 세 장씩 공개한다", () => {
     expect(getDifficulty(1).drawCount).toBe(1);
     expect(getDifficulty(3).drawCount).toBe(1);
