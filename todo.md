@@ -102,4 +102,6 @@
 - [x] 가로 배너 미리보기의 상단 UI 겹침 방지 여백과 세로 몬스터 상태 패널 20px 오른쪽 이동
 - [x] 불필요한 의존성·캐시를 제외한 버전 1.6.5 새 프로젝트 ZIP을 직접 제공
 - [x] 새 Windows 프로젝트의 react-native-google-mobile-ads Release Kotlin 컴파일 오류 진단 및 수정
+- [x] Google Play 요구 SHA1 지문과 다른 keystore로 서명된 AAB 문제 해결
 - [x] 카드 공격을 몬스터 발아래 이동선까지 회전 비행시키고 몬스터 상태 패널·이동속도 조정
+- [x] Google Play 등록용 게임 소개·개인정보처리방침·스크린샷 중심의 간단한 공식 홈페이지 제작
