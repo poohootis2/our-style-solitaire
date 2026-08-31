@@ -1,6 +1,7 @@
 export type GameLayout = {
   boardWidth: number;
   cardWidth: number;
+  cardRatio: number;
   tableauGap: number;
   stackOffset: number;
   uiScale: number;
@@ -17,36 +18,42 @@ function clamp(value: number, min: number, max: number): number {
 
 /**
  * Calculates a board that fits both narrow cover screens and tall foldable inner screens.
- * The vertical constraint is important because a seven-card tableau must remain visible
- * above the bottom controls instead of being clipped by the screen edge.
+ * The vertical constraint includes the top piles plus the deepest tableau column, so the
+ * final card always remains above the Android system navigation area and action controls.
  */
-export function getGameLayout(width: number, height: number, verticalEdgeInset = 0, forceLandscape = false): GameLayout {
+export function getGameLayout(width: number, height: number, verticalEdgeInset = 0, forceLandscape = false, extraReservedHeight = 0): GameLayout {
   const isLandscape = forceLandscape || width > height;
   const shortestSide = Math.min(width, height);
   const isTablet = shortestSide >= 600;
   const isFoldedCover = !isLandscape && width <= 430;
+  const cardRatio = isLandscape ? 1.18 : CARD_RATIO;
   const outerPadding = isLandscape ? 24 : isTablet ? 30 : isFoldedCover ? 8 : 12;
   const tableauGap = isTablet ? 8 : isLandscape ? 6 : isFoldedCover ? 2 : 4;
   const maxBoardWidth = isTablet ? 680 : isLandscape ? 720 : 560;
   const availableWidth = Math.max(260, Math.min(width - outerPadding * 2, maxBoardWidth));
   const rawCardWidth = (availableWidth - tableauGap * TABLEAU_STEPS) / TABLEAU_COLUMNS;
-  const widthCardLimit = isTablet ? 80 : isLandscape ? (height >= 520 ? 72 : 52) : isFoldedCover ? 56 : 68;
+  const widthCardLimit = isLandscape ? (height >= 520 ? 80 : 64) : isTablet ? 80 : isFoldedCover ? 56 : 68;
 
-  // Reserve space for the header, stats, top piles, and bottom action controls.
-  // The remaining height must contain the complete deepest tableau column.
-  const reservedHeight = isLandscape ? 142 : isTablet ? 250 : isFoldedCover ? 230 : 214;
-  const usableTableauHeight = Math.max(210, height - verticalEdgeInset - reservedHeight);
-  const heightCardLimit = usableTableauHeight / (CARD_RATIO + TABLEAU_STEPS * 0.62);
+  // In landscape the compact HUD, controls, and optional ad banner are reserved before
+  // cards are measured. This avoids using the full physical window height beneath a
+  // gesture or three-button navigation bar.
+  const reservedHeight = (isLandscape ? 116 : isTablet ? 250 : isFoldedCover ? 230 : 214) + extraReservedHeight;
+  const usableTableauHeight = Math.max(isLandscape ? 118 : 210, height - verticalEdgeInset - reservedHeight);
+  const topPilesGap = isLandscape ? 6 : 16;
+  const minimumStackOffset = isLandscape ? 8 : isFoldedCover ? 19 : 22;
+  // The board contains a top-pile card, a gap, and the deepest seven-card tableau.
+  const heightCardLimit = (usableTableauHeight - topPilesGap - TABLEAU_STEPS * minimumStackOffset) / (cardRatio * 2);
   const foldableOrLandscapeReduction = isLandscape || (isTablet && !isFoldedCover) ? 0.9 : 1;
-  const cardWidth = Math.floor(clamp(Math.min(rawCardWidth, widthCardLimit, heightCardLimit) * foldableOrLandscapeReduction, 34, widthCardLimit));
-  const cardHeight = cardWidth * CARD_RATIO;
-  const availableStackOffset = (usableTableauHeight - cardHeight) / TABLEAU_STEPS;
-  const minimumStackOffset = isFoldedCover ? 19 : isLandscape ? 13 : 22;
-  const stackOffset = Math.floor(clamp(availableStackOffset, minimumStackOffset, cardWidth * 0.74));
+  const minimumCardWidth = isLandscape ? 30 : 34;
+  const cardWidth = Math.floor(clamp(Math.min(rawCardWidth, widthCardLimit, heightCardLimit) * foldableOrLandscapeReduction, minimumCardWidth, widthCardLimit));
+  const cardHeight = cardWidth * cardRatio;
+  const availableStackOffset = (usableTableauHeight - topPilesGap - cardHeight * 2) / TABLEAU_STEPS;
+  const stackOffset = Math.floor(clamp(availableStackOffset, minimumStackOffset, cardWidth * (isLandscape ? 0.62 : 0.74)));
 
   return {
     boardWidth: cardWidth * TABLEAU_COLUMNS + tableauGap * TABLEAU_STEPS,
     cardWidth,
+    cardRatio,
     tableauGap,
     stackOffset,
     uiScale: isTablet ? 1.22 : width >= 420 ? 1.08 : 1,

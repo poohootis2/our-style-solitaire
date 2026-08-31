@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import * as ScreenOrientation from "expo-screen-orientation";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { AdBanner } from "@/components/ad-banner";
@@ -130,6 +131,7 @@ function MedievalIcon({ name, size = 22 }: { name: MedievalIconName; size?: numb
 function CardFace({
   card,
   width,
+  cardRatio = CARD_RATIO,
   selected,
   onPress,
   onDoublePress,
@@ -137,12 +139,13 @@ function CardFace({
 }: {
   card: Card;
   width: number;
+  cardRatio?: number;
   selected?: boolean;
   onPress?: () => void;
   onDoublePress?: () => void;
   onDragEnd?: (dx: number, dy: number) => void;
 }) {
-  const height = width * CARD_RATIO;
+  const height = width * cardRatio;
   const color = playingCardColor(card);
   const rankSize = Math.max(10, Math.round(width * 0.26));
   const suitSize = Math.max(9, Math.round(width * 0.22));
@@ -199,8 +202,8 @@ function CardFace({
   );
 }
 
-function CardBack({ width, theme, onPress }: { width: number; theme: CardBackTheme; onPress: () => void }) {
-  const height = width * CARD_RATIO;
+function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress }: { width: number; cardRatio?: number; theme: CardBackTheme; onPress: () => void }) {
+  const height = width * cardRatio;
   return (
     <Pressable
       accessibilityRole="button"
@@ -215,14 +218,14 @@ function CardBack({ width, theme, onPress }: { width: number; theme: CardBackThe
   );
 }
 
-function FlyingCard({ card, width, progress }: { card: Card; width: number; progress: Animated.Value }) {
+function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value }) {
   const color = playingCardColor(card);
   const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, width * 2.7] });
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, -width * 1.8] });
   const scale = progress.interpolate({ inputRange: [0, 0.72, 1], outputRange: [1, 1.1, 0.6] });
   const opacity = progress.interpolate({ inputRange: [0, 0.85, 1], outputRange: [1, 1, 0] });
   return (
-    <Animated.View pointerEvents="none" style={[styles.flyingCard, { width, height: width * CARD_RATIO, opacity, transform: [{ translateX }, { translateY }, { scale }, { rotate: "7deg" }] }]}>
+    <Animated.View pointerEvents="none" style={[styles.flyingCard, { width, height: width * cardRatio, opacity, transform: [{ translateX }, { translateY }, { scale }, { rotate: "7deg" }] }]}>
       <Text style={[styles.flyingRank, { color }]}>{rankLabels[card.rank]}</Text>
       <Text style={[styles.flyingSuit, { color }]}>{suitSymbols[card.suit]}</Text>
     </Animated.View>
@@ -350,13 +353,13 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
   );
 }
 
-function EmptySlot({ width, label, onPress }: { width: number; label: string; onPress?: () => void }) {
+function EmptySlot({ width, cardRatio = CARD_RATIO, label, onPress }: { width: number; cardRatio?: number; label: string; onPress?: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label || "빈 카드 슬롯"}
       onPress={onPress}
-      style={({ pressed }) => [styles.slot, { width, height: width * CARD_RATIO }, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.slot, { width, height: width * cardRatio }, pressed && styles.pressed]}
     >
       <Text style={styles.slotLabel}>{label}</Text>
     </Pressable>
@@ -365,16 +368,27 @@ function EmptySlot({ width, label, onPress }: { width: number; label: string; on
 
 export default function HomeScreen() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [deviceOrientation, setDeviceOrientation] = useState<ScreenOrientation.Orientation | null>(null);
   const nativeLandscape = deviceOrientation === ScreenOrientation.Orientation.LANDSCAPE_LEFT || deviceOrientation === ScreenOrientation.Orientation.LANDSCAPE_RIGHT || screenWidth > screenHeight;
   const isLandscape = nativeLandscape;
-  const physicalEdgeInset = isLandscape ? 10 : PHYSICAL_EDGE_INSET;
-  const { boardWidth, cardWidth, compact, stackOffset, tableauGap, uiScale } = getGameLayout(
-    screenWidth,
-    screenHeight,
-    physicalEdgeInset * 2,
-    false,
+  const safeScreenWidth = Math.max(260, screenWidth - insets.left - insets.right);
+  const safeScreenHeight = Math.max(220, screenHeight - insets.top - insets.bottom);
+  const compactLandscape = isLandscape && safeScreenHeight <= 460;
+  const rootTopPadding = isLandscape ? 4 : PHYSICAL_EDGE_INSET;
+  // Some edge-to-edge Android devices report a zero bottom inset while the
+  // persistent home or three-button bar still overlays the game window.
+  const systemBottomInset = isLandscape && Platform.OS !== "web" ? Math.max(insets.bottom, 48) : insets.bottom;
+  const rootBottomPadding = isLandscape ? systemBottomInset + 8 : PHYSICAL_EDGE_INSET + 62;
+  const landscapeReservedHeight = isLandscape ? 50 + (compactLandscape ? 0 : 40) : 0;
+  const { boardWidth, cardWidth, cardRatio, compact, stackOffset, tableauGap, uiScale } = getGameLayout(
+    safeScreenWidth,
+    safeScreenHeight,
+    rootTopPadding + rootBottomPadding,
+    isLandscape,
+    landscapeReservedHeight,
   );
+  const compactControls = compact || compactLandscape;
   const [game, setGame] = useState(createPlayableGame);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -702,47 +716,47 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
-      <View style={[styles.root, { paddingTop: physicalEdgeInset, paddingBottom: physicalEdgeInset + 62 }, isLandscape && styles.rootLandscape]}>
+      <View style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding }, isLandscape && styles.rootLandscape]}>
         <MedievalBackdrop />
-        {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} progress={flightProgress} /> : null}
+        {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={cardRatio} progress={flightProgress} /> : null}
         <VictoryFireworks visible={showFireworks} />
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} /> : null}
-        <AdBanner />
-        <View style={[styles.header, isLandscape && styles.headerLandscape]}>
+        <AdBanner compact={isLandscape} />
+        <View style={[styles.header, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact]}>
           <View>
             <Text style={styles.eyebrow}>OUR STYLE</Text>
             <View style={styles.titleLine}>
-              <Text style={[styles.title, { fontSize: Math.round(27 * uiScale), lineHeight: Math.round(31 * uiScale) }]}>Solitaire</Text>
+              <Text style={[styles.title, { fontSize: Math.round((compactLandscape ? 23 : 27) * (isLandscape ? 1 : uiScale)), lineHeight: Math.round((compactLandscape ? 27 : 31) * (isLandscape ? 1 : uiScale)) }]}>Solitaire</Text>
               <View style={styles.levelBadge}><Text style={styles.levelText}>LV {game.level} · {difficulty.label}</Text></View>
             </View>
           </View>
-          <View style={[styles.headerActions, compact && styles.headerActionsCompact]}>
-            <Pressable accessibilityRole="button" accessibilityLabel="자동 완성" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, compact && styles.autoButtonCompact, pressed && styles.pressed]}>
+          <View style={[styles.headerActions, compactControls && styles.headerActionsCompact]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="자동 완성" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, compactControls && styles.autoButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="auto" size={19} />
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="새 게임" onPress={requestNewGame} style={({ pressed }) => [styles.newButton, compact && styles.newButtonCompact, pressed && styles.pressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="새 게임" onPress={requestNewGame} style={({ pressed }) => [styles.newButton, compactControls && styles.newButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="new" size={23} />
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={isLandscape ? "세로 모드로 전환" : "가로 모드로 전환"} onPress={toggleOrientation} style={({ pressed }) => [styles.orientationButton, compact && styles.iconButtonCompact, pressed && styles.pressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={isLandscape ? "세로 모드로 전환" : "가로 모드로 전환"} onPress={toggleOrientation} style={({ pressed }) => [styles.orientationButton, compactControls && styles.iconButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="orientation" size={19} />
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={soundEnabled ? "사운드 끄기" : "사운드 켜기"} onPress={() => setSoundEnabled((value) => !value)} style={({ pressed }) => [styles.soundButton, compact && styles.iconButtonCompact, !soundEnabled && styles.soundButtonOff, pressed && styles.pressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={soundEnabled ? "사운드 끄기" : "사운드 켜기"} onPress={() => setSoundEnabled((value) => !value)} style={({ pressed }) => [styles.soundButton, compactControls && styles.iconButtonCompact, !soundEnabled && styles.soundButtonOff, pressed && styles.pressed]}>
               <MedievalIcon name="sound" size={19} />
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="게임 메뉴" onPress={() => { haptic.light(); setPaused(true); setSheet("menu"); }} style={({ pressed }) => [styles.menuButton, compact && styles.iconButtonCompact, pressed && styles.pressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="게임 메뉴" onPress={() => { haptic.light(); setPaused(true); setSheet("menu"); }} style={({ pressed }) => [styles.menuButton, compactControls && styles.iconButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="menu" size={19} />
             </Pressable>
           </View>
         </View>
 
-        <View style={[styles.stats, isLandscape && styles.statsLandscape]}>
+        <View style={[styles.stats, isLandscape && styles.statsLandscape, compactLandscape && styles.statsLandscapeCompact]}>
           <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.score}</Text><Text style={styles.statLabel}>점수</Text></View>
           <View style={styles.statDivider} />
           <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.moves}</Text><Text style={styles.statLabel}>이동</Text></View>
           <View style={styles.statDivider} />
           <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
-          <MonsterBattle compact={compact && !isLandscape} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} />
-          <View style={[styles.statusWrap, compact && styles.statusWrapCompact]}>
+          <MonsterBattle compact={compact || compactLandscape} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} />
+          <View style={[styles.statusWrap, compactControls && styles.statusWrapCompact]}>
             <View style={[styles.statusDot, selection ? styles.statusDotSelected : styles.statusDotReady]} />
             <Text numberOfLines={1} style={styles.statusText}>{hydrated ? (selection ? "이동할 곳을 탭하세요" : "카드를 선택하세요") : "게임 준비 중"}</Text>
           </View>
@@ -752,23 +766,23 @@ export default function HomeScreen() {
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
             {game.stock.length ? (
-              <CardBack width={cardWidth} theme={cardBackTheme} onPress={drawStockCard} />
+              <CardBack width={cardWidth} cardRatio={cardRatio} theme={cardBackTheme} onPress={drawStockCard} />
             ) : (
-              <EmptySlot width={cardWidth} label={game.waste.length ? "↻" : ""} onPress={() => applyGame(drawFromStock(game))} />
+              <EmptySlot width={cardWidth} cardRatio={cardRatio} label={game.waste.length ? "↻" : ""} onPress={() => applyGame(drawFromStock(game))} />
             )}
             {game.waste.at(-1) ? (
-              <CardFace card={game.waste.at(-1)!} width={cardWidth} selected={selection?.kind === "waste"} onPress={onWastePress} onDoublePress={() => autoMoveToFoundation({ kind: "waste" })} />
+              <CardFace card={game.waste.at(-1)!} width={cardWidth} cardRatio={cardRatio} selected={selection?.kind === "waste"} onPress={onWastePress} onDoublePress={() => autoMoveToFoundation({ kind: "waste" })} />
             ) : (
-              <EmptySlot width={cardWidth} label="" />
+              <EmptySlot width={cardWidth} cardRatio={cardRatio} label="" />
             )}
           </View>
           <View style={[styles.foundationGroup, { gap: Math.max(3, Math.round(cardWidth * 0.08)) }]}>
             {SUITS.map((suit) => {
               const card = game.foundations[suit].at(-1);
               return card ? (
-                <CardFace key={suit} card={card} width={cardWidth} selected={selection?.kind === "foundation" && selection.suit === suit} onPress={() => onFoundationPress(suit)} onDragEnd={(dx, dy) => dragMoveCard({ kind: "foundation", suit }, dx, dy)} />
+                <CardFace key={suit} card={card} width={cardWidth} cardRatio={cardRatio} selected={selection?.kind === "foundation" && selection.suit === suit} onPress={() => onFoundationPress(suit)} onDragEnd={(dx, dy) => dragMoveCard({ kind: "foundation", suit }, dx, dy)} />
               ) : (
-                <EmptySlot key={suit} width={cardWidth} label={suitSymbols[suit]} onPress={() => onFoundationPress(suit)} />
+                <EmptySlot key={suit} width={cardWidth} cardRatio={cardRatio} label={suitSymbols[suit]} onPress={() => onFoundationPress(suit)} />
               );
             })}
           </View>
@@ -776,14 +790,14 @@ export default function HomeScreen() {
 
         <View style={[styles.tableau, { gap: tableauGap }, isLandscape && styles.tableauLandscape]}>
           {game.tableau.map((pile, column) => (
-            <View key={`column-${column}`} style={[styles.tableauColumn, { width: cardWidth, minHeight: cardWidth * CARD_RATIO }]}>
-              {pile.length === 0 ? <EmptySlot width={cardWidth} label="K" onPress={() => moveSelectionToTableau(column)} /> : null}
+            <View key={`column-${column}`} style={[styles.tableauColumn, { width: cardWidth, minHeight: cardWidth * cardRatio }]}>
+              {pile.length === 0 ? <EmptySlot width={cardWidth} cardRatio={cardRatio} label="K" onPress={() => moveSelectionToTableau(column)} /> : null}
               {pile.map((card, index) => (
                 <View key={card.id} style={{ position: "absolute", top: index * stackOffset, left: 0, zIndex: index }}>
                   {card.faceUp ? (
-                    <CardFace card={card} width={cardWidth} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => autoMoveToFoundation({ kind: "tableau", column, index })} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
+                    <CardFace card={card} width={cardWidth} cardRatio={cardRatio} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => autoMoveToFoundation({ kind: "tableau", column, index })} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
                   ) : (
-                    <CardBack width={cardWidth} theme={cardBackTheme} onPress={() => onTableauPress(column, index, card)} />
+                    <CardBack width={cardWidth} cardRatio={cardRatio} theme={cardBackTheme} onPress={() => onTableauPress(column, index, card)} />
                   )}
                 </View>
               ))}
@@ -792,7 +806,7 @@ export default function HomeScreen() {
         </View>
         </View>
 
-        <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape]}>
+        <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, { bottom: isLandscape ? systemBottomInset + 4 : 58 }]}>
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, styles.hintButton, pressed && styles.pressed]}>
             <View style={styles.bottomButtonContent}><MedievalIcon name="hint" size={20} /><Text style={styles.bottomButtonText}>힌트</Text></View>
           </Pressable>
@@ -869,6 +883,7 @@ const styles = StyleSheet.create({
   rootLandscape: { paddingHorizontal: 16 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 6, paddingBottom: 12 },
   headerLandscape: { paddingTop: 0, paddingBottom: 3 },
+  headerLandscapeCompact: { paddingBottom: 1 },
   eyebrow: { color: "#77D6C3", fontSize: 10, fontWeight: "800", letterSpacing: 2.2 },
   title: { color: "#FFFDF8", fontSize: 27, lineHeight: 31, fontWeight: "800", letterSpacing: -0.7 },
   titleLine: { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -892,6 +907,7 @@ const styles = StyleSheet.create({
   menuButtonText: { color: "#FFFDF8", fontSize: 19, lineHeight: 16, fontWeight: "900", marginTop: -8 },
   stats: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 8, marginBottom: 14 },
   statsLandscape: { paddingVertical: 3, marginBottom: 6 },
+  statsLandscapeCompact: { paddingVertical: 1, marginBottom: 4 },
   statValue: { color: "#FFFDF8", fontSize: 15, fontWeight: "800", textAlign: "center", fontVariant: ["tabular-nums"] },
   statLabel: { color: "#A6B4CE", fontSize: 9, fontWeight: "700", marginTop: 1, textAlign: "center" },
   statDivider: { width: 1, height: 22, marginHorizontal: 10, backgroundColor: "#2E4163" },
@@ -945,7 +961,8 @@ const styles = StyleSheet.create({
   tableauLandscape: { flexGrow: 0 },
   tableauColumn: { position: "relative" },
   bottomControls: { position: "absolute", left: 0, right: 0, bottom: 58, zIndex: 10, flexDirection: "row", alignSelf: "center", justifyContent: "center", gap: 10 },
-  bottomControlsLandscape: { bottom: 58 },
+  bottomControlsLandscape: { bottom: 4 },
+  bottomControlsLandscapeCompact: { gap: 8 },
   bottomButton: { minWidth: 126, minHeight: 44, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1 },
   hintButton: { backgroundColor: "#233958", borderColor: "#3D5A85" },
   undoButton: { backgroundColor: "#2A4268", borderColor: "#5B78A5" },

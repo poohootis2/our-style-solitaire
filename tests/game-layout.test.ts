@@ -18,9 +18,28 @@ describe("반응형 게임 테이블 레이아웃", () => {
 
   it("가로 화면에서도 카드 폭과 쌓임 간격을 제한한다", () => {
     const layout = getGameLayout(800, 360);
-    expect(layout.cardWidth).toBeLessThanOrEqual(52);
+    expect(layout.cardWidth).toBeLessThanOrEqual(64);
     expect(layout.boardWidth).toBeLessThanOrEqual(720);
-    expect(layout.stackOffset).toBeGreaterThanOrEqual(12);
+    expect(layout.stackOffset).toBeGreaterThanOrEqual(8);
+  });
+
+  it("가로 화면에서 상단 배너와 하단 조작부를 남겨도 가장 아래 카드가 안전 영역 안에 들어간다", () => {
+    const safeHeight = 427;
+    const reservedSystemAndRootPadding = 60;
+    const layout = getGameLayout(768, safeHeight, reservedSystemAndRootPadding, true, 50);
+    const cardHeight = layout.cardWidth * layout.cardRatio;
+    const boardHeight = cardHeight + 6 + cardHeight + layout.stackOffset * 6;
+    expect(boardHeight).toBeLessThanOrEqual(safeHeight - reservedSystemAndRootPadding - 116 - 50);
+    expect(layout.cardWidth).toBeGreaterThanOrEqual(30);
+  });
+
+  it("짧은 일반 휴대폰 가로 화면에서도 배너·홈바 여백을 제외한 보드 높이를 넘지 않는다", () => {
+    const screenHeight = 360;
+    const rootAndHomeBarPadding = 60;
+    const layout = getGameLayout(800, screenHeight, rootAndHomeBarPadding, true, 50);
+    const cardHeight = layout.cardWidth * layout.cardRatio;
+    const boardHeight = cardHeight + 6 + cardHeight + layout.stackOffset * 6;
+    expect(boardHeight).toBeLessThanOrEqual(screenHeight - rootAndHomeBarPadding - 116 - 50);
   });
 
   it("상하 안전 여백을 적용해도 카드 쌓임 간격이 사용 가능한 범위에 머문다", () => {
