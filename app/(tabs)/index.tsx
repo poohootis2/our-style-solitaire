@@ -34,10 +34,10 @@ import {
   type Suit,
   SUITS,
 } from "@/lib/solitaire";
-import { getBattleContent, type BattleAsset } from "@/lib/battle-content";
+import { getBattleContent, getCompanionRoster, type BattleAsset } from "@/lib/battle-content";
 
 type Selection = CardSource & { cardId: string };
-type Sheet = "menu" | "rules" | "records" | "sound" | null;
+type Sheet = "menu" | "rules" | "records" | "sound" | "companions" | null;
 type Records = { wins: number; bestScore: number; bestTimeSeconds: number | null };
 
 const CARD_RATIO = 1.42;
@@ -48,6 +48,7 @@ const SOUND_ENABLED_KEY = "our-style-solitaire:sound-enabled";
 const BACKGROUND_MUSIC_ENABLED_KEY = "our-style-solitaire:background-music-enabled";
 const SOUND_EFFECTS_VOLUME_KEY = "our-style-solitaire:sound-effects-volume";
 const BACKGROUND_MUSIC_VOLUME_KEY = "our-style-solitaire:background-music-volume";
+const SELECTED_COMPANION_KEY = "our-style-solitaire:selected-companion";
 const PHYSICAL_EDGE_INSET = 52;
 const MAX_UNDO_STEPS = 3;
 const CARD_ATTACK_FLIGHT_DURATION = 500;
@@ -478,6 +479,8 @@ export default function HomeScreen() {
   const [lastDamage, setLastDamage] = useState(0);
   const [attackToken, setAttackToken] = useState(0);
   const [comboAttack, setComboAttack] = useState(false);
+  const [selectedCompanionId, setSelectedCompanionId] = useState("cloud-tiger");
+  const [showBossWarning, setShowBossWarning] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -485,6 +488,9 @@ export default function HomeScreen() {
   const elapsedSecondsRef = useRef(elapsedSeconds);
   const flightProgress = useRef(new Animated.Value(0)).current;
   const layoutTransition = useRef(new Animated.Value(1)).current;
+  const bossIntroProgress = useRef(new Animated.Value(0)).current;
+  const screenShake = useRef(new Animated.Value(0)).current;
+  const bossWarningStageRef = useRef<number | null>(null);
   const selectPlayer = useAudioPlayer(require("../../assets/sounds/card-select.wav"));
   const movePlayer = useAudioPlayer(require("../../assets/sounds/card-move.wav"));
   const attackPlayer = useAudioPlayer(require("../../assets/sounds/card-attack.mp3"));
@@ -554,7 +560,7 @@ export default function HomeScreen() {
     let mounted = true;
     const loadLocalGame = async () => {
       try {
-        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY]);
+        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, selectedCompanionValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, SELECTED_COMPANION_KEY]);
         if (!mounted) return;
         if (activeGameValue[1] && !newGameStarted.current) {
           const saved = JSON.parse(activeGameValue[1]) as { saveVersion?: number; game?: typeof game; elapsedSeconds?: number };
@@ -572,6 +578,7 @@ export default function HomeScreen() {
         if (backgroundMusicValue[1]) setBackgroundMusicEnabled(backgroundMusicValue[1] === "true");
         if (soundEffectsVolumeValue[1]) setSoundEffectsVolume(clampVolume(Number(soundEffectsVolumeValue[1])));
         if (backgroundMusicVolumeValue[1]) setBackgroundMusicVolume(clampVolume(Number(backgroundMusicVolumeValue[1])));
+        if (selectedCompanionValue[1]) setSelectedCompanionId(selectedCompanionValue[1]);
       } catch {
         // A fresh local game is retained when storage is unavailable or malformed.
       } finally {
@@ -621,6 +628,11 @@ export default function HomeScreen() {
     if (!hydrated) return;
     AsyncStorage.setItem(BACKGROUND_MUSIC_VOLUME_KEY, String(backgroundMusicVolume)).catch(() => undefined);
   }, [backgroundMusicVolume, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    AsyncStorage.setItem(SELECTED_COMPANION_KEY, selectedCompanionId).catch(() => undefined);
+  }, [hydrated, selectedCompanionId]);
 
   useEffect(() => {
     for (const player of [selectPlayer, movePlayer, attackPlayer]) {
@@ -675,6 +687,8 @@ export default function HomeScreen() {
 
   const startNewGame = (level = game.level) => {
     newGameStarted.current = true;
+    bossWarningStageRef.current = null;
+    setShowBossWarning(false);
     const freshGame = createPlayableGame(level);
     haptic.light();
     setGame(freshGame);
@@ -911,15 +925,42 @@ export default function HomeScreen() {
   const difficulty = getDifficulty(game.level);
   const cardBackTheme = getCardBackTheme(getChapterForStage(game.level));
   const battleContent = getBattleContent(game.level, isLandscape);
+  const companionRoster = getCompanionRoster();
+  const selectedCompanion = companionRoster.find((candidate) => candidate.id === selectedCompanionId) ?? battleContent.companion;
+  const bossWarningOpacity = bossIntroProgress.interpolate({ inputRange: [0, 0.18, 0.82, 1], outputRange: [0, 1, 1, 0] });
+  const bossWarningScale = bossIntroProgress.interpolate({ inputRange: [0, 0.22, 0.82, 1], outputRange: [0.82, 1, 1.04, 0.94] });
   const flightStartLeft = phoneLandscape ? sideRailWidth + Math.max(8, Math.round((safeScreenWidth - sideRailWidth - cardWidth) * 0.5)) : Math.max(16, Math.round((safeScreenWidth - cardWidth) * 0.5));
   const flightStartBottom = bottomControlsBottom + (phoneLandscape ? 58 : 64);
   const flightTravelX = phoneLandscape ? -Math.round(sideRailWidth * 0.58) : isLandscape ? Math.round(safeScreenWidth * 0.04) : Math.round(safeScreenWidth * 0.05);
   const flightTravelY = -Math.round(safeScreenHeight * (isLandscape ? 0.48 : 0.58));
 
+  useEffect(() => {
+    if (!hydrated || !battleContent.isBoss || bossWarningStageRef.current === battleContent.stage) return;
+    bossWarningStageRef.current = battleContent.stage;
+    setShowBossWarning(true);
+    bossIntroProgress.setValue(0);
+    screenShake.setValue(0);
+    const warning = Animated.timing(bossIntroProgress, { toValue: 1, duration: 1150, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+    const shake = Animated.sequence([
+      Animated.delay(110),
+      Animated.timing(screenShake, { toValue: 1, duration: 80, useNativeDriver: true }),
+      Animated.timing(screenShake, { toValue: -1, duration: 80, useNativeDriver: true }),
+      Animated.timing(screenShake, { toValue: 0.75, duration: 70, useNativeDriver: true }),
+      Animated.timing(screenShake, { toValue: -0.55, duration: 70, useNativeDriver: true }),
+      Animated.timing(screenShake, { toValue: 0.3, duration: 60, useNativeDriver: true }),
+      Animated.timing(screenShake, { toValue: 0, duration: 90, useNativeDriver: true }),
+    ]);
+    Animated.parallel([warning, shake]).start(({ finished }) => {
+      if (finished) setShowBossWarning(false);
+    });
+    return () => { warning.stop(); shake.stop(); };
+  }, [battleContent.isBoss, battleContent.stage, bossIntroProgress, hydrated, screenShake]);
+
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
-      <View style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
+      <Animated.View style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: [{ translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }] }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
         <MedievalBackdrop source={battleContent.background} />
+        {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
         {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={cardRatio} progress={flightProgress} travelX={flightTravelX} travelY={flightTravelY} startLeft={flightStartLeft} startBottom={flightStartBottom} /> : null}
         <VictoryFireworks visible={showFireworks} />
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} travelX={Math.round(safeScreenWidth * (isLandscape ? 0.04 : 0.05))} travelY={-Math.round(safeScreenHeight * (isLandscape ? 0.45 : 0.68))} /> : null}
@@ -959,7 +1000,7 @@ export default function HomeScreen() {
             <View style={styles.statDivider} />
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
           </View>
-          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={isLandscape ? Math.max(110, Math.min(260, Math.round(safeScreenWidth * 0.2))) : 44} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} monster={battleContent.monster} companion={battleContent.companion} isBoss={battleContent.isBoss} cardSize={cardWidth} />
+          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={isLandscape ? Math.max(110, Math.min(260, Math.round(safeScreenWidth * 0.2))) : 44} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} monster={battleContent.monster} companion={selectedCompanion} isBoss={battleContent.isBoss} cardSize={cardWidth} />
           <View style={[styles.statusWrap, isLandscape && styles.statusWrapLandscape, compactControls && !isLandscape && styles.statusWrapCompact, phoneLandscape && styles.statusWrapPhoneLandscape]}>
             <View style={[styles.statusDot, selection ? styles.statusDotSelected : styles.statusDotReady]} />
             <Text numberOfLines={1} style={styles.statusText}>{hydrated ? (selection ? "이동할 곳을 탭하세요" : "카드를 선택하세요") : "게임 준비 중"}</Text>
@@ -1037,6 +1078,7 @@ export default function HomeScreen() {
                     <Pressable onPress={() => { haptic.light(); setSheet("records"); }} style={({ pressed }) => [styles.sheetSecondaryButton, pressed && styles.pressed]}><Text style={styles.sheetSecondaryText}>기록</Text></Pressable>
                     <Pressable onPress={() => { haptic.light(); setSheet("rules"); }} style={({ pressed }) => [styles.sheetSecondaryButton, pressed && styles.pressed]}><Text style={styles.sheetSecondaryText}>규칙</Text></Pressable>
                   </View>
+                  <Pressable onPress={() => { haptic.light(); setSheet("companions"); }} style={({ pressed }) => [styles.sheetLinkButton, pressed && styles.pressed]}><Text style={styles.sheetLinkText}>전투 캐릭터 선택</Text></Pressable>
                   <Pressable onPress={requestNewGame} style={({ pressed }) => [styles.sheetLinkButton, pressed && styles.pressed]}><Text style={styles.sheetLinkText}>새 게임 시작</Text></Pressable>
                 </>
               ) : null}
@@ -1058,6 +1100,24 @@ export default function HomeScreen() {
                     <VolumeSlider label="배경음 볼륨" value={backgroundMusicVolume} onChange={setBackgroundMusicVolumePreference} disabled={!backgroundMusicEnabled} />
                   </View>
                   <Pressable onPress={() => { setPaused(false); setSheet(null); }} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>닫기</Text></Pressable>
+                </>
+              ) : null}
+              {sheet === "companions" ? (
+                <>
+                  <Text style={styles.sheetEyebrow}>COMPANION SLOTS</Text>
+                  <Text style={styles.sheetTitle}>전투 캐릭터 선택</Text>
+                  <Text style={styles.companionPickerCopy}>원하는 동료를 선택하면 다음 공격부터 전투에 함께합니다. 새 캐릭터는 roster에 슬롯을 추가해 확장할 수 있습니다.</Text>
+                  <View style={styles.companionGrid}>
+                    {companionRoster.map((companion) => {
+                      const selected = companion.id === selectedCompanionId;
+                      return <Pressable key={companion.id} accessibilityRole="radio" accessibilityState={{ selected }} onPress={() => { setSelectedCompanionId(companion.id); haptic.light(); }} style={({ pressed }) => [styles.companionChoice, selected && styles.companionChoiceSelected, pressed && styles.pressed]}>
+                        <Image source={companion.image} resizeMode="contain" style={styles.companionChoiceImage} accessibilityLabel={companion.name} />
+                        <Text style={styles.companionChoiceName} numberOfLines={2}>{companion.name}</Text>
+                        {selected ? <Text style={styles.companionChoiceCheck}>✓</Text> : null}
+                      </Pressable>;
+                    })}
+                  </View>
+                  <Pressable onPress={() => setSheet("menu")} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>선택 완료</Text></Pressable>
                 </>
               ) : null}
               {sheet === "records" ? (
@@ -1097,7 +1157,7 @@ export default function HomeScreen() {
             </View>
           </View>
         </Modal>
-      </View>
+      </Animated.View>
     </ScreenContainer>
   );
 }
@@ -1228,6 +1288,10 @@ const styles = StyleSheet.create({
   flyingRank: { position: "absolute", top: 6, left: 7, fontSize: 16, fontWeight: "900" },
   flyingSuit: { position: "absolute", top: "31%", width: "100%", textAlign: "center", fontSize: 30, fontWeight: "900" },
   fireworkLayer: { ...StyleSheet.absoluteFillObject, zIndex: 50, alignItems: "center", justifyContent: "center" },
+  bossWarning: { position: "absolute", top: "38%", left: 18, right: 18, zIndex: 60, alignItems: "center", paddingVertical: 14, paddingHorizontal: 16, borderRadius: 18, backgroundColor: "rgba(94, 28, 48, 0.94)", borderWidth: 2, borderColor: "#F3C969", shadowColor: "#FF6F8A", shadowOpacity: 0.75, shadowRadius: 16, elevation: 16 },
+  bossWarningEyebrow: { color: "#FFE7A2", fontSize: 10, fontWeight: "900", letterSpacing: 2.2 },
+  bossWarningTitle: { color: "#FFFDF8", fontSize: 25, lineHeight: 30, fontWeight: "900", marginTop: 4, textAlign: "center" },
+  bossWarningCopy: { color: "#FFC1B4", fontSize: 11, fontWeight: "800", marginTop: 4, textAlign: "center" },
   fireworkParticle: { position: "absolute", width: 10, height: 10, borderRadius: 5, shadowColor: "#FFFFFF", shadowOpacity: 0.8, shadowRadius: 5, elevation: 10 },
   victoryText: { position: "absolute", top: "43%", color: "#FFFDF8", fontSize: 28, fontWeight: "900", letterSpacing: 1.8, textShadowColor: "#FF7A66", textShadowRadius: 14 },
   pressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
@@ -1259,6 +1323,13 @@ const styles = StyleSheet.create({
   sheetSecondaryText: { color: "#FFFDF8", fontSize: 14, fontWeight: "800" },
   sheetLinkButton: { alignSelf: "center", paddingVertical: 14, marginTop: 7 },
   sheetLinkText: { color: "#FF9E91", fontSize: 13, fontWeight: "800" },
+  companionPickerCopy: { color: "#A6B4CE", fontSize: 13, lineHeight: 20, marginTop: 8, marginBottom: 16 },
+  companionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  companionChoice: { width: "31%", minHeight: 116, alignItems: "center", justifyContent: "center", paddingVertical: 10, paddingHorizontal: 4, borderRadius: 15, backgroundColor: "#152542", borderWidth: 1, borderColor: "#36527A" },
+  companionChoiceSelected: { backgroundColor: "#2B6B72", borderColor: "#77D6C3", borderWidth: 2 },
+  companionChoiceImage: { width: 58, height: 64 },
+  companionChoiceName: { color: "#FFFDF8", fontSize: 10, fontWeight: "800", textAlign: "center", marginTop: 6 },
+  companionChoiceCheck: { position: "absolute", top: 6, right: 7, color: "#FFFDF8", fontSize: 16, fontWeight: "900" },
   recordGrid: { flexDirection: "row", gap: 8, marginTop: 20 },
   recordCard: { flex: 1, minHeight: 83, justifyContent: "center", alignItems: "center", borderRadius: 15, backgroundColor: "#152542", borderWidth: 1, borderColor: "#36527A", paddingHorizontal: 4 },
   recordValue: { color: "#FFFDF8", fontSize: 18, fontWeight: "900", fontVariant: ["tabular-nums"] },
