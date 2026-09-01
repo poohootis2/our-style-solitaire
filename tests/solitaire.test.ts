@@ -4,6 +4,7 @@ import {
   canPlaceOnFoundation,
   canPlaceOnTableau,
   createNewGame,
+  destroyCardWithHammer,
   drawFromStock,
   shuffleAvailableCards,
   findHint,
@@ -47,6 +48,23 @@ describe("클론다이크 규칙", () => {
     expect(shuffled?.stock).toHaveLength(4);
     expect(shuffled?.stock.every((item) => !item.faceUp)).toBe(true);
     expect(shuffled?.moves).toBe(1);
+  });
+
+  it("망치는 테이블 최상단 앞면 카드 한 장을 파괴하고 아래 숨은 카드를 연다", () => {
+    const game = foundationGame([]);
+    game.tableau[0] = [{ ...card(5, "clubs"), faceUp: false }, card(4, "hearts")];
+    const destroyed = destroyCardWithHammer(game, { kind: "tableau", column: 0, index: 1 });
+    expect(destroyed?.destroyedCards?.map((item) => item.id)).toEqual(["hearts-4"]);
+    expect(destroyed?.tableau[0]).toHaveLength(1);
+    expect(destroyed?.tableau[0][0].faceUp).toBe(true);
+    expect(destroyed?.hammerUses).toBe(1);
+  });
+
+  it("망치로 파괴된 순서는 파운데이션 정렬에서 건너뛴다", () => {
+    const game = foundationGame([card(3, "clubs")], [card(1, "clubs")]);
+    game.destroyedCards = [card(2, "clubs")];
+    const next = moveToFoundation(game, { kind: "waste" });
+    expect(next?.foundations.clubs.map((item) => item.rank)).toEqual([1, 3]);
   });
   it("고난도 랜덤 새 게임은 52장의 카드를 정확히 배치한다", () => {
     const game = createNewGame(6);

@@ -18,6 +18,7 @@ import {
   isLateGameAutoFinishReady,
   createPlayableGame,
   drawFromStock,
+  destroyCardWithHammer,
   flipTableauCard,
   shuffleAvailableCards,
   findHint,
@@ -585,6 +586,8 @@ export default function HomeScreen() {
   const [showMagnetReward, setShowMagnetReward] = useState(false);
   const [magnetRewardReady, setMagnetRewardReady] = useState(false);
   const [magnetHighlightedCardId, setMagnetHighlightedCardId] = useState<string | null>(null);
+  const [showHammerOffer, setShowHammerOffer] = useState(false);
+  const [hammerMode, setHammerMode] = useState(false);
   const [showBossWarning, setShowBossWarning] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
@@ -886,9 +889,11 @@ export default function HomeScreen() {
     hintRepeatCountRef.current = 0;
     if (manualReset) {
       setMagnetCharges(0);
-      setShowMagnetReward(false);
-      setMagnetRewardReady(false);
-      setMagnetHighlightedCardId(null);
+    setShowMagnetReward(false);
+    setMagnetRewardReady(false);
+    setMagnetHighlightedCardId(null);
+    setShowHammerOffer(false);
+    setHammerMode(false);
       setUnlockedPetIds(INITIAL_UNLOCKED_PET_IDS);
       AsyncStorage.setItem(UNLOCKED_PETS_KEY, JSON.stringify(INITIAL_UNLOCKED_PET_IDS)).catch(() => undefined);
     }
@@ -1190,6 +1195,7 @@ export default function HomeScreen() {
     if (!findAutoFoundationMove(game)) {
       showTimedHint("정렬할 카드가 없습니다");
       haptic.error();
+      if ((game.hammerUses ?? 0) === 0) setShowHammerOffer(true);
       return;
     }
     setMagnetCharges((charges) => Math.max(0, charges - 1));
@@ -1223,6 +1229,38 @@ export default function HomeScreen() {
     step();
   };
 
+  const beginHammerMode = () => {
+    if ((game.hammerUses ?? 0) > 0) {
+      setShowHammerOffer(false);
+      showTimedHint("이번 게임에서 망치는 이미 사용했습니다.");
+      return;
+    }
+    setShowHammerOffer(false);
+    setShowNoMovesPopup(false);
+    setHammerMode(true);
+    setSelection(null);
+    showTimedHint("망치: 웨이스트 또는 열의 맨 위 앞면 카드 1장을 탭하세요.");
+    haptic.light();
+  };
+
+  const useHammerOnCard = (source: CardSource) => {
+    const target = cardFromSource(source);
+    const destroyedGame = destroyCardWithHammer(game, source);
+    if (!destroyedGame || !target) {
+      showTimedHint("웨이스트 또는 열의 맨 위 앞면 카드만 파괴할 수 있습니다.");
+      haptic.error();
+      return;
+    }
+    setHammerMode(false);
+    setShowHammerOffer(false);
+    setMagnetHighlightedCardId(target.id);
+    playEffect("foundationAttack");
+    haptic.success();
+    applyGame(destroyedGame, false, target);
+    setTimeout(() => setMagnetHighlightedCardId(null), 620);
+    showTimedHint(`${cardLabel(target)} 카드를 파괴했습니다.`);
+  };
+
   const selectCard = (nextSelection: Selection) => {
     if (cardSelectVibrationEnabled) haptic.light();
     playEffect("select");
@@ -1242,6 +1280,10 @@ export default function HomeScreen() {
   };
 
   const dragMoveCard = (source: CardSource, dx: number, dy: number) => {
+    if (hammerMode) {
+      showTimedHint("망치 사용 중입니다. 카드를 탭해 파괴하세요.");
+      return;
+    }
     const movingCard = cardFromSource(source);
     if (!movingCard) return;
     if (dy < -cardWidth * 0.45) {
@@ -1273,6 +1315,10 @@ export default function HomeScreen() {
 
   const onTableauPress = (column: number, index: number, card: Card) => {
     const pile = game.tableau[column];
+    if (hammerMode) {
+      useHammerOnCard({ kind: "tableau", column, index });
+      return;
+    }
     if (!card.faceUp) {
       const flippedGame = index === pile.length - 1 ? flipTableauCard(game, column) : null;
       const revealedCard = flippedGame?.tableau[column].at(-1);
@@ -1291,6 +1337,10 @@ export default function HomeScreen() {
   };
 
   const onFoundationPress = (suit: Suit) => {
+    if (hammerMode) {
+      showTimedHint("파운데이션 카드는 파괴할 수 없습니다.");
+      return;
+    }
     if (selection) {
       applyGame(moveToFoundation(game, selection));
       return;
@@ -1301,6 +1351,10 @@ export default function HomeScreen() {
 
   const onWastePress = () => {
     const card = game.waste.at(-1);
+    if (hammerMode) {
+      useHammerOnCard({ kind: "waste" });
+      return;
+    }
     if (card) selectCard({ kind: "waste", cardId: card.id });
   };
 
@@ -1460,7 +1514,7 @@ export default function HomeScreen() {
             <View style={styles.statDivider} />
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
           </View>
-          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={isLandscape ? Math.max(160, Math.min(310, Math.round(safeScreenWidth * 0.2) + 50)) : 94} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
+          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={isLandscape ? Math.max(160, Math.min(310, Math.round(safeScreenWidth * 0.2) + 50)) : 94} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
         <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}>
@@ -1522,6 +1576,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
         {hintMessage ? <View style={[styles.hintToast, isLandscape && styles.hintToastLandscape, phoneLandscape && { left: 8, right: undefined, width: Math.max(160, sideRailWidth - 16), bottom: 160 }]}><Text style={styles.hintToastText}>{hintMessage}</Text></View> : null}
+        {hammerMode ? <View style={[styles.hammerModeHint, phoneLandscape && { left: 8, right: undefined, width: Math.max(160, sideRailWidth - 16) }]}><Text style={styles.hammerModeHintText}>망치 사용: 파괴할 맨 위 앞면 카드 1장을 탭하세요.</Text></View> : null}
 
         <Modal transparent visible={showMagnetReward} animationType="fade" onRequestClose={() => setShowMagnetReward(false)}>
           <View style={styles.modalBackdropCenter}>
@@ -1532,6 +1587,20 @@ export default function HomeScreen() {
               <Text style={styles.magnetRewardCopy}>광고 시청 완료 보상으로 자석 1회를 받았습니다.</Text>
               {magnetRewardReady ? <Pressable accessibilityRole="button" accessibilityLabel="자석 획득 확인" onPress={() => setShowMagnetReward(false)} style={({ pressed }) => [styles.magnetRewardButton, pressed && styles.pressed]}><Text style={styles.magnetRewardButtonText}>자석 사용하기</Text></Pressable> : null}
             </Animated.View>
+          </View>
+        </Modal>
+
+        <Modal transparent visible={showHammerOffer} animationType="fade" onRequestClose={() => setShowHammerOffer(false)}>
+          <View style={styles.modalBackdropCenter}>
+            <View style={styles.hammerOfferCard}>
+              <Pressable accessibilityRole="button" accessibilityLabel="망치 안내 닫기" onPress={() => setShowHammerOffer(false)} style={({ pressed }) => [styles.noMovesPopupClose, pressed && styles.pressed]}><Text style={styles.noMovesPopupCloseText}>×</Text></Pressable>
+              <Text style={styles.hammerOfferTitle}>자석으로 정렬할 카드가 없습니다</Text>
+              <Text style={styles.hammerOfferCopy}>망치로 웨이스트 또는 열의 맨 위 앞면 카드 1장을 파괴해 길을 열 수 있습니다.</Text>
+              <View style={styles.noMovesPopupActions}>
+                <Pressable accessibilityRole="button" accessibilityLabel="망치 사용" onPress={beginHammerMode} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>망치 사용</Text></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel="새로 시작" onPress={() => { setShowHammerOffer(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>새로 시작</Text></Pressable>
+              </View>
+            </View>
           </View>
         </Modal>
 
@@ -1809,6 +1878,8 @@ const styles = StyleSheet.create({
   hintToast: { position: "absolute", left: 16, right: 16, bottom: 56, zIndex: 20, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 13, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   hintToastLandscape: { bottom: 60 },
   hintToastText: { color: "#BCEAE2", fontSize: 12, fontWeight: "700", textAlign: "center" },
+  hammerModeHint: { position: "absolute", left: 18, right: 18, top: "44%", zIndex: 62, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 13, backgroundColor: "rgba(90, 41, 26, 0.96)", borderWidth: 2, borderColor: "#F3A85D", shadowColor: "#FFB86B", shadowOpacity: 0.75, shadowRadius: 11, elevation: 16 },
+  hammerModeHintText: { color: "#FFF3D1", fontSize: 12, fontWeight: "900", textAlign: "center" },
   flyingTrail: { position: "absolute", height: 4, borderRadius: 2, zIndex: 29, shadowOpacity: 0.85, shadowRadius: 8, elevation: 8 },
   flyingCard: { position: "absolute", left: 16, bottom: 44, zIndex: 30, overflow: "hidden", borderRadius: 8, backgroundColor: "#FFFDF8", borderWidth: 2, borderColor: "#FF7A66", shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 9, elevation: 12 },
   flyingRank: { position: "absolute", top: 6, left: 7, fontSize: 16, fontWeight: "900" },
@@ -1844,6 +1915,10 @@ const styles = StyleSheet.create({
   noMovesPopupPrimaryText: { color: "#17233C", fontSize: 13, fontWeight: "900" },
   noMovesPopupSecondary: { minWidth: 94, paddingHorizontal: 12, paddingVertical: 11, borderRadius: 13, borderWidth: 1, borderColor: "#64799D", alignItems: "center" },
   noMovesPopupSecondaryText: { color: "#E5ECF8", fontSize: 13, fontWeight: "800" },
+  hammerOfferCard: { width: "92%", maxWidth: 330, padding: 20, paddingTop: 27, borderRadius: 22, borderWidth: 2, borderColor: "#F3A85D", backgroundColor: "#36211F", shadowColor: "#000000", shadowOpacity: 0.48, shadowRadius: 20, elevation: 20 },
+  hammerOfferTitle: { color: "#FFF3D1", fontSize: 18, lineHeight: 24, fontWeight: "900", textAlign: "center" },
+  hammerOfferCopy: { color: "#FFD6A4", fontSize: 13, lineHeight: 20, fontWeight: "700", textAlign: "center", marginTop: 10 },
+  hammerOfferPrimary: { minWidth: 112, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 13, backgroundColor: "#F3A85D", alignItems: "center" },
   magnetRewardCard: { width: "84%", maxWidth: 310, alignItems: "center", padding: 22, borderRadius: 26, borderWidth: 2, borderColor: "#BCEFFF", backgroundColor: "#1B3556", shadowColor: "#72E6FF", shadowOpacity: 0.9, shadowRadius: 20, elevation: 22 },
   magnetRewardBurst: { position: "absolute", width: 170, height: 170, borderRadius: 85, borderWidth: 2, borderColor: "rgba(160, 239, 255, 0.55)", shadowColor: "#67E6FF", shadowOpacity: 1, shadowRadius: 18 },
   magnetRewardIcon: { color: "#E7FCFF", fontSize: 54, lineHeight: 62, textShadowColor: "#54DDFB", textShadowRadius: 14 },

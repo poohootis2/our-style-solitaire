@@ -15,10 +15,12 @@ export type GameState = {
   waste: Card[];
   foundations: FoundationMap;
   tableau: Card[][];
+  destroyedCards?: Card[];
   score: number;
   moves: number;
   level: number;
   recycles: number;
+  hammerUses?: number;
 };
 
 export type CardSource =
@@ -128,10 +130,12 @@ function cloneGame(game: GameState): GameState {
       spades: [...game.foundations.spades],
     },
     tableau: game.tableau.map((pile) => [...pile]),
+    destroyedCards: [...(game.destroyedCards ?? [])],
     score: game.score,
     moves: game.moves,
     level: game.level ?? 1,
     recycles: game.recycles ?? 0,
+    hammerUses: game.hammerUses ?? 0,
   };
 }
 
@@ -165,10 +169,12 @@ export function createNewGame(level = 1): GameState {
     waste: [],
     foundations: emptyFoundations(),
     tableau,
+    destroyedCards: [],
     score: 0,
     moves: 0,
     level,
     recycles: 0,
+    hammerUses: 0,
   };
 }
 
@@ -181,10 +187,14 @@ export function canPlaceOnTableau(card: Card, destination: Card | undefined): bo
   return destination.faceUp && isRed(card) !== isRed(destination) && card.rank === destination.rank - 1;
 }
 
-export function canPlaceOnFoundation(card: Card, foundation: Card[]): boolean {
+export function canPlaceOnFoundation(card: Card, foundation: Card[], destroyedCards: Card[] = []): boolean {
   const topCard = foundation.at(-1);
-  if (!topCard) return card.rank === 1;
-  return topCard.suit === card.suit && card.rank === topCard.rank + 1;
+  if (topCard && topCard.suit !== card.suit) return false;
+  let expectedRank = (topCard?.rank ?? 0) + 1;
+  while (destroyedCards.some((destroyed) => destroyed.suit === card.suit && destroyed.rank === expectedRank)) {
+    expectedRank += 1;
+  }
+  return expectedRank <= 13 && card.rank === expectedRank;
 }
 
 export function shuffleAvailableCards(game: GameState): GameState | null {
@@ -194,6 +204,34 @@ export function shuffleAvailableCards(game: GameState): GameState | null {
   next.stock = shuffle(available).map((card) => ({ ...card, faceUp: false }));
   next.waste = [];
   return withMove(next);
+}
+
+/**
+ * Destroys one exposed waste card or the exposed top card of a tableau column.
+ * The destroyed rank is treated as cleared by the foundation order so a hammer
+ * never makes the stage impossible to finish.
+ */
+export function destroyCardWithHammer(game: GameState, source: CardSource): GameState | null {
+  if (source.kind === "foundation") return null;
+  const next = cloneGame(game);
+  let destroyed: Card | undefined;
+
+  if (source.kind === "waste") {
+    destroyed = next.waste.pop();
+  } else {
+    const pile = next.tableau[source.column];
+    if (source.index !== pile.length - 1) return null;
+    const topCard = pile.at(-1);
+    if (!topCard?.faceUp) return null;
+    destroyed = pile.pop();
+    const newlyExposed = pile.at(-1);
+    if (newlyExposed && !newlyExposed.faceUp) newlyExposed.faceUp = true;
+  }
+
+  if (!destroyed) return null;
+  next.destroyedCards = [...(next.destroyedCards ?? []), { ...destroyed, faceUp: true }];
+  next.hammerUses = (next.hammerUses ?? 0) + 1;
+  return withMove(next, 12);
 }
 
 export function drawFromStock(game: GameState): GameState {
@@ -274,7 +312,7 @@ function cardFromSource(game: GameState, source: CardSource): Card | undefined {
 
 export function moveToFoundation(game: GameState, source: CardSource): GameState | null {
   const card = cardFromSource(game, source);
-  if (!card || !canPlaceOnFoundation(card, game.foundations[card.suit])) return null;
+  if (!card || !canPlaceOnFoundation(card, game.foundations[card.suit], game.destroyedCards)) return null;
 
   const next = cloneGame(game);
   if (source.kind === "waste") next.waste.pop();
@@ -352,13 +390,13 @@ export type AutoFoundationMove = { source: CardSource; card: Card };
 /** Returns the next legal top-card move to a foundation, if one exists. */
 export function findAutoFoundationMove(game: GameState): AutoFoundationMove | null {
   const wasteCard = game.waste.at(-1);
-  if (wasteCard && canPlaceOnFoundation(wasteCard, game.foundations[wasteCard.suit])) {
+  if (wasteCard && canPlaceOnFoundation(wasteCard, game.foundations[wasteCard.suit], game.destroyedCards)) {
     return { source: { kind: "waste" }, card: wasteCard };
   }
   for (let column = 0; column < game.tableau.length; column += 1) {
     const pile = game.tableau[column];
     const card = pile.at(-1);
-    if (card && card.faceUp && canPlaceOnFoundation(card, game.foundations[card.suit])) {
+    if (card && card.faceUp && canPlaceOnFoundation(card, game.foundations[card.suit], game.destroyedCards)) {
       return { source: { kind: "tableau", column, index: pile.length - 1 }, card };
     }
   }
@@ -375,7 +413,7 @@ export function isLateGameAutoFinishReady(game: GameState): boolean {
 
 export function findHint(game: GameState): Hint | null {
   const wasteCard = game.waste.at(-1);
-  if (wasteCard && canPlaceOnFoundation(wasteCard, game.foundations[wasteCard.suit])) {
+  if (wasteCard && canPlaceOnFoundation(wasteCard, game.foundations[wasteCard.suit], game.destroyedCards)) {
     return { action: "foundation", message: `${rankLabels[wasteCard.rank]}${suitSymbols[wasteCard.suit]}를 파운데이션으로 옮기세요.`, source: { kind: "waste" } };
   }
 
@@ -384,7 +422,7 @@ export function findHint(game: GameState): Hint | null {
     const top = pile.at(-1);
     if (!top) continue;
     if (!top.faceUp) return { action: "flip", message: `${column + 1}번째 열의 카드를 뒤집으세요.`, source: { kind: "tableau", column, index: pile.length - 1 } };
-    if (canPlaceOnFoundation(top, game.foundations[top.suit])) {
+    if (canPlaceOnFoundation(top, game.foundations[top.suit], game.destroyedCards)) {
       return { action: "foundation", message: `${rankLabels[top.rank]}${suitSymbols[top.suit]}를 파운데이션으로 옮기세요.`, source: { kind: "tableau", column, index: pile.length - 1 } };
     }
   }
@@ -416,5 +454,6 @@ export function findHint(game: GameState): Hint | null {
 }
 
 export function isWon(game: GameState): boolean {
-  return SUITS.every((suit) => game.foundations[suit].length === 13);
+  const completedCards = SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0);
+  return completedCards === 52;
 }
