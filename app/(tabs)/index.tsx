@@ -60,6 +60,7 @@ const BACKGROUND_MUSIC_VOLUME_KEY = "our-style-solitaire:background-music-volume
 const CARD_SELECT_VIBRATION_KEY = "our-style-solitaire:card-select-vibration";
 const SELECTED_COMPANION_KEY = "our-style-solitaire:selected-companion";
 const UNLOCKED_PETS_KEY = "our-style-solitaire:unlocked-pets";
+const MAGNET_CHARGES_KEY = "our-style-solitaire:magnet-charges";
 const INITIAL_UNLOCKED_PET_IDS = ["cloud-tiger", "gumiho-tail", "mochi-rabbit"];
 const PHYSICAL_EDGE_INSET = 52;
 const MAX_UNDO_STEPS = 3;
@@ -174,6 +175,7 @@ function CardFace({
   onDragEnd,
   chapter = 1,
   isBoss = false,
+  magnetHighlighted = false,
 }: {
   card: Card;
   width: number;
@@ -184,6 +186,7 @@ function CardFace({
   onDragEnd?: (dx: number, dy: number) => void;
   chapter?: number;
   isBoss?: boolean;
+  magnetHighlighted?: boolean;
 }) {
   const height = width * cardRatio;
   const color = playingCardColor(card);
@@ -195,6 +198,7 @@ function CardFace({
   const isRoyal = card.rank >= 11;
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bossShine = useRef(new Animated.Value(-1)).current;
+  const magnetShine = useRef(new Animated.Value(0)).current;
   const dragEndRef = useRef(onDragEnd);
   dragEndRef.current = onDragEnd;
   const panResponder = useRef(PanResponder.create({
@@ -215,6 +219,20 @@ function CardFace({
     shineLoop.start();
     return () => shineLoop.stop();
   }, [bossShine, isBoss]);
+
+  useEffect(() => {
+    if (!magnetHighlighted) {
+      magnetShine.setValue(0);
+      return;
+    }
+    const shimmer = Animated.sequence([
+      Animated.timing(magnetShine, { toValue: 1, duration: 150, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(magnetShine, { toValue: 0.25, duration: 340, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      Animated.timing(magnetShine, { toValue: 0, duration: 260, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+    ]);
+    shimmer.start();
+    return () => shimmer.stop();
+  }, [magnetHighlighted, magnetShine]);
 
   const shineTranslateX = bossShine.interpolate({ inputRange: [-1, 1], outputRange: [-width * 1.4, width * 1.4] });
 
@@ -246,6 +264,7 @@ function CardFace({
         { width, height, borderColor: selected ? "#FF7A66" : "#F1EEE6" },
         selected && styles.cardSelected,
         isBoss && styles.cardBoss,
+        magnetHighlighted && styles.cardMagnetHighlighted,
         pressed && styles.pressed,
       ]}
     >
@@ -257,6 +276,7 @@ function CardFace({
         <Text style={[styles.suitBottom, { color, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
       </View>
       {isBoss ? <Animated.View pointerEvents="none" style={[styles.bossCardShine, { opacity: 0.9, transform: [{ translateX: shineTranslateX }, { rotate: "18deg" }] }]} /> : null}
+      {magnetHighlighted ? <Animated.View pointerEvents="none" style={[styles.magnetCardSparkle, { opacity: magnetShine, transform: [{ scale: magnetShine.interpolate({ inputRange: [0, 1], outputRange: [0.78, 1.16] }) }] }]}><Text style={styles.magnetCardSparkleText}>✦</Text></Animated.View> : null}
     </Pressable>
   );
 }
@@ -564,6 +584,11 @@ export default function HomeScreen() {
   const [rewardedRevealUsed, setRewardedRevealUsed] = useState(0);
   const [rewardedAdError, setRewardedAdError] = useState<string | null>(null);
   const [rewardedRetrySlot, setRewardedRetrySlot] = useState<1 | 2>(1);
+  const [rewardedRetryKind, setRewardedRetryKind] = useState<"shuffle" | "magnet">("shuffle");
+  const [magnetCharges, setMagnetCharges] = useState(0);
+  const [showMagnetReward, setShowMagnetReward] = useState(false);
+  const [magnetRewardReady, setMagnetRewardReady] = useState(false);
+  const [magnetHighlightedCardId, setMagnetHighlightedCardId] = useState<string | null>(null);
   const [showBossWarning, setShowBossWarning] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
@@ -587,6 +612,9 @@ export default function HomeScreen() {
   const hintRepeatCountRef = useRef(0);
   const autoFinishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoFinishRunningRef = useRef(false);
+  const magnetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const magnetRunningRef = useRef(false);
+  const magnetRewardScale = useRef(new Animated.Value(0.75)).current;
   const selectPlayer = useAudioPlayer(require("../../assets/sounds/card-select.wav"));
   const movePlayer = useAudioPlayer(require("../../assets/sounds/card-move.wav"));
   const shufflePlayer = useAudioPlayer(require("../../assets/sounds/card-shuffle.wav"));
@@ -659,14 +687,30 @@ export default function HomeScreen() {
   useEffect(() => () => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     if (autoFinishTimerRef.current) clearTimeout(autoFinishTimerRef.current);
+    if (magnetTimerRef.current) clearTimeout(magnetTimerRef.current);
     autoFinishRunningRef.current = false;
+    magnetRunningRef.current = false;
   }, []);
+
+  useEffect(() => {
+    if (!showMagnetReward) {
+      magnetRewardScale.setValue(0.75);
+      setMagnetRewardReady(false);
+      return;
+    }
+    const entrance = Animated.sequence([
+      Animated.timing(magnetRewardScale, { toValue: 1.12, duration: 260, easing: Easing.out(Easing.back(1.4)), useNativeDriver: true }),
+      Animated.timing(magnetRewardScale, { toValue: 1, duration: 180, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+    ]);
+    entrance.start(({ finished }) => { if (finished) setMagnetRewardReady(true); });
+    return () => entrance.stop();
+  }, [magnetRewardScale, showMagnetReward]);
 
   useEffect(() => {
     let mounted = true;
     const loadLocalGame = async () => {
       try {
-        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, cardSelectVibrationValue, selectedCompanionValue, unlockedPetsValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, CARD_SELECT_VIBRATION_KEY, SELECTED_COMPANION_KEY, UNLOCKED_PETS_KEY]);
+        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, cardSelectVibrationValue, selectedCompanionValue, unlockedPetsValue, magnetChargesValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, CARD_SELECT_VIBRATION_KEY, SELECTED_COMPANION_KEY, UNLOCKED_PETS_KEY, MAGNET_CHARGES_KEY]);
         if (!mounted) return;
         if (activeGameValue[1] && !newGameStarted.current) {
           const saved = JSON.parse(activeGameValue[1]) as { saveVersion?: number; game?: typeof game; elapsedSeconds?: number };
@@ -690,6 +734,7 @@ export default function HomeScreen() {
           const savedUnlocked = JSON.parse(unlockedPetsValue[1]);
           if (Array.isArray(savedUnlocked)) setUnlockedPetIds(Array.from(new Set([...INITIAL_UNLOCKED_PET_IDS, ...savedUnlocked.filter((id): id is string => typeof id === "string")])));
         }
+        if (magnetChargesValue[1]) setMagnetCharges(Math.max(0, Math.min(9, Math.floor(Number(magnetChargesValue[1])) || 0)));
       } catch {
         // A fresh local game is retained when storage is unavailable or malformed.
       } finally {
@@ -754,6 +799,11 @@ export default function HomeScreen() {
     if (!hydrated) return;
     AsyncStorage.setItem(UNLOCKED_PETS_KEY, JSON.stringify(unlockedPetIds)).catch(() => undefined);
   }, [hydrated, unlockedPetIds]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    AsyncStorage.setItem(MAGNET_CHARGES_KEY, String(magnetCharges)).catch(() => undefined);
+  }, [hydrated, magnetCharges]);
 
   useEffect(() => {
     for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer]) {
@@ -839,6 +889,10 @@ export default function HomeScreen() {
     lastHintKeyRef.current = null;
     hintRepeatCountRef.current = 0;
     if (manualReset) {
+      setMagnetCharges(0);
+      setShowMagnetReward(false);
+      setMagnetRewardReady(false);
+      setMagnetHighlightedCardId(null);
       setUnlockedPetIds(INITIAL_UNLOCKED_PET_IDS);
       AsyncStorage.setItem(UNLOCKED_PETS_KEY, JSON.stringify(INITIAL_UNLOCKED_PET_IDS)).catch(() => undefined);
     }
@@ -1013,7 +1067,10 @@ export default function HomeScreen() {
     if (nextProgress > previousProgress || nextGame.stock.length !== game.stock.length || nextGame.waste.length !== game.waste.length) stagnantMovesRef.current = 0;
     else stagnantMovesRef.current += 1;
     const noMovesLeft = findHint(nextGame) === null;
-    if (suppressNextShufflePromptRef.current) {
+    if (magnetRunningRef.current) {
+      setShowTwoTouch(false);
+      setShowNoMovesPopup(false);
+    } else if (suppressNextShufflePromptRef.current) {
       suppressNextShufflePromptRef.current = false;
       setShowTwoTouch(false);
       setShowNoMovesPopup(false);
@@ -1079,6 +1136,7 @@ export default function HomeScreen() {
     showTimedHint("보상형 광고를 불러오는 중입니다.");
     const completed = await showRewardedAd();
     if (!completed) {
+      setRewardedRetryKind("shuffle");
       setRewardedAdError("광고가 준비되지 않았거나 끝까지 시청되지 않았습니다. 다시 시도해 주세요.");
       return;
     }
@@ -1093,6 +1151,65 @@ export default function HomeScreen() {
     suppressNextShufflePromptRef.current = true;
     applyGame(shuffledGame, false, undefined);
     showTimedHint(`광고 보상 셔플을 사용했습니다. (${nextRewardedCount}/2)`);
+  };
+
+  const claimMagnetFromAd = async () => {
+    if (magnetCharges > 0) return;
+    setRewardedAdError(null);
+    showTimedHint("보상형 광고를 불러오는 중입니다.");
+    const completed = await showRewardedAd();
+    if (!completed) {
+      setRewardedRetrySlot(1);
+      setRewardedRetryKind("magnet");
+      setRewardedAdError("광고가 준비되지 않았거나 끝까지 시청되지 않았습니다. 다시 시도해 주세요.");
+      return;
+    }
+    setMagnetCharges(1);
+    setShowMagnetReward(true);
+    setMagnetRewardReady(false);
+    haptic.success();
+  };
+
+  const activateMagnet = () => {
+    if (magnetCharges <= 0) {
+      void claimMagnetFromAd();
+      return;
+    }
+    if (magnetRunningRef.current) return;
+    if (!findAutoFoundationMove(game)) {
+      showTimedHint("자석으로 옮길 수 있는 카드가 아직 없습니다.");
+      haptic.error();
+      return;
+    }
+    setMagnetCharges((charges) => Math.max(0, charges - 1));
+    setShowNoMovesPopup(false);
+    setShowTwoTouch(false);
+    magnetRunningRef.current = true;
+    let cursor = game;
+    let movedCount = 0;
+    const step = () => {
+      const move = findAutoFoundationMove(cursor);
+      if (!move || movedCount >= 6) {
+        magnetRunningRef.current = false;
+        magnetTimerRef.current = null;
+        setTimeout(() => setMagnetHighlightedCardId(null), 520);
+        showTimedHint(movedCount ? `자석이 ${movedCount}장의 카드를 정리했습니다.` : "자석으로 이동할 카드가 없습니다.");
+        return;
+      }
+      const next = moveToFoundation(cursor, move.source);
+      if (!next) {
+        magnetRunningRef.current = false;
+        magnetTimerRef.current = null;
+        setMagnetHighlightedCardId(null);
+        return;
+      }
+      cursor = next;
+      movedCount += 1;
+      setMagnetHighlightedCardId(move.card.id);
+      applyGame(next, false, move.card);
+      magnetTimerRef.current = setTimeout(step, 360);
+    };
+    step();
   };
 
   const selectCard = (nextSelection: Selection) => {
@@ -1306,6 +1423,9 @@ export default function HomeScreen() {
             <Pressable accessibilityRole="button" accessibilityLabel="가능한 카드 자동 정리" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, compactControls && styles.autoButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="auto" size={19} />
             </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={magnetCharges > 0 ? `자석 자동 정렬 ${magnetCharges}회 남음` : "광고 시청 후 자석 받기"} onPress={activateMagnet} style={({ pressed }) => [styles.magnetButton, magnetCharges > 0 && styles.magnetButtonReady, compactControls && styles.iconButtonCompact, pressed && styles.pressed]}>
+              <Text style={styles.magnetButtonText}>{magnetCharges > 0 ? `자석 ${magnetCharges}` : "AD 자석"}</Text>
+            </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="새 게임" onPress={requestNewGame} style={({ pressed }) => [styles.newButton, compactControls && styles.newButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="new" size={23} />
             </Pressable>
@@ -1342,7 +1462,7 @@ export default function HomeScreen() {
               <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label={game.waste.length ? "↻" : ""} onPress={() => applyGame(drawFromStock(game))} />
             )}
             {game.waste.at(-1) ? (
-              <CardFace card={game.waste.at(-1)!} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.kind === "waste"} onPress={onWastePress} onDoublePress={() => autoMoveToFoundation({ kind: "waste" })} />
+              <CardFace card={game.waste.at(-1)!} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} magnetHighlighted={magnetHighlightedCardId === game.waste.at(-1)?.id} selected={selection?.kind === "waste"} onPress={onWastePress} onDoublePress={() => autoMoveToFoundation({ kind: "waste" })} />
             ) : (
               <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label="" />
             )}
@@ -1351,7 +1471,7 @@ export default function HomeScreen() {
             {SUITS.map((suit) => {
               const card = game.foundations[suit].at(-1);
               return card ? (
-                <CardFace key={suit} card={card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.kind === "foundation" && selection.suit === suit} onPress={() => onFoundationPress(suit)} onDragEnd={(dx, dy) => dragMoveCard({ kind: "foundation", suit }, dx, dy)} />
+                <CardFace key={suit} card={card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} magnetHighlighted={magnetHighlightedCardId === card.id} selected={selection?.kind === "foundation" && selection.suit === suit} onPress={() => onFoundationPress(suit)} onDragEnd={(dx, dy) => dragMoveCard({ kind: "foundation", suit }, dx, dy)} />
               ) : (
                 <EmptySlot key={suit} width={cardWidth} cardRatio={renderCardRatio} label={suitSymbols[suit]} onPress={() => onFoundationPress(suit)} />
               );
@@ -1366,7 +1486,7 @@ export default function HomeScreen() {
               {pile.map((card, index) => (
                 <View ref={index === pile.length - 1 ? (node) => { tableauBottomCardRefs.current[column] = node; } : undefined} key={card.id} style={{ position: "absolute", top: index * stackOffset, left: 0, zIndex: index }}>
                   {card.faceUp ? (
-                    <CardFace card={card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => autoMoveToFoundation({ kind: "tableau", column, index })} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
+                    <CardFace card={card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} magnetHighlighted={magnetHighlightedCardId === card.id} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => autoMoveToFoundation({ kind: "tableau", column, index })} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
                   ) : (
                     <CardBack width={cardWidth} cardRatio={renderCardRatio} theme={cardBackTheme} onPress={() => onTableauPress(column, index, card)} />
                   )}
@@ -1392,6 +1512,18 @@ export default function HomeScreen() {
         </View>
         {hintMessage ? <View style={[styles.hintToast, isLandscape && styles.hintToastLandscape, phoneLandscape && { left: 8, right: undefined, width: Math.max(160, sideRailWidth - 16), bottom: 160 }]}><Text style={styles.hintToastText}>{hintMessage}</Text></View> : null}
 
+        <Modal transparent visible={showMagnetReward} animationType="fade" onRequestClose={() => setShowMagnetReward(false)}>
+          <View style={styles.modalBackdropCenter}>
+            <Animated.View style={[styles.magnetRewardCard, { transform: [{ scale: magnetRewardScale }] }]}>
+              <View pointerEvents="none" style={styles.magnetRewardBurst} />
+              <Text style={styles.magnetRewardIcon}>✦</Text>
+              <Text style={styles.magnetRewardTitle}>자석 아이템 획득!</Text>
+              <Text style={styles.magnetRewardCopy}>광고 시청 완료 보상으로 자석 1회를 받았습니다.</Text>
+              {magnetRewardReady ? <Pressable accessibilityRole="button" accessibilityLabel="자석 획득 확인" onPress={() => setShowMagnetReward(false)} style={({ pressed }) => [styles.magnetRewardButton, pressed && styles.pressed]}><Text style={styles.magnetRewardButtonText}>자석 사용하기</Text></Pressable> : null}
+            </Animated.View>
+          </View>
+        </Modal>
+
         <Modal transparent visible={showNoMovesPopup} animationType="fade" onRequestClose={() => setShowNoMovesPopup(false)}>
           <View style={styles.modalBackdropCenter}>
             <View style={styles.noMovesPopupCard}>
@@ -1412,7 +1544,7 @@ export default function HomeScreen() {
               <Text style={styles.rewardedErrorTitle}>광고를 불러오지 못했어요</Text>
               <Text style={styles.rewardedErrorCopy}>{rewardedAdError}</Text>
               <View style={styles.rewardedErrorActions}>
-                <Pressable accessibilityRole="button" accessibilityLabel="보상형 광고 다시 시도" onPress={() => { setRewardedAdError(null); void useShuffleBonus(rewardedRetrySlot); }} style={({ pressed }) => [styles.rewardedRetryButton, pressed && styles.pressed]}><Text style={styles.rewardedRetryText}>다시 시도</Text></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel="보상형 광고 다시 시도" onPress={() => { setRewardedAdError(null); if (rewardedRetryKind === "magnet") void claimMagnetFromAd(); else void useShuffleBonus(rewardedRetrySlot); }} style={({ pressed }) => [styles.rewardedRetryButton, pressed && styles.pressed]}><Text style={styles.rewardedRetryText}>다시 시도</Text></Pressable>
                 <Pressable accessibilityRole="button" accessibilityLabel="광고 안내 닫기" onPress={() => setRewardedAdError(null)} style={({ pressed }) => [styles.rewardedCloseButton, pressed && styles.pressed]}><Text style={styles.rewardedCloseText}>닫기</Text></Pressable>
               </View>
             </View>
@@ -1547,6 +1679,9 @@ const styles = StyleSheet.create({
   autoButton: { minHeight: 34, justifyContent: "center", paddingHorizontal: 11, borderRadius: 17, backgroundColor: "#233958", borderWidth: 1, borderColor: "#3D5A85" },
   autoButtonText: { color: "#77D6C3", fontSize: 10, fontWeight: "900", letterSpacing: 0.9 },
   autoButtonCompact: { paddingHorizontal: 7, minHeight: 30 },
+  magnetButton: { minWidth: 34, height: 34, paddingHorizontal: 8, alignItems: "center", justifyContent: "center", borderRadius: 17, backgroundColor: "#395479", borderWidth: 1, borderColor: "#A5E6FC" },
+  magnetButtonReady: { backgroundColor: "#76BCE4", borderColor: "#E3FBFF", shadowColor: "#BCEFFF", shadowOpacity: 0.85, shadowRadius: 7, elevation: 7 },
+  magnetButtonText: { color: "#F5FDFF", fontSize: 10, fontWeight: "900", letterSpacing: 0.2 },
   newButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 18, backgroundColor: "#FF7A66" },
   newButtonText: { color: "#11182C", fontSize: 22, lineHeight: 24, fontWeight: "600" },
   newButtonCompact: { width: 30, height: 30, borderRadius: 15 },
@@ -1631,6 +1766,9 @@ const styles = StyleSheet.create({
   card: { position: "relative", overflow: "hidden", borderRadius: 7, borderWidth: 1, backgroundColor: "#FFFDF8", shadowColor: "#050912", shadowOpacity: 0.3, shadowRadius: 3, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
   cardSelected: { transform: [{ translateY: -7 }], borderWidth: 2.5, shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 8, elevation: 8 },
   cardBoss: { backgroundColor: "#D5A73A", borderColor: "#FFE39A", shadowColor: "#F3C969", shadowOpacity: 0.55, shadowRadius: 6 },
+  cardMagnetHighlighted: { borderWidth: 2.5, borderColor: "#BCEFFF", shadowColor: "#5FE2FF", shadowOpacity: 1, shadowRadius: 11, elevation: 12 },
+  magnetCardSparkle: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(151, 239, 255, 0.22)", borderRadius: 7 },
+  magnetCardSparkleText: { color: "#FFFFFF", fontSize: 34, fontWeight: "900", textShadowColor: "#50DFFF", textShadowRadius: 10 },
   rankTop: { position: "absolute", fontSize: 14, lineHeight: 15, fontWeight: "900" },
   suitTop: { position: "absolute", fontSize: 12, lineHeight: 13, fontWeight: "900" },
   suitCenter: { position: "absolute", top: "31%", width: "100%", textAlign: "center", fontSize: 28, fontWeight: "900" },
@@ -1695,6 +1833,13 @@ const styles = StyleSheet.create({
   noMovesPopupPrimaryText: { color: "#17233C", fontSize: 13, fontWeight: "900" },
   noMovesPopupSecondary: { minWidth: 94, paddingHorizontal: 12, paddingVertical: 11, borderRadius: 13, borderWidth: 1, borderColor: "#64799D", alignItems: "center" },
   noMovesPopupSecondaryText: { color: "#E5ECF8", fontSize: 13, fontWeight: "800" },
+  magnetRewardCard: { width: "84%", maxWidth: 310, alignItems: "center", padding: 22, borderRadius: 26, borderWidth: 2, borderColor: "#BCEFFF", backgroundColor: "#1B3556", shadowColor: "#72E6FF", shadowOpacity: 0.9, shadowRadius: 20, elevation: 22 },
+  magnetRewardBurst: { position: "absolute", width: 170, height: 170, borderRadius: 85, borderWidth: 2, borderColor: "rgba(160, 239, 255, 0.55)", shadowColor: "#67E6FF", shadowOpacity: 1, shadowRadius: 18 },
+  magnetRewardIcon: { color: "#E7FCFF", fontSize: 54, lineHeight: 62, textShadowColor: "#54DDFB", textShadowRadius: 14 },
+  magnetRewardTitle: { color: "#FFFDF8", fontSize: 20, fontWeight: "900", marginTop: 10, textAlign: "center" },
+  magnetRewardCopy: { color: "#BCEFFF", fontSize: 13, lineHeight: 19, fontWeight: "800", marginTop: 7, textAlign: "center" },
+  magnetRewardButton: { marginTop: 18, minWidth: 152, paddingHorizontal: 14, paddingVertical: 11, alignItems: "center", borderRadius: 14, backgroundColor: "#8DDAF4", borderWidth: 1, borderColor: "#E7FCFF" },
+  magnetRewardButtonText: { color: "#10213C", fontSize: 13, fontWeight: "900" },
   rewardedTooltip: { alignSelf: "center", marginTop: 12, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: "#FFF3D1", borderWidth: 1, borderColor: "#F3C969" },
   rewardedTooltipText: { color: "#17233C", fontSize: 12, fontWeight: "900", textAlign: "center" },
   shuffleHelpEyebrow: { color: "#77D6C3", fontSize: 10, fontWeight: "900", letterSpacing: 1.4, textAlign: "center" },
