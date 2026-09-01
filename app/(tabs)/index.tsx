@@ -1012,9 +1012,9 @@ export default function HomeScreen() {
     if (nextProgress > previousProgress || nextGame.stock.length !== game.stock.length || nextGame.waste.length !== game.waste.length) stagnantMovesRef.current = 0;
     else stagnantMovesRef.current += 1;
     const noMovesLeft = findHint(nextGame) === null;
-    if (noMovesLeft || stagnantMovesRef.current >= 2) {
+    if ((noMovesLeft || stagnantMovesRef.current >= 2) && !isWon(nextGame)) {
       setShowTwoTouch(true);
-      if (noMovesLeft && !isWon(nextGame)) setShowNoMovesPopup(true);
+      setShowNoMovesPopup(true);
     }
     lastHintKeyRef.current = null;
     hintRepeatCountRef.current = 0;
