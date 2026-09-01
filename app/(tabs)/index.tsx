@@ -49,6 +49,7 @@ type Records = { wins: number; bestScore: number; bestTimeSeconds: number | null
 
 const CARD_RATIO = 1.42;
 const ROYAL_SPRITE = require("../../assets/images/royal-card-sprite.png");
+const SHUFFLE_EFFECT = require("../../assets/images/shuffle-burst.png");
 const ACTIVE_GAME_KEY = "our-style-solitaire:active-game";
 const ACTIVE_GAME_SAVE_VERSION = 3;
 const RECORDS_KEY = "our-style-solitaire:records";
@@ -117,7 +118,7 @@ function MedievalBackdrop({ source }: { source: number }) {
   );
 }
 
-function CompanionAnchor({ companion, size, left, bottom, horizontalShift, onPress }: { companion: BattleAsset; size: number; left: number; bottom: number; horizontalShift: Animated.Value; onPress: () => void }) {
+function CompanionAnchor({ companion, size, left, bottom, horizontalShift, onPress, showShuffleEffect = false }: { companion: BattleAsset; size: number; left: number; bottom: number; horizontalShift: Animated.Value; onPress: () => void; showShuffleEffect?: boolean }) {
   const drift = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const animation = Animated.loop(Animated.sequence([
@@ -131,7 +132,10 @@ function CompanionAnchor({ companion, size, left, bottom, horizontalShift, onPre
   const translateX = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [-5, 0, 5] });
   const translateY = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] });
   const rotate = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-2deg", "0deg", "2deg"] });
-  return <Animated.View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom, transform: [{ translateX: horizontalShift }] }]}>
+  const effectRotate = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-12deg", "0deg", "12deg"] });
+  const effectSize = size * 1.42;
+  return <Animated.View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom, transform: [{ translateX: horizontalShift }] }]}> 
+    {showShuffleEffect ? <Animated.View pointerEvents="none" style={[styles.shuffleBurstFrame, { width: effectSize, height: effectSize, left: (size - effectSize) / 2, top: (size - effectSize) / 2, transform: [{ rotate: effectRotate }] }]}><Image source={SHUFFLE_EFFECT} resizeMode="contain" style={styles.shuffleBurstImage} /></Animated.View> : null}
     <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 셔플 도움 보기`} onPress={onPress} style={({ pressed }) => [styles.companionPressTarget, pressed && styles.companionPressed]}>
       <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX }, { translateY }, { rotate }] }]}>
         <Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} />
@@ -561,6 +565,7 @@ export default function HomeScreen() {
   const [rewardedRetrySlot, setRewardedRetrySlot] = useState<1 | 2>(1);
   const [showShuffleHelp, setShowShuffleHelp] = useState(false);
   const [showRewardedShuffle, setShowRewardedShuffle] = useState(false);
+  const [showRewardedTooltip, setShowRewardedTooltip] = useState(false);
   const [showBossWarning, setShowBossWarning] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
@@ -579,6 +584,8 @@ export default function HomeScreen() {
   const screenShake = useRef(new Animated.Value(0)).current;
   const bossWarningStageRef = useRef<number | null>(null);
   const stagnantMovesRef = useRef(0);
+  const lastHintKeyRef = useRef<string | null>(null);
+  const hintRepeatCountRef = useRef(0);
   const autoFinishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoFinishRunningRef = useRef(false);
   const selectPlayer = useAudioPlayer(require("../../assets/sounds/card-select.wav"));
@@ -830,6 +837,8 @@ export default function HomeScreen() {
     setTwoTouchOpensUsed(0);
     setRewardedRevealUsed(0);
     stagnantMovesRef.current = 0;
+    lastHintKeyRef.current = null;
+    hintRepeatCountRef.current = 0;
     if (manualReset) {
       setUnlockedPetIds(INITIAL_UNLOCKED_PET_IDS);
       AsyncStorage.setItem(UNLOCKED_PETS_KEY, JSON.stringify(INITIAL_UNLOCKED_PET_IDS)).catch(() => undefined);
@@ -923,7 +932,15 @@ export default function HomeScreen() {
       haptic.error();
       return;
     }
-    showTimedHint(hint.message);
+    const hintKey = JSON.stringify({ action: hint.action, source: hint.source, targetColumn: hint.targetColumn });
+    hintRepeatCountRef.current = lastHintKeyRef.current === hintKey ? hintRepeatCountRef.current + 1 : 1;
+    lastHintKeyRef.current = hintKey;
+    if (hintRepeatCountRef.current >= 2) {
+      setShowTwoTouch(true);
+      showTimedHint("같은 이동이 반복되고 있습니다. 셔플 기능을 사용해 보세요.");
+    } else {
+      showTimedHint(hint.message);
+    }
     if (hint.source && hint.action !== "flip") {
       const card = cardFromSource(hint.source);
       if (card) setSelection({ ...hint.source, cardId: card.id });
@@ -993,7 +1010,9 @@ export default function HomeScreen() {
     const nextProgress = nextGame.foundations.clubs.length + nextGame.foundations.diamonds.length + nextGame.foundations.hearts.length + nextGame.foundations.spades.length + nextGame.tableau.flat().filter((card) => card.faceUp).length;
     if (nextProgress > previousProgress || nextGame.stock.length !== game.stock.length || nextGame.waste.length !== game.waste.length) stagnantMovesRef.current = 0;
     else stagnantMovesRef.current += 1;
-    if (findHint(nextGame) === null || stagnantMovesRef.current >= 3) setShowTwoTouch(true);
+    if (findHint(nextGame) === null || stagnantMovesRef.current >= 2) setShowTwoTouch(true);
+    lastHintKeyRef.current = null;
+    hintRepeatCountRef.current = 0;
     setUndoStack((history) => [...history.slice(-(MAX_UNDO_STEPS - 1)), cloneGameState(game)]);
     gameRef.current = nextGame;
     AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ saveVersion: ACTIVE_GAME_SAVE_VERSION, game: nextGame, elapsedSeconds: elapsedSecondsRef.current })).catch(() => undefined);
@@ -1369,7 +1388,7 @@ export default function HomeScreen() {
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} effectColor={companionAttackColor} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={flightTravelX} travelY={flightTravelY} /> : null}
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
-        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} onPress={openShuffleHelp} />
+        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} showShuffleEffect={showTwoTouch} onPress={openShuffleHelp} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
@@ -1412,7 +1431,8 @@ export default function HomeScreen() {
               <Text style={styles.shuffleHelpEyebrow}>REWARDED SHUFFLE</Text>
               <Text style={styles.shuffleHelpTitle}>광고를 보면 셔플 +1</Text>
               <Text style={styles.shuffleHelpCopy}>광고를 끝까지 시청하면 새로운 카드 흐름을 만들 수 있는 셔플 1회를 받습니다.</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel={`광고 시청 후 셔플 +${activeShuffleStep}`} onPress={() => { setShowRewardedShuffle(false); void useShuffleBonus(activeShuffleStep); }} style={({ pressed }) => [styles.shuffleHelpAction, styles.shuffleHelpRewardAction, pressed && styles.pressed]}><Text style={styles.shuffleHelpActionIcon}>▶</Text><View><Text style={styles.shuffleHelpActionTitle}>광고 시청 후 셔플 +1</Text><Text style={styles.shuffleHelpActionSub}>현재 {Math.min(2, rewardedRevealUsed + 1)}/2회 보상 가능</Text></View></Pressable>
+              {showRewardedTooltip ? <View pointerEvents="none" style={styles.rewardedTooltip}><Text style={styles.rewardedTooltipText}>광고 시청 후 셔플 기능 사용 가능</Text></View> : null}
+              <Pressable accessibilityRole="button" accessibilityLabel={`광고 시청 후 셔플 +${activeShuffleStep}`} onHoverIn={() => setShowRewardedTooltip(true)} onHoverOut={() => setShowRewardedTooltip(false)} onPress={() => { setShowRewardedShuffle(false); setShowRewardedTooltip(false); void useShuffleBonus(activeShuffleStep); }} style={({ pressed }) => [styles.shuffleHelpAction, styles.shuffleHelpRewardAction, pressed && styles.pressed]}><Text style={styles.shuffleHelpActionIcon}>▶</Text><View><Text style={styles.shuffleHelpActionTitle}>광고 시청 후 셔플 +1</Text><Text style={styles.shuffleHelpActionSub}>현재 {Math.min(2, rewardedRevealUsed + 1)}/2회 보상 가능</Text></View></Pressable>
               <Pressable accessibilityRole="button" accessibilityLabel="보상형 광고 메뉴 닫기" onPress={() => setShowRewardedShuffle(false)} style={({ pressed }) => [styles.shuffleHelpClose, pressed && styles.pressed]}><Text style={styles.shuffleHelpCloseText}>나중에 하기</Text></Pressable>
             </View>
           </View>
@@ -1682,6 +1702,8 @@ const styles = StyleSheet.create({
   rewardedCloseText: { color: "#E5ECF8", fontSize: 13, fontWeight: "800" },
   shuffleHelpCard: { width: "100%", maxWidth: 370, padding: 22, borderRadius: 24, borderWidth: 2, borderColor: "#77D6C3", backgroundColor: "#17233C", shadowColor: "#000000", shadowOpacity: 0.42, shadowRadius: 20, elevation: 18 },
   rewardedShuffleCard: { width: "100%", maxWidth: 370, padding: 22, borderRadius: 24, borderWidth: 2, borderColor: "#F3C969", backgroundColor: "#17233C", shadowColor: "#000000", shadowOpacity: 0.42, shadowRadius: 20, elevation: 18 },
+  rewardedTooltip: { alignSelf: "center", marginTop: 12, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: "#FFF3D1", borderWidth: 1, borderColor: "#F3C969" },
+  rewardedTooltipText: { color: "#17233C", fontSize: 12, fontWeight: "900", textAlign: "center" },
   shuffleHelpEyebrow: { color: "#77D6C3", fontSize: 10, fontWeight: "900", letterSpacing: 1.4, textAlign: "center" },
   shuffleHelpTitle: { color: "#FFF3D1", fontSize: 22, fontWeight: "900", textAlign: "center", marginTop: 7 },
   shuffleHelpCopy: { color: "#D4E2F7", fontSize: 13, lineHeight: 20, textAlign: "center", marginTop: 9 },
