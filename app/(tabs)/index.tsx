@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Animated, AppState, Easing, Image, ImageBackground, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Animated, AppState, Easing, Image, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import * as ScreenOrientation from "expo-screen-orientation";
@@ -111,19 +111,29 @@ function RoyalPortrait({ rank, chapter = 1 }: { rank: 11 | 12 | 13; chapter?: nu
 
 type MedievalIconName = "auto" | "new" | "orientation" | "sound" | "soundOff" | "menu" | "hint" | "undo";
 
-function MedievalBackdrop({ source }: { source: number }) {
+function MedievalBackdrop({ source, width, height }: { source: number; width: number; height: number }) {
+  const bandHeight = Math.max(1, height / 5);
+  const blurRadii = [18, 14, 10, 6, 3];
+  const shadeOpacities = [0.26, 0.22, 0.18, 0.14, 0.1];
   return (
     <View pointerEvents="none" style={styles.medievalBackdrop}>
-      <ImageBackground
-        source={source}
-        resizeMode="cover"
-        style={styles.medievalBackdropFill}
-        imageStyle={styles.medievalBackdropImage}
-      >
-        <View style={styles.medievalBackdropOverlay} />
-      </ImageBackground>
+      {blurRadii.map((blurRadius, index) => (
+        <View key={`backdrop-band-${blurRadius}`} style={[styles.medievalBackdropBand, { top: index * bandHeight, height: bandHeight }]}>
+          <Image
+            source={source}
+            resizeMode="cover"
+            blurRadius={blurRadius}
+            style={[styles.medievalBackdropImage, { width, height, top: -index * bandHeight }]}
+          />
+          <View style={[styles.medievalBackdropOverlay, { backgroundColor: `rgba(4, 10, 19, ${shadeOpacities[index]})` }]} />
+        </View>
+      ))}
     </View>
   );
+}
+
+function CompanionAnchor({ companion, size, left, bottom }: { companion: BattleAsset; size: number; left: number; bottom: number }) {
+  return <View pointerEvents="none" style={[styles.companionAnchor, { width: size, height: size, left, bottom }]}><Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} /></View>;
 }
 
 function MedievalIcon({ name, size = 22 }: { name: MedievalIconName; size?: number }) {
@@ -323,7 +333,7 @@ function VictoryFireworks({ visible }: { visible: boolean }) {
   );
 }
 
-function CardAttackEffect({ kind, combo, travelX, travelY }: { kind: AttackKind; combo: boolean; travelX: number; travelY: number }) {
+function CardAttackEffect({ kind, combo, travelX, travelY, startLeft = 16, startBottom = 44 }: { kind: AttackKind; combo: boolean; travelX: number; travelY: number; startLeft?: number; startBottom?: number }) {
   const progress = useRef(new Animated.Value(0)).current;
   const symbols: Record<AttackKind, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
   const colors: Record<AttackKind, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
@@ -338,7 +348,7 @@ function CardAttackEffect({ kind, combo, travelX, travelY }: { kind: AttackKind;
   const scale = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [0.8, 1.06, 0.76] });
   const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "900deg"] });
   const opacity = progress.interpolate({ inputRange: [0, 0.82, 1], outputRange: [1, 1, 0] });
-  return <Animated.View pointerEvents="none" style={[styles.attackCard, { opacity, borderColor: colors[kind], transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}>
+  return <Animated.View pointerEvents="none" style={[styles.attackCard, { left: startLeft, bottom: startBottom, opacity, borderColor: colors[kind], transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}>
     <Text style={[styles.attackCardRank, { color: colors[kind] }]}>A</Text>
     <Text style={[styles.attackCardSuit, { color: colors[kind] }]}>{symbols[kind]}</Text>
   </Animated.View>;
@@ -346,7 +356,7 @@ function CardAttackEffect({ kind, combo, travelX, travelY }: { kind: AttackKind;
 
 type AttackKind = Suit;
 
-function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = false, landscape = false, phoneLandscape = false, travelDistance = 24, monster, companion, isBoss, cardSize }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; travelDistance?: number; monster: BattleAsset; companion: BattleAsset; isBoss: boolean; cardSize: number }) {
+function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = false, landscape = false, phoneLandscape = false, travelDistance = 24, monster, isBoss, cardSize }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; travelDistance?: number; monster: BattleAsset; isBoss: boolean; cardSize: number }) {
   const monsterMotion = useRef(new Animated.Value(0)).current;
   const attackProgress = useRef(new Animated.Value(0)).current;
   const [attackVisible, setAttackVisible] = useState(false);
@@ -406,7 +416,6 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
         {damageVisible ? <Animated.Text style={[styles.damageText, { opacity: damageOpacity, transform: [{ translateY: damageTranslateY }] }]}>−{damage}</Animated.Text> : null}
         {defeatVisible ? <Animated.View pointerEvents="none" style={[styles.defeatBurst, { opacity: defeatOpacity, transform: [{ scale: defeatScale }] }]}>{Array.from({ length: 12 }, (_, index) => <Text key={index} style={[styles.defeatSpark, { transform: [{ rotate: `${index * 30}deg` }, { translateY: -24 }] }]}>{index % 2 ? "✦" : "•"}</Text>)}</Animated.View> : null}
       </Animated.View>
-      <Image source={companion.image} resizeMode="contain" style={[styles.companionSprite, { width: companionSize, height: companionSize }, compact && styles.companionSpriteCompact]} accessibilityLabel={`${companion.name}, 전투 동료`} />
       <View style={[styles.monsterInfo, { width: infoWidth }, compact && styles.monsterInfoCompact, !landscape && styles.monsterInfoPortrait]}>
         <View style={styles.monsterNameRow}><Text style={styles.monsterName} numberOfLines={2}>{monster.name.toUpperCase()}</Text>{isBoss ? <Text style={styles.bossBadge}>BOSS</Text> : null}</View>
         <View style={styles.monsterBar}><View style={[styles.monsterBarFill, { width: `${Math.max(0, Math.min(100, hp))}%` }]} /></View>
@@ -929,8 +938,13 @@ export default function HomeScreen() {
   const selectedCompanion = companionRoster.find((candidate) => candidate.id === selectedCompanionId) ?? battleContent.companion;
   const bossWarningOpacity = bossIntroProgress.interpolate({ inputRange: [0, 0.18, 0.82, 1], outputRange: [0, 1, 1, 0] });
   const bossWarningScale = bossIntroProgress.interpolate({ inputRange: [0, 0.22, 0.82, 1], outputRange: [0.82, 1, 1.04, 0.94] });
-  const flightStartLeft = phoneLandscape ? sideRailWidth + Math.max(8, Math.round((safeScreenWidth - sideRailWidth - cardWidth) * 0.5)) : Math.max(16, Math.round((safeScreenWidth - cardWidth) * 0.5));
-  const flightStartBottom = bottomControlsBottom + (phoneLandscape ? 58 : 64);
+  const companionSize = Math.max(34, Math.round(cardWidth * 0.82));
+  const companionLeft = phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5));
+  const companionBottom = bottomControlsBottom + 52;
+  const companionCenterLeft = companionLeft + companionSize * 0.5 - cardWidth * 0.5;
+  const companionCenterBottom = companionBottom + companionSize * 0.5 - cardWidth * cardRatio * 0.5;
+  const flightStartLeft = companionCenterLeft;
+  const flightStartBottom = companionCenterBottom;
   const flightTravelX = phoneLandscape ? -Math.round(sideRailWidth * 0.58) : isLandscape ? Math.round(safeScreenWidth * 0.04) : Math.round(safeScreenWidth * 0.05);
   const flightTravelY = -Math.round(safeScreenHeight * (isLandscape ? 0.48 : 0.58));
 
@@ -959,11 +973,11 @@ export default function HomeScreen() {
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
       <Animated.View style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: [{ translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }] }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
-        <MedievalBackdrop source={battleContent.background} />
+        <MedievalBackdrop source={battleContent.background} width={screenWidth} height={screenHeight} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
         {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={cardRatio} progress={flightProgress} travelX={flightTravelX} travelY={flightTravelY} startLeft={flightStartLeft} startBottom={flightStartBottom} /> : null}
         <VictoryFireworks visible={showFireworks} />
-        {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} travelX={Math.round(safeScreenWidth * (isLandscape ? 0.04 : 0.05))} travelY={-Math.round(safeScreenHeight * (isLandscape ? 0.45 : 0.68))} /> : null}
+        {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={Math.round(safeScreenWidth * (isLandscape ? 0.04 : 0.05))} travelY={-Math.round(safeScreenHeight * (isLandscape ? 0.45 : 0.68))} /> : null}
         <View style={[styles.header, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact, phoneLandscape && styles.headerPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
           <View style={phoneLandscape && styles.headerTitlePhoneLandscape}>
             <Text style={styles.eyebrow}>OUR STYLE</Text>
@@ -1000,7 +1014,7 @@ export default function HomeScreen() {
             <View style={styles.statDivider} />
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
           </View>
-          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={isLandscape ? Math.max(110, Math.min(260, Math.round(safeScreenWidth * 0.2))) : 44} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} monster={battleContent.monster} companion={selectedCompanion} isBoss={battleContent.isBoss} cardSize={cardWidth} />
+          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={isLandscape ? Math.max(110, Math.min(260, Math.round(safeScreenWidth * 0.2))) : 44} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
           <View style={[styles.statusWrap, isLandscape && styles.statusWrapLandscape, compactControls && !isLandscape && styles.statusWrapCompact, phoneLandscape && styles.statusWrapPhoneLandscape]}>
             <View style={[styles.statusDot, selection ? styles.statusDotSelected : styles.statusDotReady]} />
             <Text numberOfLines={1} style={styles.statusText}>{hydrated ? (selection ? "이동할 곳을 탭하세요" : "카드를 선택하세요") : "게임 준비 중"}</Text>
@@ -1054,6 +1068,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
+        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionLeft} bottom={companionBottom} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
@@ -1164,7 +1179,8 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#11182C", paddingHorizontal: 12 },
-  medievalBackdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
+  medievalBackdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, overflow: "hidden" },
+  medievalBackdropBand: { position: "absolute", left: 0, right: 0, overflow: "hidden" },
   medievalBackdropFill: { flex: 1 },
   medievalBackdropImage: { opacity: 0.94 },
   medievalBackdropOverlay: { flex: 1, backgroundColor: "rgba(4, 10, 19, 0.30)" },
@@ -1236,6 +1252,7 @@ const styles = StyleSheet.create({
   monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
   monsterHp: { color: "#BCEAE2", fontSize: 8, fontWeight: "800", marginTop: 2 },
   monsterProjectile: { position: "absolute", left: 8, top: 12, fontSize: 24, fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 7 },
+  companionAnchor: { position: "absolute", zIndex: 22, alignItems: "center", justifyContent: "center" },
   attackCard: { position: "absolute", left: "43%", bottom: "14%", zIndex: 45, width: 34, height: 48, borderRadius: 6, borderWidth: 2, backgroundColor: "#FFFDF8", shadowColor: "#FFFFFF", shadowOpacity: 0.9, shadowRadius: 8, elevation: 12 },
   attackCardRank: { position: "absolute", top: 3, left: 4, fontSize: 12, fontWeight: "900" },
   attackCardSuit: { position: "absolute", top: 15, width: "100%", textAlign: "center", fontSize: 21, fontWeight: "900" },
