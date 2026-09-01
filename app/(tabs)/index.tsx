@@ -35,7 +35,7 @@ import {
 } from "@/lib/solitaire";
 
 type Selection = CardSource & { cardId: string };
-type Sheet = "menu" | "rules" | "records" | null;
+type Sheet = "menu" | "rules" | "records" | "sound" | null;
 type Records = { wins: number; bestScore: number; bestTimeSeconds: number | null };
 
 const CARD_RATIO = 1.42;
@@ -43,6 +43,7 @@ const ACTIVE_GAME_KEY = "our-style-solitaire:active-game";
 const ACTIVE_GAME_SAVE_VERSION = 3;
 const RECORDS_KEY = "our-style-solitaire:records";
 const SOUND_ENABLED_KEY = "our-style-solitaire:sound-enabled";
+const BACKGROUND_MUSIC_ENABLED_KEY = "our-style-solitaire:background-music-enabled";
 const PHYSICAL_EDGE_INSET = 52;
 const MAX_UNDO_STEPS = 3;
 const CARD_ATTACK_FLIGHT_DURATION = 500;
@@ -220,14 +221,16 @@ function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress }: { width: nu
   );
 }
 
-function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value }) {
+function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, travelY = -180, startLeft = 16, startBottom = 44 }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; travelY?: number; startLeft?: number; startBottom?: number }) {
   const color = playingCardColor(card);
-  const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, width * 2.7] });
-  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, -width * 1.8] });
-  const scale = progress.interpolate({ inputRange: [0, 0.72, 1], outputRange: [1, 1.1, 0.6] });
-  const opacity = progress.interpolate({ inputRange: [0, 0.85, 1], outputRange: [1, 1, 0] });
+  const glow: Record<Suit, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
+  const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelX] });
+  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY] });
+  const scale = progress.interpolate({ inputRange: [0, 0.62, 1], outputRange: [1, 1.08, 0.5] });
+  const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
+  const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "720deg"] });
   return (
-    <Animated.View pointerEvents="none" style={[styles.flyingCard, { width, height: width * cardRatio, opacity, transform: [{ translateX }, { translateY }, { scale }, { rotate: "7deg" }] }]}>
+    <Animated.View pointerEvents="none" style={[styles.flyingCard, { left: startLeft, bottom: startBottom, width, height: width * cardRatio, opacity, borderColor: glow[card.suit], shadowColor: glow[card.suit], transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}> 
       <Text style={[styles.flyingRank, { color }]}>{rankLabels[card.rank]}</Text>
       <Text style={[styles.flyingSuit, { color }]}>{suitSymbols[card.suit]}</Text>
     </Animated.View>
@@ -388,7 +391,9 @@ export default function HomeScreen() {
   // This keeps the banner, title, and action buttons on separate visual lanes.
   const layoutExtraReservedHeight = isLandscape ? (phoneLandscape ? 0 : 18) : 58;
   const bottomControlsBottom = isLandscape ? systemBottomInset + 4 : Math.max(58, systemBottomInset + 16);
-  const portraitBannerBottom = bottomControlsBottom + 48;
+  // In portrait, keep the banner below the action buttons while reserving the
+  // system navigation inset so it never sits under the home indicator.
+  const portraitBannerBottom = Math.max(4, bottomControlsBottom - 52);
   const { boardWidth, cardWidth, cardRatio, compact, stackOffset, tableauGap, uiScale, sideRailWidth } = getGameLayout(
     safeScreenWidth,
     safeScreenHeight,
@@ -404,7 +409,8 @@ export default function HomeScreen() {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [records, setRecords] = useState<Records>(emptyRecords);
   const [hydrated, setHydrated] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEffectsEnabled, setSoundEffectsEnabled] = useState(true);
+  const [backgroundMusicEnabled, setBackgroundMusicEnabled] = useState(true);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
   const [flyingCard, setFlyingCard] = useState<Card | null>(null);
   const [showFireworks, setShowFireworks] = useState(false);
@@ -419,9 +425,11 @@ export default function HomeScreen() {
   const gameRef = useRef(game);
   const elapsedSecondsRef = useRef(elapsedSeconds);
   const flightProgress = useRef(new Animated.Value(0)).current;
+  const layoutTransition = useRef(new Animated.Value(1)).current;
   const selectPlayer = useAudioPlayer(require("../../assets/sounds/card-select.wav"));
   const movePlayer = useAudioPlayer(require("../../assets/sounds/card-move.wav"));
   const attackPlayer = useAudioPlayer(require("../../assets/sounds/card-attack.mp3"));
+  const backgroundPlayer = useAudioPlayer(require("../../assets/sounds/medieval-solitaire-loop.mp3"));
 
   const showTimedHint = (message: string) => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -432,7 +440,7 @@ export default function HomeScreen() {
     }, 2000);
   };
 
-  const setSoundEffectsEnabled = (enabled: boolean) => {
+  const setSoundEffectsEnabledPreference = (enabled: boolean) => {
     for (const player of [selectPlayer, movePlayer, attackPlayer]) {
       try {
         player.volume = enabled ? 1 : 0;
@@ -441,8 +449,25 @@ export default function HomeScreen() {
         // Sound state must never block the game when a native player is unavailable.
       }
     }
-    setSoundEnabled(enabled);
+    setSoundEffectsEnabled(enabled);
     showTimedHint(enabled ? "효과음을 켰습니다." : "효과음을 껐습니다.");
+    haptic.light();
+  };
+
+  const setBackgroundMusicEnabledPreference = (enabled: boolean) => {
+    try {
+      backgroundPlayer.volume = enabled ? 0.2 : 0;
+      if (enabled && !paused) {
+        backgroundPlayer.seekTo(0);
+        backgroundPlayer.play();
+      } else {
+        backgroundPlayer.pause();
+      }
+    } catch {
+      // Background music must never block the game when a native player is unavailable.
+    }
+    setBackgroundMusicEnabled(enabled);
+    showTimedHint(enabled ? "배경음을 켰습니다." : "배경음을 껐습니다.");
     haptic.light();
   };
 
@@ -454,7 +479,7 @@ export default function HomeScreen() {
     let mounted = true;
     const loadLocalGame = async () => {
       try {
-        const [activeGameValue, recordsValue, soundEnabledValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY]);
+        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY]);
         if (!mounted) return;
         if (activeGameValue[1] && !newGameStarted.current) {
           const saved = JSON.parse(activeGameValue[1]) as { saveVersion?: number; game?: typeof game; elapsedSeconds?: number };
@@ -468,7 +493,8 @@ export default function HomeScreen() {
           }
         }
         if (recordsValue[1]) setRecords({ ...emptyRecords, ...(JSON.parse(recordsValue[1]) as Records) });
-        if (soundEnabledValue[1]) setSoundEnabled(soundEnabledValue[1] === "true");
+        if (soundEffectsValue[1]) setSoundEffectsEnabled(soundEffectsValue[1] === "true");
+        if (backgroundMusicValue[1]) setBackgroundMusicEnabled(backgroundMusicValue[1] === "true");
       } catch {
         // A fresh local game is retained when storage is unavailable or malformed.
       } finally {
@@ -501,23 +527,49 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!hydrated) return;
-    AsyncStorage.setItem(SOUND_ENABLED_KEY, String(soundEnabled)).catch(() => undefined);
-  }, [hydrated, soundEnabled]);
+    AsyncStorage.setItem(SOUND_ENABLED_KEY, String(soundEffectsEnabled)).catch(() => undefined);
+  }, [hydrated, soundEffectsEnabled]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    AsyncStorage.setItem(BACKGROUND_MUSIC_ENABLED_KEY, String(backgroundMusicEnabled)).catch(() => undefined);
+  }, [backgroundMusicEnabled, hydrated]);
 
   useEffect(() => {
     for (const player of [selectPlayer, movePlayer, attackPlayer]) {
       try {
-        player.volume = soundEnabled ? 1 : 0;
-        if (!soundEnabled) player.pause();
+        player.volume = soundEffectsEnabled ? 1 : 0;
+        if (!soundEffectsEnabled) player.pause();
       } catch {
         // Keep the persisted preference even if a player is still loading.
       }
     }
-  }, [attackPlayer, movePlayer, selectPlayer, soundEnabled]);
+  }, [attackPlayer, movePlayer, selectPlayer, soundEffectsEnabled]);
+
+  useEffect(() => {
+    try {
+      backgroundPlayer.loop = true;
+      backgroundPlayer.volume = backgroundMusicEnabled ? 0.2 : 0;
+      if (!hydrated || paused || !backgroundMusicEnabled) {
+        backgroundPlayer.pause();
+      } else {
+        backgroundPlayer.play();
+      }
+    } catch {
+      // Background music is optional and must never interrupt gameplay.
+    }
+  }, [backgroundMusicEnabled, backgroundPlayer, hydrated, paused]);
 
   useEffect(() => {
     setAudioModeAsync({ playsInSilentMode: true }).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    layoutTransition.setValue(0.94);
+    const animation = Animated.timing(layoutTransition, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+    animation.start();
+    return () => animation.stop();
+  }, [isLandscape, isTablet, layoutTransition, phoneLandscape, screenHeight, screenWidth]);
 
   useEffect(() => {
     if (Platform.OS === "web") return;
@@ -583,7 +635,7 @@ export default function HomeScreen() {
   };
 
   const playEffect = (effect: "select" | "move" | "attack") => {
-    if (!soundEnabled) return;
+    if (!soundEffectsEnabled) return;
     const player = effect === "select" ? selectPlayer : effect === "move" ? movePlayer : attackPlayer;
     try {
       player.seekTo(0);
@@ -770,12 +822,16 @@ export default function HomeScreen() {
 
   const difficulty = getDifficulty(game.level);
   const cardBackTheme = getCardBackTheme(game.level);
+  const flightStartLeft = phoneLandscape ? sideRailWidth + Math.max(8, Math.round((safeScreenWidth - sideRailWidth - cardWidth) * 0.5)) : Math.max(16, Math.round((safeScreenWidth - cardWidth) * 0.5));
+  const flightStartBottom = bottomControlsBottom + (phoneLandscape ? 58 : 64);
+  const flightTravelX = phoneLandscape ? -Math.round(sideRailWidth * 0.58) : isLandscape ? Math.round(safeScreenWidth * 0.04) : Math.round(safeScreenWidth * 0.05);
+  const flightTravelY = -Math.round(safeScreenHeight * (isLandscape ? 0.48 : 0.58));
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
       <View style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
         <MedievalBackdrop />
-        {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={cardRatio} progress={flightProgress} /> : null}
+        {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={cardRatio} progress={flightProgress} travelX={flightTravelX} travelY={flightTravelY} startLeft={flightStartLeft} startBottom={flightStartBottom} /> : null}
         <VictoryFireworks visible={showFireworks} />
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} travelX={Math.round(safeScreenWidth * (isLandscape ? 0.04 : 0.05))} travelY={-Math.round(safeScreenHeight * (isLandscape ? 0.45 : 0.68))} /> : null}
         <View style={[styles.header, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact, phoneLandscape && styles.headerPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
@@ -797,8 +853,8 @@ export default function HomeScreen() {
             <Pressable accessibilityRole="button" accessibilityLabel={isLandscape ? "세로 모드로 전환" : "가로 모드로 전환"} onPress={toggleOrientation} style={({ pressed }) => [styles.orientationButton, compactControls && styles.iconButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="orientation" size={19} />
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={soundEnabled ? "효과음 끄기" : "효과음 켜기"} onPress={() => setSoundEffectsEnabled(!soundEnabled)} style={({ pressed }) => [styles.soundButton, compactControls && styles.iconButtonCompact, !soundEnabled && styles.soundButtonOff, pressed && styles.pressed]}>
-              <MedievalIcon name={soundEnabled ? "sound" : "soundOff"} size={19} />
+            <Pressable accessibilityRole="button" accessibilityLabel="사운드 설정" onPress={() => { haptic.light(); setPaused(true); setSheet("sound"); }} style={({ pressed }) => [styles.soundButton, compactControls && styles.iconButtonCompact, !soundEffectsEnabled && !backgroundMusicEnabled && styles.soundButtonOff, pressed && styles.pressed]}>
+              <MedievalIcon name={soundEffectsEnabled || backgroundMusicEnabled ? "sound" : "soundOff"} size={19} />
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="게임 메뉴" onPress={() => { haptic.light(); setPaused(true); setSheet("menu"); }} style={({ pressed }) => [styles.menuButton, compactControls && styles.iconButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="menu" size={19} />
@@ -821,6 +877,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ scale: layoutTransition }] }]}>
         <View style={[styles.board, { width: boardWidth }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
@@ -864,6 +921,7 @@ export default function HomeScreen() {
           ))}
         </View>
         </View>
+        </Animated.View>
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
@@ -891,6 +949,24 @@ export default function HomeScreen() {
                     <Pressable onPress={() => { haptic.light(); setSheet("rules"); }} style={({ pressed }) => [styles.sheetSecondaryButton, pressed && styles.pressed]}><Text style={styles.sheetSecondaryText}>규칙</Text></Pressable>
                   </View>
                   <Pressable onPress={requestNewGame} style={({ pressed }) => [styles.sheetLinkButton, pressed && styles.pressed]}><Text style={styles.sheetLinkText}>새 게임 시작</Text></Pressable>
+                </>
+              ) : null}
+              {sheet === "sound" ? (
+                <>
+                  <Text style={styles.sheetEyebrow}>AUDIO SETTINGS</Text>
+                  <Text style={styles.sheetTitle}>소리 설정</Text>
+                  <Text style={styles.sheetCopy}>효과음과 배경음을 각각 켜고 끌 수 있습니다.</Text>
+                  <View style={styles.soundSettings}>
+                    <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: soundEffectsEnabled }} onPress={() => setSoundEffectsEnabledPreference(!soundEffectsEnabled)} style={({ pressed }) => [styles.audioOption, pressed && styles.pressed]}>
+                      <View style={[styles.checkBox, soundEffectsEnabled && styles.checkBoxChecked]}>{soundEffectsEnabled ? <Text style={styles.checkMark}>✓</Text> : null}</View>
+                      <View style={styles.audioOptionCopy}><Text style={styles.audioOptionTitle}>효과음</Text><Text style={styles.audioOptionSubtitle}>카드 선택·이동·공격 소리</Text></View>
+                    </Pressable>
+                    <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: backgroundMusicEnabled }} onPress={() => setBackgroundMusicEnabledPreference(!backgroundMusicEnabled)} style={({ pressed }) => [styles.audioOption, pressed && styles.pressed]}>
+                      <View style={[styles.checkBox, backgroundMusicEnabled && styles.checkBoxChecked]}>{backgroundMusicEnabled ? <Text style={styles.checkMark}>✓</Text> : null}</View>
+                      <View style={styles.audioOptionCopy}><Text style={styles.audioOptionTitle}>배경음</Text><Text style={styles.audioOptionSubtitle}>성채 분위기의 반복 배경음</Text></View>
+                    </Pressable>
+                  </View>
+                  <Pressable onPress={() => { setPaused(false); setSheet(null); }} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>닫기</Text></Pressable>
                 </>
               ) : null}
               {sheet === "records" ? (
@@ -1012,6 +1088,7 @@ const styles = StyleSheet.create({
   monsterDefeated: { opacity: 0.28 },
   defeatBurst: { position: "absolute", width: 8, height: 8, left: 22, top: 24, alignItems: "center", justifyContent: "center" },
   defeatSpark: { position: "absolute", color: "#FFD66E", fontSize: 19, fontWeight: "900", textShadowColor: "#FF6F8A", textShadowRadius: 8 },
+  boardTransition: { flex: 1, alignItems: "center" },
   board: { alignSelf: "center" },
   boardLandscape: { flex: 1, justifyContent: "flex-start" },
   boardPhoneLandscape: { position: "absolute", right: 8, top: 88, alignSelf: "auto" },
@@ -1036,7 +1113,7 @@ const styles = StyleSheet.create({
   tableau: { flex: 1, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   tableauLandscape: { flexGrow: 0 },
   tableauColumn: { position: "relative" },
-  portraitAdBanner: { position: "absolute", left: 0, right: 0, zIndex: 9 },
+  portraitAdBanner: { position: "absolute", left: 0, right: 0, zIndex: 9, alignItems: "center" },
   bottomControls: { position: "absolute", left: 0, right: 0, bottom: 58, zIndex: 10, flexDirection: "row", alignSelf: "center", justifyContent: "center", gap: 10 },
   bottomControlsLandscape: { bottom: 4 },
   bottomControlsLandscapeCompact: { gap: 8 },
@@ -1063,6 +1140,14 @@ const styles = StyleSheet.create({
   sheetEyebrow: { color: "#77D6C3", fontSize: 10, fontWeight: "900", letterSpacing: 1.7, marginBottom: 7 },
   sheetTitle: { color: "#FFFDF8", fontSize: 26, lineHeight: 31, fontWeight: "800", letterSpacing: -0.6 },
   sheetCopy: { color: "#A6B4CE", fontSize: 14, lineHeight: 21, marginTop: 8, marginBottom: 21 },
+  soundSettings: { gap: 10, marginTop: 2 },
+  audioOption: { minHeight: 64, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, borderRadius: 15, backgroundColor: "#152542", borderWidth: 1, borderColor: "#36527A" },
+  checkBox: { width: 24, height: 24, alignItems: "center", justifyContent: "center", borderRadius: 7, borderWidth: 2, borderColor: "#58739D", backgroundColor: "#11182C" },
+  checkBoxChecked: { borderColor: "#77D6C3", backgroundColor: "#2B6B72" },
+  checkMark: { color: "#FFFDF8", fontSize: 16, lineHeight: 18, fontWeight: "900" },
+  audioOptionCopy: { flex: 1, marginLeft: 12 },
+  audioOptionTitle: { color: "#FFFDF8", fontSize: 15, fontWeight: "900" },
+  audioOptionSubtitle: { color: "#A6B4CE", fontSize: 11, fontWeight: "600", marginTop: 3 },
   sheetPrimaryButton: { minHeight: 50, justifyContent: "center", alignItems: "center", borderRadius: 15, backgroundColor: "#FF7A66", marginTop: 21 },
   sheetPrimaryText: { color: "#11182C", fontSize: 15, fontWeight: "900" },
   sheetRow: { flexDirection: "row", gap: 10, marginTop: 10 },
