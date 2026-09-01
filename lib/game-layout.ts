@@ -6,6 +6,8 @@ export type GameLayout = {
   stackOffset: number;
   uiScale: number;
   compact: boolean;
+  /** Width reserved for the compact phone-landscape control rail. */
+  sideRailWidth: number;
 };
 
 const CARD_RATIO = 1.42;
@@ -26,24 +28,26 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const shortestSide = Math.min(width, height);
   const isTablet = shortestSide >= 600;
   const isFoldedCover = !isLandscape && width <= 430;
+  const isPhoneLandscape = isLandscape && !isTablet;
+  const sideRailWidth = isPhoneLandscape ? clamp(Math.round(width * 0.30), 190, 248) : 0;
   const cardRatio = isLandscape ? 1.18 : CARD_RATIO;
-  const outerPadding = isLandscape ? 24 : isTablet ? 30 : isFoldedCover ? 8 : 12;
+  const outerPadding = isPhoneLandscape ? 8 : isLandscape ? 24 : isTablet ? 30 : isFoldedCover ? 8 : 12;
   const tableauGap = isTablet ? 8 : isLandscape ? 6 : isFoldedCover ? 2 : 4;
-  const maxBoardWidth = isTablet ? 680 : isLandscape ? 720 : 560;
-  const availableWidth = Math.max(260, Math.min(width - outerPadding * 2, maxBoardWidth));
+  const maxBoardWidth = isPhoneLandscape ? Math.max(320, width - sideRailWidth - outerPadding * 2 - 8) : isTablet ? 680 : isLandscape ? 720 : 560;
+  const availableWidth = Math.max(260, Math.min(width - outerPadding * 2 - sideRailWidth, maxBoardWidth));
   const rawCardWidth = (availableWidth - tableauGap * TABLEAU_STEPS) / TABLEAU_COLUMNS;
-  const widthCardLimit = isLandscape ? (height >= 520 ? 80 : 64) : isTablet ? 80 : isFoldedCover ? 56 : 68;
+  const widthCardLimit = isPhoneLandscape ? 84 : isLandscape ? (height >= 520 ? 80 : 64) : isTablet ? 80 : isFoldedCover ? 56 : 68;
 
   // In landscape the compact HUD, controls, and optional ad banner are reserved before
   // cards are measured. This avoids using the full physical window height beneath a
   // gesture or three-button navigation bar.
-  const reservedHeight = (isLandscape ? 116 : isTablet ? 250 : isFoldedCover ? 230 : 214) + extraReservedHeight;
+  const reservedHeight = (isPhoneLandscape ? 84 : isLandscape ? 116 : isTablet ? 250 : isFoldedCover ? 230 : 214) + extraReservedHeight;
   const usableTableauHeight = Math.max(isLandscape ? 118 : 210, height - verticalEdgeInset - reservedHeight);
   const topPilesGap = isLandscape ? 6 : 16;
-  const minimumStackOffset = isLandscape ? 8 : isFoldedCover ? 19 : 22;
+  const minimumStackOffset = isPhoneLandscape ? 10 : isLandscape ? 8 : isFoldedCover ? 19 : 22;
   // The board contains a top-pile card, a gap, and the deepest seven-card tableau.
   const heightCardLimit = (usableTableauHeight - topPilesGap - TABLEAU_STEPS * minimumStackOffset) / (cardRatio * 2);
-  const foldableOrLandscapeReduction = isLandscape || (isTablet && !isFoldedCover) ? 0.9 : 1;
+  const foldableOrLandscapeReduction = isPhoneLandscape ? 1 : isLandscape || (isTablet && !isFoldedCover) ? 0.9 : 1;
   const minimumCardWidth = isLandscape ? 30 : 34;
   const cardWidth = Math.floor(clamp(Math.min(rawCardWidth, widthCardLimit, heightCardLimit) * foldableOrLandscapeReduction, minimumCardWidth, widthCardLimit));
   const cardHeight = cardWidth * cardRatio;
@@ -58,5 +62,6 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
     stackOffset,
     uiScale: isTablet ? 1.22 : width >= 420 ? 1.08 : 1,
     compact: width <= 430,
+    sideRailWidth,
   };
 }

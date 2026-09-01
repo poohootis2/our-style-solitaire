@@ -289,7 +289,7 @@ function CardAttackEffect({ kind, combo, travelX, travelY }: { kind: AttackKind;
 
 type AttackKind = Suit;
 
-function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = false, landscape = false, travelDistance = 24 }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; combo: boolean; compact?: boolean; landscape?: boolean; travelDistance?: number }) {
+function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = false, landscape = false, phoneLandscape = false, travelDistance = 24 }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; travelDistance?: number }) {
   const monsterMotion = useRef(new Animated.Value(0)).current;
   const attackProgress = useRef(new Animated.Value(0)).current;
   const [attackVisible, setAttackVisible] = useState(false);
@@ -339,7 +339,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
   const attackSymbols: Record<AttackKind, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
 
   return (
-    <View style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
+    <View style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
       <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { transform: [{ translateX: monsterTranslate }] }]}>
         <Image source={MONSTER_IMAGE} resizeMode="contain" style={[styles.monsterSprite, compact && styles.monsterSpriteCompact, defeatVisible && styles.monsterDefeated]} />
         {attackVisible ? <Animated.Text style={[styles.monsterProjectile, { color: attackColors[attackKind], transform: [{ translateX: projectileTranslate }, { scale: projectileScale }] }]}>{attackSymbols[attackKind]}</Animated.Text> : null}
@@ -374,6 +374,8 @@ export default function HomeScreen() {
   const [deviceOrientation, setDeviceOrientation] = useState<ScreenOrientation.Orientation | null>(null);
   const nativeLandscape = deviceOrientation === ScreenOrientation.Orientation.LANDSCAPE_LEFT || deviceOrientation === ScreenOrientation.Orientation.LANDSCAPE_RIGHT || screenWidth > screenHeight;
   const isLandscape = nativeLandscape;
+  const isTablet = Math.min(screenWidth, screenHeight) >= 600;
+  const phoneLandscape = isLandscape && !isTablet;
   const safeScreenWidth = Math.max(260, screenWidth - insets.left - insets.right);
   const safeScreenHeight = Math.max(220, screenHeight - insets.top - insets.bottom);
   const compactLandscape = isLandscape && safeScreenHeight <= 460;
@@ -384,10 +386,10 @@ export default function HomeScreen() {
   const rootBottomPadding = isLandscape ? systemBottomInset + 8 : PHYSICAL_EDGE_INSET + 62;
   // Reserve the additional header spacing used by the inline landscape banner.
   // This keeps the banner, title, and action buttons on separate visual lanes.
-  const layoutExtraReservedHeight = isLandscape ? 18 : 58;
+  const layoutExtraReservedHeight = isLandscape ? (phoneLandscape ? 0 : 18) : 58;
   const bottomControlsBottom = isLandscape ? systemBottomInset + 4 : Math.max(58, systemBottomInset + 16);
   const portraitBannerBottom = bottomControlsBottom + 48;
-  const { boardWidth, cardWidth, cardRatio, compact, stackOffset, tableauGap, uiScale } = getGameLayout(
+  const { boardWidth, cardWidth, cardRatio, compact, stackOffset, tableauGap, uiScale, sideRailWidth } = getGameLayout(
     safeScreenWidth,
     safeScreenHeight,
     rootTopPadding + rootBottomPadding,
@@ -606,11 +608,11 @@ export default function HomeScreen() {
   const showHint = () => {
     const hint = findHint(game);
     if (!hint) {
-      setHintMessage("지금은 새로운 이동을 찾기 어렵습니다. 실행 취소를 사용해 보세요.");
+      showTimedHint("지금은 새로운 이동을 찾기 어렵습니다. 실행 취소를 사용해 보세요.");
       haptic.error();
       return;
     }
-    setHintMessage(hint.message);
+    showTimedHint(hint.message);
     if (hint.source && hint.action !== "flip") {
       const card = cardFromSource(hint.source);
       if (card) setSelection({ ...hint.source, cardId: card.id });
@@ -627,7 +629,7 @@ export default function HomeScreen() {
     setGame(cloneGameState(previousGame));
     setUndoStack((history) => history.slice(0, -1));
     setSelection(null);
-    setHintMessage("이전 이동을 되돌렸습니다.");
+    showTimedHint("이전 이동을 되돌렸습니다.");
     gameRef.current = previousGame;
     AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ saveVersion: ACTIVE_GAME_SAVE_VERSION, game: previousGame, elapsedSeconds: elapsedSecondsRef.current })).catch(() => undefined);
     haptic.light();
@@ -670,7 +672,7 @@ export default function HomeScreen() {
       const nextLevel = Math.min(nextGame.level + 1, 6);
       setShowFireworks(true);
       setTimeout(() => setShowFireworks(false), 1550);
-      setHintMessage(`보스 처치! 레벨 ${nextLevel}로 이동합니다.`);
+      showTimedHint(`보스 처치! 레벨 ${nextLevel}로 이동합니다.`);
       setTimeout(() => startNewGame(nextLevel), 2350);
     }
   };
@@ -771,21 +773,21 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
-      <View style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding }, isLandscape && styles.rootLandscape]}>
+      <View style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
         <MedievalBackdrop />
         {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={cardRatio} progress={flightProgress} /> : null}
         <VictoryFireworks visible={showFireworks} />
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} travelX={Math.round(safeScreenWidth * (isLandscape ? 0.04 : 0.05))} travelY={-Math.round(safeScreenHeight * (isLandscape ? 0.45 : 0.68))} /> : null}
-        <View style={[styles.header, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact]}>
-          <View>
+        <View style={[styles.header, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact, phoneLandscape && styles.headerPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
+          <View style={phoneLandscape && styles.headerTitlePhoneLandscape}>
             <Text style={styles.eyebrow}>OUR STYLE</Text>
             <View style={styles.titleLine}>
               <Text style={[styles.title, { fontSize: Math.round((compactLandscape ? 23 : 27) * (isLandscape ? 1 : uiScale)), lineHeight: Math.round((compactLandscape ? 27 : 31) * (isLandscape ? 1 : uiScale)) }]}>Solitaire</Text>
               <View style={styles.levelBadge}><Text style={styles.levelText}>LV {game.level} · {difficulty.label}</Text></View>
             </View>
           </View>
-          {isLandscape ? <View style={styles.landscapeHeaderBanner}><AdBanner compact inline /></View> : null}
-          <View style={[styles.headerActions, compactControls && styles.headerActionsCompact]}>
+          {isLandscape ? <View style={[styles.landscapeHeaderBanner, phoneLandscape && styles.landscapeHeaderBannerPhone]}><AdBanner compact inline /></View> : null}
+          <View style={[styles.headerActions, compactControls && styles.headerActionsCompact, phoneLandscape && styles.headerActionsPhoneLandscape]}>
             <Pressable accessibilityRole="button" accessibilityLabel="가능한 카드 자동 정리" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, compactControls && styles.autoButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="auto" size={19} />
             </Pressable>
@@ -804,20 +806,22 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={[styles.stats, isLandscape && styles.statsLandscape, compactLandscape && styles.statsLandscapeCompact]}>
-          <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.score}</Text><Text style={styles.statLabel}>점수</Text></View>
-          <View style={styles.statDivider} />
-          <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.moves}</Text><Text style={styles.statLabel}>이동</Text></View>
-          <View style={styles.statDivider} />
-          <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
-          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} travelDistance={isLandscape ? Math.max(110, Math.min(260, Math.round(safeScreenWidth * 0.2))) : 44} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} />
-          <View style={[styles.statusWrap, isLandscape && styles.statusWrapLandscape, compactControls && !isLandscape && styles.statusWrapCompact]}>
+        <View style={[styles.stats, isLandscape && styles.statsLandscape, compactLandscape && styles.statsLandscapeCompact, phoneLandscape && styles.statsPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
+          <View style={[styles.statsSummary, phoneLandscape && styles.statsSummaryPhoneLandscape]}>
+            <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.score}</Text><Text style={styles.statLabel}>점수</Text></View>
+            <View style={styles.statDivider} />
+            <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.moves}</Text><Text style={styles.statLabel}>이동</Text></View>
+            <View style={styles.statDivider} />
+            <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
+          </View>
+          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={isLandscape ? Math.max(110, Math.min(260, Math.round(safeScreenWidth * 0.2))) : 44} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} />
+          <View style={[styles.statusWrap, isLandscape && styles.statusWrapLandscape, compactControls && !isLandscape && styles.statusWrapCompact, phoneLandscape && styles.statusWrapPhoneLandscape]}>
             <View style={[styles.statusDot, selection ? styles.statusDotSelected : styles.statusDotReady]} />
             <Text numberOfLines={1} style={styles.statusText}>{hydrated ? (selection ? "이동할 곳을 탭하세요" : "카드를 선택하세요") : "게임 준비 중"}</Text>
           </View>
         </View>
 
-        <View style={[styles.board, { width: boardWidth }, isLandscape && styles.boardLandscape]}>
+        <View style={[styles.board, { width: boardWidth }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
             {game.stock.length ? (
@@ -862,15 +866,16 @@ export default function HomeScreen() {
         </View>
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
-        <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, { bottom: bottomControlsBottom }]}>
-          <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, styles.hintButton, pressed && styles.pressed]}>
+                <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
+
+          <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
             <View style={styles.bottomButtonContent}><MedievalIcon name="hint" size={20} /><Text style={styles.bottomButtonText}>힌트</Text></View>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={`실행 취소, ${undoStack.length}회 남음`} disabled={undoStack.length === 0} onPress={undoLastMove} style={({ pressed }) => [styles.bottomButton, styles.undoButton, undoStack.length === 0 && styles.undoButtonDisabled, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`실행 취소, ${undoStack.length}회 남음`} disabled={undoStack.length === 0} onPress={undoLastMove} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.undoButton, undoStack.length === 0 && styles.undoButtonDisabled, pressed && styles.pressed]}>
             <View style={styles.bottomButtonContent}><MedievalIcon name="undo" size={20} /><Text style={styles.bottomButtonText}>실행 취소 ({undoStack.length})</Text></View>
           </Pressable>
         </View>
-        {hintMessage ? <View style={[styles.hintToast, isLandscape && styles.hintToastLandscape]}><Text style={styles.hintToastText}>{hintMessage}</Text></View> : null}
+        {hintMessage ? <View style={[styles.hintToast, isLandscape && styles.hintToastLandscape, phoneLandscape && { left: 8, right: undefined, width: Math.max(160, sideRailWidth - 16), bottom: 160 }]}><Text style={styles.hintToastText}>{hintMessage}</Text></View> : null}
 
         <Modal transparent visible={sheet !== null} animationType="fade" onRequestClose={() => { setPaused(false); setSheet(null); }}>
           <View style={styles.modalBackdrop}>
@@ -937,10 +942,15 @@ const styles = StyleSheet.create({
   medievalBackdropImage: { opacity: 0.94 },
   medievalBackdropOverlay: { flex: 1, backgroundColor: "rgba(4, 10, 19, 0.30)" },
   rootLandscape: { paddingHorizontal: 16 },
+  rootPhoneLandscape: { paddingHorizontal: 8, position: "relative" },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 6, paddingBottom: 12 },
   headerLandscape: { paddingTop: 0, paddingBottom: 3 },
   headerLandscapeCompact: { paddingBottom: 1 },
+  headerPhoneLandscape: { position: "absolute", left: 0, top: 4, height: 120, paddingTop: 0, paddingBottom: 0, flexDirection: "column", alignItems: "stretch", justifyContent: "flex-start", zIndex: 6 },
+  headerTitlePhoneLandscape: { height: 42 },
+  headerActionsPhoneLandscape: { position: "absolute", left: 0, right: 0, bottom: 0, justifyContent: "flex-start" },
   landscapeHeaderBanner: { flex: 1, minWidth: 0, maxWidth: 320, height: 50, marginHorizontal: 14, alignItems: "center", justifyContent: "center" },
+  landscapeHeaderBannerPhone: { flex: 0, width: "100%", maxWidth: 260, height: 42, marginHorizontal: 0, marginVertical: 6 },
   eyebrow: { color: "#77D6C3", fontSize: 10, fontWeight: "800", letterSpacing: 2.2 },
   title: { color: "#FFFDF8", fontSize: 27, lineHeight: 31, fontWeight: "800", letterSpacing: -0.7 },
   titleLine: { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -963,14 +973,18 @@ const styles = StyleSheet.create({
   menuButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: "#233958" },
   menuButtonText: { color: "#FFFDF8", fontSize: 19, lineHeight: 16, fontWeight: "900", marginTop: -8 },
   stats: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 8, marginBottom: 14 },
+  statsSummary: { flexDirection: "row", alignItems: "center", justifyContent: "flex-start" },
+  statsSummaryPhoneLandscape: { width: "100%" },
   statsLandscape: { paddingVertical: 3, marginBottom: 6 },
   statsLandscapeCompact: { paddingVertical: 1, marginBottom: 4 },
+  statsPhoneLandscape: { position: "absolute", left: 0, top: 128, flexDirection: "column", alignItems: "stretch", justifyContent: "flex-start", paddingVertical: 6, marginBottom: 0, zIndex: 5 },
   statValue: { color: "#FFFDF8", fontSize: 15, fontWeight: "800", textAlign: "center", fontVariant: ["tabular-nums"] },
   statLabel: { color: "#A6B4CE", fontSize: 9, fontWeight: "700", marginTop: 1, textAlign: "center" },
   statDivider: { width: 1, height: 22, marginHorizontal: 10, backgroundColor: "#2E4163" },
   statusWrap: { flex: 1, minWidth: 92, marginLeft: 8, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6 },
   statusWrapLandscape: { flex: 0, width: 140, minWidth: 140 },
   statusWrapCompact: { minWidth: 0, marginLeft: 4, gap: 3 },
+  statusWrapPhoneLandscape: { flex: 0, width: "100%", minWidth: 0, marginLeft: 0, marginTop: 14, justifyContent: "flex-start" },
   statusDot: { width: 7, height: 7, borderRadius: 4 },
   statusDotReady: { backgroundColor: "#77D6C3" },
   statusDotSelected: { backgroundColor: "#FF7A66" },
@@ -978,6 +992,7 @@ const styles = StyleSheet.create({
   monsterBattle: { flex: 1.4, minWidth: 154, maxWidth: 236, marginLeft: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, overflow: "visible" },
   monsterBattleLandscape: { flex: 1, minWidth: 250, maxWidth: 9999 },
   monsterBattleCompact: { flex: 1.1, minWidth: 82, maxWidth: 128, marginLeft: 4, gap: 3 },
+  monsterBattlePhoneLandscape: { flex: 0, width: "100%", minWidth: 0, maxWidth: 9999, marginLeft: 0, marginTop: 12, justifyContent: "flex-start", gap: 6 },
   monsterSpriteWrap: { width: 50, height: 54, alignItems: "center", justifyContent: "center", position: "relative" },
   monsterSpriteWrapCompact: { width: 32, height: 38 },
   monsterSprite: { width: 50, height: 54 },
@@ -999,6 +1014,7 @@ const styles = StyleSheet.create({
   defeatSpark: { position: "absolute", color: "#FFD66E", fontSize: 19, fontWeight: "900", textShadowColor: "#FF6F8A", textShadowRadius: 8 },
   board: { alignSelf: "center" },
   boardLandscape: { flex: 1, justifyContent: "flex-start" },
+  boardPhoneLandscape: { position: "absolute", right: 8, top: 88, alignSelf: "auto" },
   topPiles: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
   topPilesLandscape: { marginBottom: 6 },
   stockWasteGroup: { flexDirection: "row", gap: 6 },
@@ -1024,7 +1040,9 @@ const styles = StyleSheet.create({
   bottomControls: { position: "absolute", left: 0, right: 0, bottom: 58, zIndex: 10, flexDirection: "row", alignSelf: "center", justifyContent: "center", gap: 10 },
   bottomControlsLandscape: { bottom: 4 },
   bottomControlsLandscapeCompact: { gap: 8 },
+  bottomControlsPhoneLandscape: { left: 0, flexDirection: "row", alignItems: "stretch", justifyContent: "flex-start", gap: 6 },
   bottomButton: { minWidth: 126, minHeight: 44, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1 },
+  bottomButtonPhoneLandscape: { flex: 1, minWidth: 0, minHeight: 44 },
   hintButton: { backgroundColor: "#233958", borderColor: "#3D5A85" },
   undoButton: { backgroundColor: "#2A4268", borderColor: "#5B78A5" },
   undoButtonDisabled: { opacity: 0.38 },

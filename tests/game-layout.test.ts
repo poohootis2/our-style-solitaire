@@ -16,11 +16,19 @@ describe("반응형 게임 테이블 레이아웃", () => {
     expect(tablet.uiScale).toBeGreaterThan(phone.uiScale);
   });
 
-  it("가로 화면에서도 카드 폭과 쌓임 간격을 제한한다", () => {
+  it("모바일 가로 화면은 좌측 레일을 제외한 영역에서 카드를 더 크게 표시한다", () => {
     const layout = getGameLayout(800, 360);
-    expect(layout.cardWidth).toBeLessThanOrEqual(64);
-    expect(layout.boardWidth).toBeLessThanOrEqual(720);
-    expect(layout.stackOffset).toBeGreaterThanOrEqual(8);
+    expect(layout.sideRailWidth).toBeGreaterThan(0);
+    expect(layout.cardWidth).toBeGreaterThan(64);
+    expect(layout.cardWidth).toBeLessThanOrEqual(84);
+    expect(layout.boardWidth).toBeLessThanOrEqual(536);
+    expect(layout.stackOffset).toBeGreaterThanOrEqual(10);
+  });
+
+  it("태블릿 가로 화면은 모바일 전용 좌측 레일을 사용하지 않는다", () => {
+    const layout = getGameLayout(1024, 768);
+    expect(layout.sideRailWidth).toBe(0);
+    expect(layout.cardWidth).toBeLessThanOrEqual(80);
   });
 
   it("가로 화면에서 상단 배너와 하단 조작부를 남겨도 가장 아래 카드가 안전 영역 안에 들어간다", () => {
@@ -30,7 +38,7 @@ describe("반응형 게임 테이블 레이아웃", () => {
     const layout = getGameLayout(768, safeHeight, reservedSystemAndRootPadding, true, headerBannerAllowance);
     const cardHeight = layout.cardWidth * layout.cardRatio;
     const boardHeight = cardHeight + 6 + cardHeight + layout.stackOffset * 6;
-    expect(boardHeight).toBeLessThanOrEqual(safeHeight - reservedSystemAndRootPadding - 116 - headerBannerAllowance);
+    expect(boardHeight).toBeLessThanOrEqual(safeHeight - reservedSystemAndRootPadding - 84 - headerBannerAllowance);
     expect(layout.cardWidth).toBeGreaterThanOrEqual(30);
   });
 
@@ -41,7 +49,7 @@ describe("반응형 게임 테이블 레이아웃", () => {
     const layout = getGameLayout(800, screenHeight, rootAndHomeBarPadding, true, headerBannerAllowance);
     const cardHeight = layout.cardWidth * layout.cardRatio;
     const boardHeight = cardHeight + 6 + cardHeight + layout.stackOffset * 6;
-    expect(boardHeight).toBeLessThanOrEqual(screenHeight - rootAndHomeBarPadding - 116 - headerBannerAllowance);
+    expect(boardHeight).toBeLessThanOrEqual(screenHeight - rootAndHomeBarPadding - 84 - headerBannerAllowance);
   });
 
   it("세로 화면에서 하단 배너와 조작부를 함께 남겨도 마지막 카드가 안전 영역 안에 들어간다", () => {
