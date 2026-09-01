@@ -338,6 +338,32 @@ export function autoComplete(game: GameState): GameState {
   return next;
 }
 
+export type AutoFoundationMove = { source: CardSource; card: Card };
+
+/** Returns the next legal top-card move to a foundation, if one exists. */
+export function findAutoFoundationMove(game: GameState): AutoFoundationMove | null {
+  const wasteCard = game.waste.at(-1);
+  if (wasteCard && canPlaceOnFoundation(wasteCard, game.foundations[wasteCard.suit])) {
+    return { source: { kind: "waste" }, card: wasteCard };
+  }
+  for (let column = 0; column < game.tableau.length; column += 1) {
+    const pile = game.tableau[column];
+    const card = pile.at(-1);
+    if (card && card.faceUp && canPlaceOnFoundation(card, game.foundations[card.suit])) {
+      return { source: { kind: "tableau", column, index: pile.length - 1 }, card };
+    }
+  }
+  return null;
+}
+
+/**
+ * Late-game auto-finish is conservative: the stock is empty, every tableau
+ * card is revealed, and at least one top-card foundation move is legal.
+ */
+export function isLateGameAutoFinishReady(game: GameState): boolean {
+  return game.stock.length === 0 && game.tableau.every((pile) => pile.every((card) => card.faceUp)) && findAutoFoundationMove(game) !== null;
+}
+
 export function findHint(game: GameState): Hint | null {
   const wasteCard = game.waste.at(-1);
   if (wasteCard && canPlaceOnFoundation(wasteCard, game.foundations[wasteCard.suit])) {

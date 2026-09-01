@@ -7,6 +7,7 @@ describe("반응형 게임 테이블 레이아웃", () => {
   it("공격 카드가 캐릭터 시작점에서 몬스터 하단까지 이동할 거리를 계산한다", () => {
     expect(getAttackTravelY(800, 116, 70, 150)).toBe(-464);
     expect(getAttackTravelY(800, 640, 70, 150)).toBe(-180);
+    expect(getAttackTravelY(800, 116, 70, 150, 1.2)).toBe(-557);
   });
 
   it("갤럭시 S26급 세로 화면에서 카드 열이 안전 영역 안에 들어간다", () => {

@@ -6,9 +6,11 @@ import {
   createNewGame,
   drawFromStock,
   findHint,
+  findAutoFoundationMove,
   getDifficulty,
   getChapterForStage,
   isChapterBossStage,
+  isLateGameAutoFinishReady,
   moveAceToFoundation,
   moveAvailableAcesToFoundation,
   moveToFoundation,
@@ -100,6 +102,9 @@ describe("클론다이크 규칙", () => {
     expect(getDifficulty(4).drawCount).toBe(2);
     expect(getDifficulty(5).drawCount).toBe(2);
     expect(getDifficulty(6).drawCount).toBe(3);
+    expect(getDifficulty(4).maxRecycles).toBe(2);
+    expect(getDifficulty(5).maxRecycles).toBe(1);
+    expect(getDifficulty(6).maxRecycles).toBe(0);
 
     const level3 = drawFromStock(createNewGame(3));
     const level4 = drawFromStock(createNewGame(4));
@@ -107,6 +112,22 @@ describe("클론다이크 규칙", () => {
     expect(level3.waste).toHaveLength(1);
     expect(level4.waste).toHaveLength(2);
     expect(level6.waste).toHaveLength(3);
+  });
+
+  it("모든 카드가 공개되고 스톡이 비면 자동 정렬을 시작할 수 있다", () => {
+    const lateGame: GameState = {
+      stock: [],
+      waste: [card(2, "clubs")],
+      foundations: { clubs: [card(1, "clubs")], diamonds: [], hearts: [], spades: [] },
+      tableau: [[], [], [], [], [], [], []],
+      score: 0,
+      moves: 0,
+      level: 1,
+      recycles: 0,
+    };
+    expect(isLateGameAutoFinishReady(lateGame)).toBe(true);
+    expect(findAutoFoundationMove(lateGame)?.card.id).toBe("clubs-2");
+    expect(isLateGameAutoFinishReady({ ...lateGame, stock: [card(3, "clubs")] })).toBe(false);
   });
 
   it("A는 가능한 빈 파운데이션으로 자동 이동한다", () => {

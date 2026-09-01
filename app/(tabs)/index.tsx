@@ -14,6 +14,8 @@ import { haptic } from "@/lib/haptics";
 import {
   autoComplete,
   cloneGameState,
+  findAutoFoundationMove,
+  isLateGameAutoFinishReady,
   createPlayableGame,
   drawFromStock,
   flipTableauCard,
@@ -373,8 +375,8 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
 
   useEffect(() => {
     const motion = Animated.loop(Animated.sequence([
-      Animated.timing(monsterMotion, { toValue: 1, duration: 2145, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(monsterMotion, { toValue: 0, duration: 2145, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(monsterMotion, { toValue: 1, duration: 4290, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(monsterMotion, { toValue: 0, duration: 4290, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
     ]));
     motion.start();
     return () => motion.stop();
@@ -507,6 +509,8 @@ export default function HomeScreen() {
   const bossIntroProgress = useRef(new Animated.Value(0)).current;
   const screenShake = useRef(new Animated.Value(0)).current;
   const bossWarningStageRef = useRef<number | null>(null);
+  const autoFinishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoFinishRunningRef = useRef(false);
   const selectPlayer = useAudioPlayer(require("../../assets/sounds/card-select.wav"));
   const movePlayer = useAudioPlayer(require("../../assets/sounds/card-move.wav"));
   const shufflePlayer = useAudioPlayer(require("../../assets/sounds/card-shuffle.wav"));
@@ -578,6 +582,8 @@ export default function HomeScreen() {
 
   useEffect(() => () => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    if (autoFinishTimerRef.current) clearTimeout(autoFinishTimerRef.current);
+    autoFinishRunningRef.current = false;
   }, []);
 
   useEffect(() => {
@@ -828,6 +834,31 @@ export default function HomeScreen() {
     haptic.light();
   };
 
+  const queueLateGameAutoFinish = (candidate: typeof game) => {
+    if (autoFinishRunningRef.current || !isLateGameAutoFinishReady(candidate)) return;
+    autoFinishRunningRef.current = true;
+    showTimedHint("모든 카드가 공개되었습니다. 콤보 정리를 시작합니다!");
+    let cursor = candidate;
+    const step = () => {
+      const move = findAutoFoundationMove(cursor);
+      if (!move) {
+        autoFinishRunningRef.current = false;
+        autoFinishTimerRef.current = null;
+        return;
+      }
+      const next = moveToFoundation(cursor, move.source);
+      if (!next) {
+        autoFinishRunningRef.current = false;
+        autoFinishTimerRef.current = null;
+        return;
+      }
+      cursor = next;
+      applyGame(next, false, move.card);
+      autoFinishTimerRef.current = setTimeout(step, 290);
+    };
+    autoFinishTimerRef.current = setTimeout(step, 220);
+  };
+
   const applyGame = (nextGame: typeof game | null, success = false, movedCard?: Card) => {
     if (!nextGame || nextGame === game) {
       haptic.error();
@@ -852,6 +883,7 @@ export default function HomeScreen() {
     setGame(nextGame);
     setSelection(null);
     playEffect("move");
+    if (!isWon(nextGame)) queueLateGameAutoFinish(nextGame);
     if (movedCard) {
       playEffect("companionAttack");
       animateFlight(movedCard);
@@ -982,7 +1014,7 @@ export default function HomeScreen() {
   const flightStartBottom = companionCenterBottom;
   const flightTravelX = phoneLandscape ? 0 : isLandscape ? Math.round(safeScreenWidth * 0.04) : Math.round(safeScreenWidth * 0.05);
   const monsterTargetTop = rootTopPadding + (isLandscape ? (phoneLandscape ? 116 : 82) : 152);
-  const flightTravelY = getAttackTravelY(safeScreenHeight, flightStartBottom, cardWidth * cardRatio, monsterTargetTop);
+  const flightTravelY = getAttackTravelY(safeScreenHeight, flightStartBottom, cardWidth * cardRatio, monsterTargetTop, 1.2);
 
   useEffect(() => {
     if (!hydrated || !battleContent.isBoss || bossWarningStageRef.current === battleContent.stage) return;
@@ -1013,7 +1045,6 @@ export default function HomeScreen() {
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
         {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={cardRatio} progress={flightProgress} travelX={flightTravelX} travelY={flightTravelY} startLeft={flightStartLeft} startBottom={flightStartBottom} flightColor={companionAttackColor} /> : null}
         <VictoryFireworks visible={showFireworks} />
-        {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} effectColor={companionAttackColor} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={flightTravelX} travelY={flightTravelY} /> : null}
         <View style={[styles.header, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact, phoneLandscape && styles.headerPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
           <View style={phoneLandscape && styles.headerTitlePhoneLandscape}>
             <Text style={styles.eyebrow}>OUR STYLE</Text>
@@ -1051,10 +1082,6 @@ export default function HomeScreen() {
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
           </View>
           <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={isLandscape ? Math.max(110, Math.min(260, Math.round(safeScreenWidth * 0.2))) : 44} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
-          <View style={[styles.statusWrap, isLandscape && styles.statusWrapLandscape, compactControls && !isLandscape && styles.statusWrapCompact, phoneLandscape && styles.statusWrapPhoneLandscape]}>
-            <View style={[styles.statusDot, selection ? styles.statusDotSelected : styles.statusDotReady]} />
-            <Text numberOfLines={1} style={styles.statusText}>{hydrated ? (selection ? "이동할 곳을 탭하세요" : "카드를 선택하세요") : "게임 준비 중"}</Text>
-          </View>
         </View>
 
         <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ scale: layoutTransition }] }]}>
@@ -1102,6 +1129,7 @@ export default function HomeScreen() {
         </View>
         </View>
         </Animated.View>
+        {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} effectColor={companionAttackColor} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={flightTravelX} travelY={flightTravelY} /> : null}
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
         <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionLeft} bottom={companionBottom} />
@@ -1291,7 +1319,7 @@ const styles = StyleSheet.create({
   monsterHp: { color: "#BCEAE2", fontSize: 8, fontWeight: "800", marginTop: 2 },
   monsterProjectile: { position: "absolute", left: 8, top: 12, fontSize: 24, fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 7 },
   companionAnchor: { position: "absolute", zIndex: 22, alignItems: "center", justifyContent: "center" },
-  attackCard: { position: "absolute", left: "43%", bottom: "14%", zIndex: 45, width: 34, height: 48, borderRadius: 6, borderWidth: 2, backgroundColor: "#FFFDF8", shadowColor: "#FFFFFF", shadowOpacity: 0.9, shadowRadius: 8, elevation: 12 },
+  attackCard: { position: "absolute", left: "43%", bottom: "14%", zIndex: 70, width: 34, height: 48, borderRadius: 6, borderWidth: 2, backgroundColor: "#FFFDF8", shadowColor: "#FFFFFF", shadowOpacity: 0.9, shadowRadius: 8, elevation: 20 },
   attackCardRank: { position: "absolute", top: 3, left: 4, fontSize: 12, fontWeight: "900" },
   attackCardSuit: { position: "absolute", top: 15, width: "100%", textAlign: "center", fontSize: 21, fontWeight: "900" },
   damageText: { position: "absolute", top: -2, right: -18, color: "#FFD66E", fontSize: 16, fontWeight: "900", textShadowColor: "#5B1F38", textShadowRadius: 4 },
