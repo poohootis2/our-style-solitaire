@@ -1412,11 +1412,12 @@ export default function HomeScreen() {
         <Modal transparent visible={showNoMovesPopup} animationType="fade" onRequestClose={() => setShowNoMovesPopup(false)}>
           <View style={styles.modalBackdropCenter}>
             <View style={styles.noMovesPopupCard}>
-              <Text style={styles.noMovesPopupTitle}>이동할 카드가 없어요</Text>
-              <Text style={styles.noMovesPopupCopy}>{"더 이상 이동할 카드가 없습니다. 펫캐릭터를 두번 터치하면 셔플기능이 실행됩니다."}{"\n"}{"또는 게임을 새로 시작하세요"}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="이동 불가 안내 닫기" onPress={() => setShowNoMovesPopup(false)} style={({ pressed }) => [styles.noMovesPopupClose, pressed && styles.pressed]}><Text style={styles.noMovesPopupCloseText}>×</Text></Pressable>
+              <Text style={styles.noMovesPopupTitle}>더 이상 이동할 수 없습니다.</Text>
+              {activeShuffleStep === 0 ? <Text style={styles.noMovesPopupCopy}>펫을 두번 터치시, 셔플기능 1번 사용 가능</Text> : activeShuffleStep < 2 ? <Text style={styles.noMovesPopupCopy}>광고시청후 셔플기능 1번 사용 가능</Text> : <Text style={styles.noMovesPopupCopy}>게임을 새로시작하세요.</Text>}
               <View style={styles.noMovesPopupActions}>
-                <Pressable accessibilityRole="button" accessibilityLabel="펫 두 번 터치로 셔플" onPress={() => { setShowNoMovesPopup(false); setShowShuffleHelp(true); }} style={({ pressed }) => [styles.shuffleHelpAction, pressed && styles.pressed]}><Text style={styles.shuffleHelpActionIcon}>↻</Text><Text style={styles.shuffleHelpActionTitle}>펫 두 번 터치</Text></Pressable>
-                <Pressable accessibilityRole="button" accessibilityLabel="새 게임 시작" onPress={() => { setShowNoMovesPopup(false); requestNewGame(); }} style={({ pressed }) => [styles.shuffleHelpClose, pressed && styles.pressed]}><Text style={styles.shuffleHelpCloseText}>새 게임 시작</Text></Pressable>
+                {activeShuffleStep === 0 ? <Pressable accessibilityRole="button" accessibilityLabel="무료 셔플" onPress={() => { setShowNoMovesPopup(false); void useShuffleBonus(0); }} style={({ pressed }) => [styles.noMovesPopupPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>무료 셔플</Text></Pressable> : activeShuffleStep < 2 ? <Pressable accessibilityRole="button" accessibilityLabel="광고 셔플" onPress={() => { setShowNoMovesPopup(false); void useShuffleBonus(activeShuffleStep); }} style={({ pressed }) => [styles.noMovesPopupPrimary, styles.noMovesPopupAd, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>광고 셔플</Text></Pressable> : null}
+                <Pressable accessibilityRole="button" accessibilityLabel="새로 시작" onPress={() => { setShowNoMovesPopup(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>새로 시작</Text></Pressable>
               </View>
             </View>
           </View>
@@ -1724,10 +1725,17 @@ const styles = StyleSheet.create({
   rewardedCloseText: { color: "#E5ECF8", fontSize: 13, fontWeight: "800" },
   shuffleHelpCard: { width: "100%", maxWidth: 370, padding: 22, borderRadius: 24, borderWidth: 2, borderColor: "#77D6C3", backgroundColor: "#17233C", shadowColor: "#000000", shadowOpacity: 0.42, shadowRadius: 20, elevation: 18 },
   rewardedShuffleCard: { width: "100%", maxWidth: 370, padding: 22, borderRadius: 24, borderWidth: 2, borderColor: "#F3C969", backgroundColor: "#17233C", shadowColor: "#000000", shadowOpacity: 0.42, shadowRadius: 20, elevation: 18 },
-  noMovesPopupCard: { width: "100%", maxWidth: 370, padding: 22, borderRadius: 24, borderWidth: 2, borderColor: "#77D6C3", backgroundColor: "#17233C", shadowColor: "#000000", shadowOpacity: 0.42, shadowRadius: 20, elevation: 18 },
-  noMovesPopupTitle: { color: "#FFF3D1", fontSize: 23, fontWeight: "900", textAlign: "center" },
-  noMovesPopupCopy: { color: "#D4E2F7", fontSize: 14, lineHeight: 22, textAlign: "center", marginTop: 12 },
-  noMovesPopupActions: { gap: 10, marginTop: 20 },
+  noMovesPopupCard: { width: "92%", maxWidth: 320, padding: 18, paddingTop: 24, borderRadius: 20, borderWidth: 2, borderColor: "#77D6C3", backgroundColor: "#17233C", shadowColor: "#000000", shadowOpacity: 0.42, shadowRadius: 20, elevation: 18 },
+  noMovesPopupClose: { position: "absolute", top: 5, right: 8, width: 30, height: 30, alignItems: "center", justifyContent: "center", zIndex: 2 },
+  noMovesPopupCloseText: { color: "#FFF3D1", fontSize: 24, lineHeight: 27, fontWeight: "800" },
+  noMovesPopupTitle: { color: "#FFF3D1", fontSize: 17, lineHeight: 23, fontWeight: "900", textAlign: "center" },
+  noMovesPopupCopy: { color: "#D4E2F7", fontSize: 13, lineHeight: 20, textAlign: "center", marginTop: 10 },
+  noMovesPopupActions: { flexDirection: "row", gap: 8, marginTop: 18, justifyContent: "center" },
+  noMovesPopupPrimary: { minWidth: 112, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 13, backgroundColor: "#77D6C3", alignItems: "center" },
+  noMovesPopupAd: { backgroundColor: "#F3C969" },
+  noMovesPopupPrimaryText: { color: "#17233C", fontSize: 13, fontWeight: "900" },
+  noMovesPopupSecondary: { minWidth: 94, paddingHorizontal: 12, paddingVertical: 11, borderRadius: 13, borderWidth: 1, borderColor: "#64799D", alignItems: "center" },
+  noMovesPopupSecondaryText: { color: "#E5ECF8", fontSize: 13, fontWeight: "800" },
   rewardedTooltip: { alignSelf: "center", marginTop: 12, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: "#FFF3D1", borderWidth: 1, borderColor: "#F3C969" },
   rewardedTooltipText: { color: "#17233C", fontSize: 12, fontWeight: "900", textAlign: "center" },
   shuffleHelpEyebrow: { color: "#77D6C3", fontSize: 10, fontWeight: "900", letterSpacing: 1.4, textAlign: "center" },
