@@ -39,6 +39,7 @@ import {
 } from "@/lib/solitaire";
 import { getBattleContent, getCompanionRoster, type BattleAsset } from "@/lib/battle-content";
 import { PET_ROSTER } from "@/lib/pet-content";
+import { getPetVisibleAnchor, SHUFFLE_BURST_VISIBLE_ANCHOR } from "@/lib/pet-visible-anchor";
 import { showRewardedAd } from "@/components/rewarded-ad";
 import { companionAttackColors, getCompanionAttackStyle, type CompanionAttackStyle } from "@/lib/companion-attack";
 import { getAttackTravelY } from "@/lib/attack-layout";
@@ -151,14 +152,23 @@ function CompanionAnchor({ companion, size, left, bottom, showTwoTouch, bonusSte
   const burstRotate = burstSpin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
   const labels = ["2Touch", "AD +1", "AD +2"];
   const activeLabel = labels[bonusStep];
+  const companionVisibleAnchor = getPetVisibleAnchor(companion.id);
+  const companionVisibleCenterX = size * companionVisibleAnchor.centerX;
+  const companionVisibleCenterY = size * companionVisibleAnchor.centerY;
+  const companionVisibleLeft = Math.max(0, size * (companionVisibleAnchor.centerX - companionVisibleAnchor.span * 0.5));
+  const burstSize = size * 1.28;
+  const burstLeft = companionVisibleCenterX - burstSize * SHUFFLE_BURST_VISIBLE_ANCHOR.centerX;
+  const burstTop = companionVisibleCenterY - burstSize * SHUFFLE_BURST_VISIBLE_ANCHOR.centerY;
+  const bubbleRight = size - companionVisibleLeft + 13;
+  const bubbleTop = Math.max(0, companionVisibleCenterY - 18);
   return <View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom }]}>
-    {showTwoTouch ? <Animated.View pointerEvents="box-none" style={[styles.bonusBubbleColumn, { right: size + 6, transform: [{ translateX }, { translateY: bubbleTranslateY }, { scale: bubbleScale }, { rotate }] }]}> 
+    {showTwoTouch ? <Animated.View pointerEvents="box-none" style={[styles.bonusBubbleColumn, { right: bubbleRight, top: bubbleTop, transform: [{ translateX }, { translateY: bubbleTranslateY }, { scale: bubbleScale }, { rotate }] }]}> 
       <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, ${activeLabel} 셔플`} onPress={() => onBonusPress(bonusStep)} style={({ pressed }) => [styles.bonusBubble, pressed && styles.pressed]}>
         <Text style={styles.bonusBubbleText}>{activeLabel}</Text>
         <Text pointerEvents="none" style={styles.bonusBubbleArrow}>▶</Text>
       </Pressable>
     </Animated.View> : null}
-    {showTwoTouch ? <Animated.View pointerEvents="none" style={[styles.shuffleBurstFrame, { width: size * 1.28, height: size * 1.28, left: -size * 0.14, top: -size * 0.14, opacity: 0.62, transform: [{ translateX }, { translateY }, { rotate: burstRotate }, { scale: bounce.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] }) }] }]}><Image source={SHUFFLE_BURST} resizeMode="contain" style={styles.shuffleBurstImage} /></Animated.View> : null}
+    {showTwoTouch ? <Animated.View pointerEvents="none" style={[styles.shuffleBurstFrame, { width: burstSize, height: burstSize, left: burstLeft, top: burstTop, opacity: 0.62, transform: [{ translateX }, { translateY }, { rotate: burstRotate }, { scale: bounce.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] }) }] }]}><Image source={SHUFFLE_BURST} resizeMode="contain" style={styles.shuffleBurstImage} /></Animated.View> : null}
     <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 전투 펫`}>
       <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX }, { translateY }, { rotate }] }]}>
         <Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} />
