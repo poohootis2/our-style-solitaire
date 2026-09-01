@@ -1079,7 +1079,7 @@ export default function HomeScreen() {
             <View style={styles.statDivider} />
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
           </View>
-          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={isLandscape ? Math.max(110, Math.min(260, Math.round(safeScreenWidth * 0.2))) : 44} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
+          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={isLandscape ? Math.max(160, Math.min(310, Math.round(safeScreenWidth * 0.2) + 50)) : 94} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
         <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ scale: layoutTransition }] }]}>
@@ -1304,17 +1304,17 @@ const styles = StyleSheet.create({
   monsterSpriteWrapCompact: { width: 32, height: 38 },
   monsterSprite: { width: 50, height: 54 },
   monsterSpriteCompact: { width: 34, height: 38 },
-  monsterInfo: { width: 68, alignItems: "flex-start", transform: [{ translateX: 10 }] },
-  monsterInfoCompact: { width: 54, transform: [{ translateX: 10 }] },
-  monsterInfoPortrait: { transform: [{ translateX: 30 }] },
+  monsterInfo: { width: 68, alignItems: "flex-start", transform: [{ translateX: 60 }] },
+  monsterInfoCompact: { width: 54, transform: [{ translateX: 60 }] },
+  monsterInfoPortrait: { transform: [{ translateX: 80 }] },
   companionSprite: { width: 34, height: 38, marginHorizontal: 1 },
   companionSpriteCompact: { width: 27, height: 31 },
   monsterNameRow: { flexDirection: "row", alignItems: "flex-start", gap: 3, width: "100%" },
-  monsterName: { flex: 1, color: "#F3C969", fontSize: 7, fontWeight: "900", letterSpacing: 0.5 },
+  monsterName: { flex: 1, color: "#F3C969", fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
   bossBadge: { color: "#11182C", backgroundColor: "#F3C969", borderRadius: 3, paddingHorizontal: 2, paddingVertical: 1, fontSize: 5, fontWeight: "900" },
   monsterBar: { width: "100%", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
-  monsterHp: { color: "#BCEAE2", fontSize: 8, fontWeight: "800", marginTop: 2 },
+  monsterHp: { color: "#BCEAE2", fontSize: 11, fontWeight: "800", marginTop: 2 },
   monsterProjectile: { position: "absolute", left: 8, top: 12, fontSize: 24, fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 7 },
   companionAnchor: { position: "absolute", zIndex: 22, alignItems: "center", justifyContent: "center" },
   attackCard: { position: "absolute", left: "43%", bottom: "14%", zIndex: 70, width: 34, height: 48, borderRadius: 6, borderWidth: 2, backgroundColor: "#FFFDF8", shadowColor: "#FFFFFF", shadowOpacity: 0.9, shadowRadius: 8, elevation: 20 },
