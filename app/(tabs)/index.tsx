@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Animated, AppState, Easing, Image, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Animated, AppState, Easing, Image, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import * as ScreenOrientation from "expo-screen-orientation";
@@ -37,6 +37,7 @@ import {
   SUITS,
 } from "@/lib/solitaire";
 import { getBattleContent, getCompanionRoster, type BattleAsset } from "@/lib/battle-content";
+import { PET_ROSTER } from "@/lib/pet-content";
 import { companionAttackColors, getCompanionAttackStyle, type CompanionAttackStyle } from "@/lib/companion-attack";
 import { getAttackTravelY } from "@/lib/attack-layout";
 
@@ -55,6 +56,8 @@ const SOUND_EFFECTS_VOLUME_KEY = "our-style-solitaire:sound-effects-volume";
 const BACKGROUND_MUSIC_VOLUME_KEY = "our-style-solitaire:background-music-volume";
 const CARD_SELECT_VIBRATION_KEY = "our-style-solitaire:card-select-vibration";
 const SELECTED_COMPANION_KEY = "our-style-solitaire:selected-companion";
+const UNLOCKED_PETS_KEY = "our-style-solitaire:unlocked-pets";
+const INITIAL_UNLOCKED_PET_IDS = ["cloud-tiger", "gumiho-tail", "mochi-rabbit"];
 const PHYSICAL_EDGE_INSET = 52;
 const MAX_UNDO_STEPS = 3;
 const CARD_ATTACK_FLIGHT_DURATION = 1500;
@@ -542,6 +545,7 @@ export default function HomeScreen() {
   const [attackToken, setAttackToken] = useState(0);
   const [comboAttack, setComboAttack] = useState(false);
   const [selectedCompanionId, setSelectedCompanionId] = useState("cloud-tiger");
+  const [unlockedPetIds, setUnlockedPetIds] = useState<string[]>(INITIAL_UNLOCKED_PET_IDS);
   const [showBossWarning, setShowBossWarning] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
@@ -634,7 +638,7 @@ export default function HomeScreen() {
     let mounted = true;
     const loadLocalGame = async () => {
       try {
-        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, cardSelectVibrationValue, selectedCompanionValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, CARD_SELECT_VIBRATION_KEY, SELECTED_COMPANION_KEY]);
+        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, cardSelectVibrationValue, selectedCompanionValue, unlockedPetsValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, CARD_SELECT_VIBRATION_KEY, SELECTED_COMPANION_KEY, UNLOCKED_PETS_KEY]);
         if (!mounted) return;
         if (activeGameValue[1] && !newGameStarted.current) {
           const saved = JSON.parse(activeGameValue[1]) as { saveVersion?: number; game?: typeof game; elapsedSeconds?: number };
@@ -654,6 +658,10 @@ export default function HomeScreen() {
         if (backgroundMusicVolumeValue[1]) setBackgroundMusicVolume(clampVolume(Number(backgroundMusicVolumeValue[1])));
         if (cardSelectVibrationValue[1]) setCardSelectVibrationEnabled(cardSelectVibrationValue[1] === "true");
         if (selectedCompanionValue[1]) setSelectedCompanionId(selectedCompanionValue[1]);
+        if (unlockedPetsValue[1]) {
+          const savedUnlocked = JSON.parse(unlockedPetsValue[1]);
+          if (Array.isArray(savedUnlocked)) setUnlockedPetIds(Array.from(new Set([...INITIAL_UNLOCKED_PET_IDS, ...savedUnlocked.filter((id): id is string => typeof id === "string")])));
+        }
       } catch {
         // A fresh local game is retained when storage is unavailable or malformed.
       } finally {
@@ -713,6 +721,11 @@ export default function HomeScreen() {
     if (!hydrated) return;
     AsyncStorage.setItem(SELECTED_COMPANION_KEY, selectedCompanionId).catch(() => undefined);
   }, [hydrated, selectedCompanionId]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    AsyncStorage.setItem(UNLOCKED_PETS_KEY, JSON.stringify(unlockedPetIds)).catch(() => undefined);
+  }, [hydrated, unlockedPetIds]);
 
   useEffect(() => {
     for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer]) {
@@ -776,6 +789,7 @@ export default function HomeScreen() {
   }, [game, hydrated, paused]);
 
   const startNewGame = (level = game.level) => {
+    const manualReset = level === game.level;
     newGameStarted.current = true;
     bossWarningStageRef.current = null;
     setShowBossWarning(false);
@@ -789,6 +803,10 @@ export default function HomeScreen() {
     setShowNewGameConfirm(false);
     setHintMessage(null);
     setUndoStack([]);
+    if (manualReset) {
+      setUnlockedPetIds(INITIAL_UNLOCKED_PET_IDS);
+      AsyncStorage.setItem(UNLOCKED_PETS_KEY, JSON.stringify(INITIAL_UNLOCKED_PET_IDS)).catch(() => undefined);
+    }
     gameRef.current = freshGame;
     elapsedSecondsRef.current = 0;
     AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ saveVersion: ACTIVE_GAME_SAVE_VERSION, game: freshGame, elapsedSeconds: 0 })).catch(() => undefined);
@@ -815,6 +833,19 @@ export default function HomeScreen() {
     } catch {
       Alert.alert("화면 전환", "이 기기에서는 화면 방향을 전환할 수 없습니다.");
     }
+  };
+
+  const unlockRandomPets = (count: number) => {
+    const locked = PET_ROSTER.filter((pet) => !unlockedPetIds.includes(pet.id));
+    const shuffled = [...locked].sort(() => Math.random() - 0.5);
+    const newlyUnlocked = shuffled.slice(0, count);
+    if (!newlyUnlocked.length) {
+      showTimedHint("펫 도감의 모든 펫을 해금했습니다.");
+      return;
+    }
+    const nextIds = [...unlockedPetIds, ...newlyUnlocked.map((pet) => pet.id)];
+    setUnlockedPetIds(nextIds);
+    showTimedHint(`${newlyUnlocked.length}마리의 펫이 펫 도감에 추가되었습니다.`);
   };
 
   const saveWin = (finishedGame: typeof game) => {
@@ -939,6 +970,7 @@ export default function HomeScreen() {
     }
     if (isWon(nextGame)) {
       saveWin(nextGame);
+      unlockRandomPets(battleContent.isBoss ? 2 : 1);
       const nextStage = nextGame.level + 1;
       const nextChapter = getChapterForStage(nextStage);
       setShowFireworks(true);
@@ -1043,7 +1075,7 @@ export default function HomeScreen() {
   const difficulty = getDifficulty(game.level);
   const cardBackTheme = getCardBackTheme(getChapterForStage(game.level));
   const battleContent = getBattleContent(game.level, isLandscape);
-  const companionRoster = getCompanionRoster();
+  const companionRoster = [...getCompanionRoster(), ...PET_ROSTER];
   const selectedCompanion = companionRoster.find((candidate) => candidate.id === selectedCompanionId) ?? battleContent.companion;
   const bossWarningOpacity = bossIntroProgress.interpolate({ inputRange: [0, 0.18, 0.82, 1], outputRange: [0, 1, 1, 0] });
   const bossWarningScale = bossIntroProgress.interpolate({ inputRange: [0, 0.22, 0.82, 1], outputRange: [0.82, 1, 1.04, 0.94] });
@@ -1201,7 +1233,7 @@ export default function HomeScreen() {
                     <Pressable onPress={() => { haptic.light(); setSheet("records"); }} style={({ pressed }) => [styles.sheetSecondaryButton, pressed && styles.pressed]}><Text style={styles.sheetSecondaryText}>기록</Text></Pressable>
                     <Pressable onPress={() => { haptic.light(); setSheet("rules"); }} style={({ pressed }) => [styles.sheetSecondaryButton, pressed && styles.pressed]}><Text style={styles.sheetSecondaryText}>규칙</Text></Pressable>
                   </View>
-                  <Pressable onPress={() => { haptic.light(); setSheet("companions"); }} style={({ pressed }) => [styles.sheetLinkButton, pressed && styles.pressed]}><Text style={styles.sheetLinkText}>전투 캐릭터 선택</Text></Pressable>
+                  <Pressable onPress={() => { haptic.light(); setSheet("companions"); }} style={({ pressed }) => [styles.sheetLinkButton, pressed && styles.pressed]}><Text style={styles.sheetLinkText}>펫 도감</Text></Pressable>
                   <Pressable onPress={requestNewGame} style={({ pressed }) => [styles.sheetLinkButton, pressed && styles.pressed]}><Text style={styles.sheetLinkText}>새 게임 시작</Text></Pressable>
                 </>
               ) : null}
@@ -1232,18 +1264,19 @@ export default function HomeScreen() {
               {sheet === "companions" ? (
                 <>
                   <Text style={styles.sheetEyebrow}>COMPANION SLOTS</Text>
-                  <Text style={styles.sheetTitle}>전투 캐릭터 선택</Text>
-                  <Text style={styles.companionPickerCopy}>원하는 동료를 선택하면 다음 공격부터 전투에 함께합니다. 새 캐릭터는 roster에 슬롯을 추가해 확장할 수 있습니다.</Text>
-                  <View style={styles.companionGrid}>
+                  <Text style={styles.sheetTitle}>펫 도감</Text>
+                  <Text style={styles.companionPickerCopy}>스테이지를 클리어하면 펫이 랜덤으로 해금됩니다. 해금된 펫을 선택하면 다음 공격부터 함께합니다.</Text>
+                  <ScrollView style={styles.petGridScroll} contentContainerStyle={styles.companionGrid} showsVerticalScrollIndicator={false}>
                     {companionRoster.map((companion) => {
-                      const selected = companion.id === selectedCompanionId;
-                      return <Pressable key={companion.id} accessibilityRole="radio" accessibilityState={{ selected }} onPress={() => { setSelectedCompanionId(companion.id); haptic.light(); }} style={({ pressed }) => [styles.companionChoice, selected && styles.companionChoiceSelected, pressed && styles.pressed]}>
-                        <Image source={companion.image} resizeMode="contain" style={styles.companionChoiceImage} accessibilityLabel={companion.name} />
-                        <Text style={styles.companionChoiceName} numberOfLines={2}>{companion.name}</Text>
+                      const unlocked = unlockedPetIds.includes(companion.id);
+                      const selected = unlocked && companion.id === selectedCompanionId;
+                      return <Pressable key={companion.id} accessibilityRole="radio" accessibilityState={{ selected, disabled: !unlocked }} disabled={!unlocked} onPress={() => { setSelectedCompanionId(companion.id); haptic.light(); }} style={({ pressed }) => [styles.companionChoice, selected && styles.companionChoiceSelected, !unlocked && styles.companionChoiceLocked, pressed && styles.pressed]}>
+                        <Image source={companion.image} resizeMode="contain" style={[styles.companionChoiceImage, !unlocked && styles.companionChoiceSilhouette]} accessibilityLabel={unlocked ? companion.name : "잠긴 펫"} />
+                        <Text style={styles.companionChoiceName} numberOfLines={2}>{unlocked ? companion.name : "???"}</Text>
                         {selected ? <Text style={styles.companionChoiceCheck}>✓</Text> : null}
                       </Pressable>;
                     })}
-                  </View>
+                  </ScrollView>
                   <Pressable onPress={() => setSheet("menu")} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>선택 완료</Text></Pressable>
                 </>
               ) : null}
@@ -1457,10 +1490,13 @@ const styles = StyleSheet.create({
   sheetLinkButton: { alignSelf: "center", paddingVertical: 14, marginTop: 7 },
   sheetLinkText: { color: "#FF9E91", fontSize: 13, fontWeight: "800" },
   companionPickerCopy: { color: "#A6B4CE", fontSize: 13, lineHeight: 20, marginTop: 8, marginBottom: 16 },
-  companionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  companionChoice: { width: "31%", minHeight: 116, alignItems: "center", justifyContent: "center", paddingVertical: 10, paddingHorizontal: 4, borderRadius: 15, backgroundColor: "#152542", borderWidth: 1, borderColor: "#36527A" },
+  petGridScroll: { maxHeight: 430, marginHorizontal: -4 },
+  companionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 4, paddingBottom: 12 },
+  companionChoice: { width: "23.5%", minHeight: 96, alignItems: "center", justifyContent: "center", paddingVertical: 7, paddingHorizontal: 2, borderRadius: 12, backgroundColor: "#152542", borderWidth: 1, borderColor: "#36527A" },
   companionChoiceSelected: { backgroundColor: "#2B6B72", borderColor: "#77D6C3", borderWidth: 2 },
-  companionChoiceImage: { width: 58, height: 64 },
+  companionChoiceLocked: { backgroundColor: "#101A30", borderColor: "#263753" },
+  companionChoiceImage: { width: 48, height: 52 },
+  companionChoiceSilhouette: { opacity: 0.92, tintColor: "#020611" },
   companionChoiceName: { color: "#FFFDF8", fontSize: 10, fontWeight: "800", textAlign: "center", marginTop: 6 },
   companionChoiceCheck: { position: "absolute", top: 6, right: 7, color: "#FFFDF8", fontSize: 16, fontWeight: "900" },
   recordGrid: { flexDirection: "row", gap: 8, marginTop: 20 },
