@@ -567,6 +567,7 @@ export default function HomeScreen() {
   const [showBossWarning, setShowBossWarning] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
+  const suppressNextShufflePromptRef = useRef(false);
   const rootRef = useRef<View | null>(null);
   const tableauBottomCardRefs = useRef<Array<View | null>>(Array.from({ length: 7 }, () => null));
   const companionAvoidanceShift = useRef(new Animated.Value(0)).current;
@@ -1012,7 +1013,11 @@ export default function HomeScreen() {
     if (nextProgress > previousProgress || nextGame.stock.length !== game.stock.length || nextGame.waste.length !== game.waste.length) stagnantMovesRef.current = 0;
     else stagnantMovesRef.current += 1;
     const noMovesLeft = findHint(nextGame) === null;
-    if ((noMovesLeft || stagnantMovesRef.current >= 2) && !isWon(nextGame)) {
+    if (suppressNextShufflePromptRef.current) {
+      suppressNextShufflePromptRef.current = false;
+      setShowTwoTouch(false);
+      setShowNoMovesPopup(false);
+    } else if ((noMovesLeft || stagnantMovesRef.current >= 2) && !isWon(nextGame)) {
       setShowTwoTouch(true);
       setShowNoMovesPopup(true);
     }
@@ -1057,6 +1062,7 @@ export default function HomeScreen() {
       setShowNoMovesPopup(false);
       playEffect("shuffle");
       playShuffleAnimation();
+      suppressNextShufflePromptRef.current = true;
       applyGame(shuffledGame, false, undefined);
       showTimedHint("2Touch 셔플을 사용했습니다. AD +1 또는 AD +2를 이용할 수 있습니다.");
       return;
@@ -1084,6 +1090,7 @@ export default function HomeScreen() {
     setShowNoMovesPopup(false);
     playEffect("shuffle");
     playShuffleAnimation();
+    suppressNextShufflePromptRef.current = true;
     applyGame(shuffledGame, false, undefined);
     showTimedHint(`광고 보상 셔플을 사용했습니다. (${nextRewardedCount}/2)`);
   };
