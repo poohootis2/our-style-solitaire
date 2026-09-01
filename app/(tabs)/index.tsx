@@ -36,6 +36,7 @@ import {
 } from "@/lib/solitaire";
 import { getBattleContent, getCompanionRoster, type BattleAsset } from "@/lib/battle-content";
 import { companionAttackColors, getCompanionAttackStyle, type CompanionAttackStyle } from "@/lib/companion-attack";
+import { getAttackTravelY } from "@/lib/attack-layout";
 
 type Selection = CardSource & { cardId: string };
 type Sheet = "menu" | "rules" | "records" | "sound" | "companions" | null;
@@ -54,7 +55,7 @@ const SELECTED_COMPANION_KEY = "our-style-solitaire:selected-companion";
 const PHYSICAL_EDGE_INSET = 52;
 const MAX_UNDO_STEPS = 3;
 const CARD_ATTACK_FLIGHT_DURATION = 1500;
-const FLYING_CARD_DURATION = 280;
+const FLYING_CARD_DURATION = CARD_ATTACK_FLIGHT_DURATION;
 const emptyRecords: Records = { wins: 0, bestScore: 0, bestTimeSeconds: null };
 
 function cardLabel(card: Card): string {
@@ -829,10 +830,8 @@ export default function HomeScreen() {
       setLastDamage(damage);
       setAttackKind(changedSuit);
       setComboAttack(isCombo);
-      setTimeout(() => {
-        setAttackToken((token) => token + 1);
-        playEffect("attack");
-      }, CARD_ATTACK_FLIGHT_DURATION);
+      setAttackToken((token) => token + 1);
+      playEffect("attack");
       if (isCombo) setTimeout(() => setComboAttack(false), 900);
     }
     setUndoStack((history) => [...history.slice(-(MAX_UNDO_STEPS - 1)), cloneGameState(game)]);
@@ -966,7 +965,8 @@ export default function HomeScreen() {
   const flightStartLeft = companionCenterLeft;
   const flightStartBottom = companionCenterBottom;
   const flightTravelX = phoneLandscape ? 0 : isLandscape ? Math.round(safeScreenWidth * 0.04) : Math.round(safeScreenWidth * 0.05);
-  const flightTravelY = -Math.round(safeScreenHeight * (isLandscape ? 0.32 : 0.5));
+  const monsterTargetTop = rootTopPadding + (isLandscape ? (phoneLandscape ? 116 : 82) : 152);
+  const flightTravelY = getAttackTravelY(safeScreenHeight, flightStartBottom, cardWidth * cardRatio, monsterTargetTop);
 
   useEffect(() => {
     if (!hydrated || !battleContent.isBoss || bossWarningStageRef.current === battleContent.stage) return;
