@@ -117,7 +117,7 @@ function MedievalBackdrop({ source }: { source: number }) {
   );
 }
 
-function CompanionAnchor({ companion, size, left, bottom }: { companion: BattleAsset; size: number; left: number; bottom: number }) {
+function CompanionAnchor({ companion, size, left, bottom, onPress }: { companion: BattleAsset; size: number; left: number; bottom: number; onPress: () => void }) {
   const drift = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const animation = Animated.loop(Animated.sequence([
@@ -132,7 +132,7 @@ function CompanionAnchor({ companion, size, left, bottom }: { companion: BattleA
   const translateY = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] });
   const rotate = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-2deg", "0deg", "2deg"] });
   return <View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom }]}>
-    <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 전투 펫`}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 셔플 도움 보기`} onPress={onPress} style={({ pressed }) => [styles.companionPressTarget, pressed && styles.companionPressed]}>
       <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX }, { translateY }, { rotate }] }]}>
         <Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} />
       </Animated.View>
@@ -479,7 +479,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
         {damageVisible ? <Animated.Text style={[styles.damageText, { opacity: damageOpacity, transform: [{ translateY: damageTranslateY }] }]}>−{damage}</Animated.Text> : null}
         {defeatVisible ? <Animated.View pointerEvents="none" style={[styles.defeatBurst, { opacity: defeatOpacity, transform: [{ scale: defeatScale }] }]}>{Array.from({ length: 12 }, (_, index) => <Text key={index} style={[styles.defeatSpark, { transform: [{ rotate: `${index * 30}deg` }, { translateY: -24 }] }]}>{index % 2 ? "✦" : "•"}</Text>)}</Animated.View> : null}
       </Animated.View>
-      <View style={[styles.monsterInfo, { width: infoWidth }, compact && styles.monsterInfoCompact, !landscape && styles.monsterInfoPortrait]}>
+      <View style={[styles.monsterInfo, { width: infoWidth }, compact && styles.monsterInfoCompact, isBoss && styles.monsterInfoBoss, !landscape && styles.monsterInfoPortrait]}>
         <View style={styles.monsterNameRow}><Text style={styles.monsterName} numberOfLines={2}>{monster.name.toUpperCase()}</Text>{isBoss ? <Text style={styles.bossBadge}>BOSS</Text> : null}</View>
         <View style={styles.monsterBar}><View style={[styles.monsterBarFill, { width: `${Math.max(0, Math.min(100, hp))}%` }]} /><Animated.View pointerEvents="none" style={[styles.monsterHpFlash, { opacity: hpFlashOpacity }]} /></View>
         <Text style={styles.monsterHp}>{Math.round(hp)}%</Text>
@@ -559,6 +559,7 @@ export default function HomeScreen() {
   const [rewardedRevealUsed, setRewardedRevealUsed] = useState(0);
   const [rewardedAdError, setRewardedAdError] = useState<string | null>(null);
   const [rewardedRetrySlot, setRewardedRetrySlot] = useState<1 | 2>(1);
+  const [showShuffleHelp, setShowShuffleHelp] = useState(false);
   const [showBossWarning, setShowBossWarning] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
@@ -817,6 +818,7 @@ export default function HomeScreen() {
     setSheet(null);
     setShowNewGameConfirm(false);
     setHintMessage(null);
+    setShowShuffleHelp(false);
     setUndoStack([]);
     setShowTwoTouch(false);
     setTwoTouchOpensUsed(0);
@@ -1016,6 +1018,7 @@ export default function HomeScreen() {
 
   const useShuffleBonus = async (slot: 0 | 1 | 2) => {
     if (!showTwoTouch) return;
+    setShowShuffleHelp(false);
     if (slot === 0) {
       if (twoTouchOpensUsed > 0) { showTimedHint("기본 셔플은 이미 사용했습니다."); return; }
       const shuffledGame = shuffleAvailableCards(game);
@@ -1052,6 +1055,16 @@ export default function HomeScreen() {
     playShuffleAnimation();
     applyGame(shuffledGame, false, undefined);
     showTimedHint(`광고 보상 셔플을 사용했습니다. (${nextRewardedCount}/2)`);
+  };
+
+  const openShuffleHelp = () => {
+    if (!showTwoTouch) {
+      showTimedHint("지금은 셔플 보너스를 사용할 수 없습니다.");
+      haptic.light();
+      return;
+    }
+    setShowShuffleHelp(true);
+    haptic.light();
   };
 
   const selectCard = (nextSelection: Selection) => {
@@ -1159,6 +1172,12 @@ export default function HomeScreen() {
   const companionLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
   const companionBottom = bottomControlsBottom + 52 + (!isLandscape ? 1 : 0);
   const renderCardRatio = !isLandscape ? Math.max(0.8, cardRatio - 1 / Math.max(1, cardWidth)) : cardRatio;
+  const activeShuffleStep: 0 | 1 | 2 = twoTouchOpensUsed === 0 ? 0 : rewardedRevealUsed === 0 ? 1 : 2;
+  const shuffleHelpTitle = activeShuffleStep === 0 ? "무료 셔플" : `광고 보상 셔플 +${activeShuffleStep}`;
+  const shuffleHelpCopy = activeShuffleStep === 0
+    ? "현재 막힌 카드 흐름을 한 번 섞어 새로운 수를 만들어 드립니다."
+    : "짧은 광고를 끝까지 시청하면 셔플 1회를 추가로 이용할 수 있습니다.";
+  const shuffleHelpButton = activeShuffleStep === 0 ? "무료로 카드 섞기" : "광고 시청 후 셔플 +1";
   const companionCenterLeft = companionLeft + companionSize * 0.5 - cardWidth * 0.5;
   const companionCenterBottom = companionBottom + companionSize * 0.5 - cardWidth * renderCardRatio * 0.5;
   const flightStartLeft = companionCenterLeft;
@@ -1283,7 +1302,7 @@ export default function HomeScreen() {
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} effectColor={companionAttackColor} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={flightTravelX} travelY={flightTravelY} /> : null}
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
-        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionLeft} bottom={companionBottom} />
+        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionLeft} bottom={companionBottom} onPress={openShuffleHelp} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
@@ -1304,6 +1323,24 @@ export default function HomeScreen() {
                 <Pressable accessibilityRole="button" accessibilityLabel="보상형 광고 다시 시도" onPress={() => { setRewardedAdError(null); void useShuffleBonus(rewardedRetrySlot); }} style={({ pressed }) => [styles.rewardedRetryButton, pressed && styles.pressed]}><Text style={styles.rewardedRetryText}>다시 시도</Text></Pressable>
                 <Pressable accessibilityRole="button" accessibilityLabel="광고 안내 닫기" onPress={() => setRewardedAdError(null)} style={({ pressed }) => [styles.rewardedCloseButton, pressed && styles.pressed]}><Text style={styles.rewardedCloseText}>닫기</Text></Pressable>
               </View>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal transparent visible={showShuffleHelp} animationType="fade" onRequestClose={() => setShowShuffleHelp(false)}>
+          <View style={styles.modalBackdropCenter}>
+            <View style={styles.shuffleHelpCard}>
+              <Text style={styles.shuffleHelpEyebrow}>PET SHUFFLE HELP</Text>
+              <Text style={styles.shuffleHelpTitle}>{shuffleHelpTitle}</Text>
+              <Text style={styles.shuffleHelpCopy}>{shuffleHelpCopy}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel={shuffleHelpButton} onPress={() => void useShuffleBonus(activeShuffleStep)} style={({ pressed }) => [styles.shuffleHelpAction, activeShuffleStep > 0 && styles.shuffleHelpRewardAction, pressed && styles.pressed]}>
+                <Text style={styles.shuffleHelpActionIcon}>{activeShuffleStep === 0 ? "↻" : "▶"}</Text>
+                <View>
+                  <Text style={styles.shuffleHelpActionTitle}>{shuffleHelpButton}</Text>
+                  {activeShuffleStep > 0 ? <Text style={styles.shuffleHelpActionSub}>광고 완료 보상: 카드 셔플 1회</Text> : null}
+                </View>
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="셔플 도움 닫기" onPress={() => setShowShuffleHelp(false)} style={({ pressed }) => [styles.shuffleHelpClose, pressed && styles.pressed]}><Text style={styles.shuffleHelpCloseText}>나중에 하기</Text></Pressable>
             </View>
           </View>
         </Modal>
@@ -1475,12 +1512,13 @@ const styles = StyleSheet.create({
   bossCardShine: { position: "absolute", top: "-45%", bottom: "-45%", left: "-12%", width: 11, backgroundColor: "rgba(255, 246, 180, 0.92)", shadowColor: "#FFFFFF", shadowOpacity: 1, shadowRadius: 8, elevation: 8 },
   monsterInfo: { width: 68, alignItems: "flex-start", transform: [{ translateX: 60 }] },
   monsterInfoCompact: { width: 54, transform: [{ translateX: 60 }] },
+  monsterInfoBoss: { width: 92 },
   monsterInfoPortrait: { transform: [{ translateX: 80 }] },
   companionSprite: { width: 34, height: 38, marginHorizontal: 1 },
   companionSpriteCompact: { width: 27, height: 31 },
   monsterNameRow: { flexDirection: "row", alignItems: "flex-start", gap: 3, width: "100%" },
   monsterName: { flex: 1, color: "#F3C969", fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
-  bossBadge: { color: "#11182C", backgroundColor: "#F3C969", borderRadius: 3, paddingHorizontal: 2, paddingVertical: 1, fontSize: 5, fontWeight: "900" },
+  bossBadge: { minWidth: 42, color: "#11182C", backgroundColor: "#F3C969", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, fontSize: 10, lineHeight: 12, fontWeight: "900", textAlign: "center", letterSpacing: 0.4 },
   monsterBar: { width: "100%", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
   monsterHpFlash: { position: "absolute", left: 0, top: 0, right: 0, bottom: 0, borderRadius: 3, backgroundColor: "#FF1F3D" },
@@ -1488,6 +1526,8 @@ const styles = StyleSheet.create({
   monsterHp: { color: "#BCEAE2", fontSize: 11, fontWeight: "800", marginTop: 2 },
   monsterProjectile: { position: "absolute", left: 8, top: 12, fontSize: 24, fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 7 },
   companionAnchor: { position: "absolute", zIndex: 22, alignItems: "center", justifyContent: "center" },
+  companionPressTarget: { width: "100%", height: "100%" },
+  companionPressed: { opacity: 0.78, transform: [{ scale: 0.97 }] },
   companionTapFrame: { position: "absolute", borderWidth: 3, borderRadius: 999, shadowColor: "#FFD86B", shadowOpacity: 0.95, shadowRadius: 12, elevation: 14 },
   companionImageFrame: { position: "absolute", alignItems: "center", justifyContent: "center" },
   shuffleBurstFrame: { position: "absolute", zIndex: 0, alignItems: "center", justifyContent: "center" },
@@ -1567,6 +1607,17 @@ const styles = StyleSheet.create({
   rewardedRetryText: { color: "#17233C", fontSize: 13, fontWeight: "900" },
   rewardedCloseButton: { minWidth: 82, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 13, borderWidth: 1, borderColor: "#64799D", alignItems: "center" },
   rewardedCloseText: { color: "#E5ECF8", fontSize: 13, fontWeight: "800" },
+  shuffleHelpCard: { width: "100%", maxWidth: 370, padding: 22, borderRadius: 24, borderWidth: 2, borderColor: "#77D6C3", backgroundColor: "#17233C", shadowColor: "#000000", shadowOpacity: 0.42, shadowRadius: 20, elevation: 18 },
+  shuffleHelpEyebrow: { color: "#77D6C3", fontSize: 10, fontWeight: "900", letterSpacing: 1.4, textAlign: "center" },
+  shuffleHelpTitle: { color: "#FFF3D1", fontSize: 22, fontWeight: "900", textAlign: "center", marginTop: 7 },
+  shuffleHelpCopy: { color: "#D4E2F7", fontSize: 13, lineHeight: 20, textAlign: "center", marginTop: 9 },
+  shuffleHelpAction: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 18, paddingHorizontal: 15, paddingVertical: 13, borderRadius: 16, backgroundColor: "#77D6C3" },
+  shuffleHelpRewardAction: { backgroundColor: "#F3C969" },
+  shuffleHelpActionIcon: { color: "#17233C", fontSize: 23, fontWeight: "900" },
+  shuffleHelpActionTitle: { color: "#17233C", fontSize: 14, fontWeight: "900" },
+  shuffleHelpActionSub: { color: "#31415D", fontSize: 10, fontWeight: "800", marginTop: 2 },
+  shuffleHelpClose: { alignSelf: "center", paddingHorizontal: 18, paddingVertical: 11, marginTop: 7 },
+  shuffleHelpCloseText: { color: "#A6B4CE", fontSize: 13, fontWeight: "800" },
   sheet: { backgroundColor: "#1E3153", borderTopLeftRadius: 26, borderTopRightRadius: 26, borderTopWidth: 1, borderColor: "#45628E", paddingHorizontal: 24, paddingTop: 26, paddingBottom: 34 },
   sheetEyebrow: { color: "#77D6C3", fontSize: 10, fontWeight: "900", letterSpacing: 1.7, marginBottom: 7 },
   sheetTitle: { color: "#FFFDF8", fontSize: 26, lineHeight: 31, fontWeight: "800", letterSpacing: -0.6 },
