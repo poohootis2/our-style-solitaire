@@ -118,7 +118,7 @@ function MedievalBackdrop({ source }: { source: number }) {
   );
 }
 
-function CompanionAnchor({ companion, size, left, bottom, showTwoTouch, onBonusPress }: { companion: BattleAsset; size: number; left: number; bottom: number; showTwoTouch: boolean; onBonusPress: (slot: 0 | 1 | 2) => void }) {
+function CompanionAnchor({ companion, size, left, bottom, showTwoTouch, bonusStep, onBonusPress }: { companion: BattleAsset; size: number; left: number; bottom: number; showTwoTouch: boolean; bonusStep: 0 | 1 | 2; onBonusPress: (slot: 0 | 1 | 2) => void }) {
   const drift = useRef(new Animated.Value(0)).current;
   const bounce = useRef(new Animated.Value(0)).current;
   const burstSpin = useRef(new Animated.Value(0)).current;
@@ -150,13 +150,15 @@ function CompanionAnchor({ companion, size, left, bottom, showTwoTouch, onBonusP
   const bubbleScale = bounce.interpolate({ inputRange: [0, 1, 1.14], outputRange: [0.65, 1, 1.04] });
   const burstRotate = burstSpin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
   const labels = ["2Touch", "AD +1", "AD +2"];
+  const activeLabel = labels[bonusStep];
   return <View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom }]}>
-    {showTwoTouch ? <Animated.View pointerEvents="box-none" style={[styles.bonusBubbleColumn, { right: size + 6, transform: [{ translateY: bubbleTranslateY }, { scale: bubbleScale }] }]}>
-      {labels.map((label, index) => <Pressable key={label} accessibilityRole="button" accessibilityLabel={`${companion.name}, ${label} 셔플`} onPress={() => onBonusPress(index as 0 | 1 | 2)} style={({ pressed }) => [styles.bonusBubble, pressed && styles.pressed]}>
-        <Text style={styles.bonusBubbleText}>{label}</Text>
-      </Pressable>)}
+    {showTwoTouch ? <Animated.View pointerEvents="box-none" style={[styles.bonusBubbleColumn, { right: size + 6, transform: [{ translateY: bubbleTranslateY }, { scale: bubbleScale }] }]}> 
+      <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, ${activeLabel} 셔플`} onPress={() => onBonusPress(bonusStep)} style={({ pressed }) => [styles.bonusBubble, pressed && styles.pressed]}>
+        <Text style={styles.bonusBubbleText}>{activeLabel}</Text>
+        <Text pointerEvents="none" style={styles.bonusBubbleArrow}>▶</Text>
+      </Pressable>
     </Animated.View> : null}
-    {showTwoTouch ? <Animated.View pointerEvents="none" style={[styles.shuffleBurstFrame, { width: size * 1.42, height: size * 1.42, left: -size * 0.21, top: -size * 0.21, opacity: 0.58, transform: [{ rotate: burstRotate }, { scale: bounce.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) }] }]}><Image source={SHUFFLE_BURST} resizeMode="contain" style={styles.shuffleBurstImage} /></Animated.View> : null}
+    {showTwoTouch ? <Animated.View pointerEvents="none" style={[styles.shuffleBurstFrame, { width: size * 1.28, height: size * 1.28, left: -size * 0.14, top: -size * 0.14, opacity: 0.62, transform: [{ rotate: burstRotate }, { scale: bounce.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] }) }] }]}><Image source={SHUFFLE_BURST} resizeMode="contain" style={styles.shuffleBurstImage} /></Animated.View> : null}
     <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 전투 펫`}>
       <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX }, { translateY }, { rotate }] }]}>
         <Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} />
@@ -1184,6 +1186,7 @@ export default function HomeScreen() {
   const companionLeft = phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5));
   const companionBottom = bottomControlsBottom + 52 + (!isLandscape ? 1 : 0);
   const renderCardRatio = !isLandscape ? Math.max(0.8, cardRatio - 1 / Math.max(1, cardWidth)) : cardRatio;
+  const bonusStep: 0 | 1 | 2 = twoTouchOpensUsed === 0 ? 0 : rewardedRevealUsed === 0 ? 1 : 2;
   const companionCenterLeft = companionLeft + companionSize * 0.5 - cardWidth * 0.5;
   const companionCenterBottom = companionBottom + companionSize * 0.5 - cardWidth * renderCardRatio * 0.5;
   const flightStartLeft = companionCenterLeft;
@@ -1308,7 +1311,7 @@ export default function HomeScreen() {
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} effectColor={companionAttackColor} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={flightTravelX} travelY={flightTravelY} /> : null}
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
-        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionLeft} bottom={companionBottom} showTwoTouch={showTwoTouch} onBonusPress={useShuffleBonus} />
+        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionLeft} bottom={companionBottom} showTwoTouch={showTwoTouch} bonusStep={bonusStep} onBonusPress={useShuffleBonus} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
@@ -1520,6 +1523,7 @@ const styles = StyleSheet.create({
   bonusBubbleColumn: { position: "absolute", top: -14, zIndex: 5, alignItems: "flex-end", gap: 5 },
   bonusBubble: { minWidth: 70, paddingHorizontal: 9, paddingVertical: 6, backgroundColor: "#FFD86B", borderRadius: 13, borderWidth: 2, borderColor: "#FFF7C7", shadowColor: "#FFB629", shadowOpacity: 0.9, shadowRadius: 7, elevation: 9, transform: [{ rotate: "-4deg" }] },
   bonusBubbleText: { color: "#1A1B2E", fontSize: 11, fontWeight: "900", textAlign: "center", textShadowColor: "#FFF7C7", textShadowRadius: 2 },
+  bonusBubbleArrow: { position: "absolute", right: -13, top: "50%", marginTop: -7, color: "#FFD86B", fontSize: 16, fontWeight: "900", textShadowColor: "#FFF7C7", textShadowRadius: 3 },
   attackCard: { position: "absolute", left: "43%", bottom: "14%", zIndex: 70, width: 34, height: 48, borderRadius: 6, borderWidth: 2, backgroundColor: "#FFFDF8", shadowColor: "#FFFFFF", shadowOpacity: 0.9, shadowRadius: 8, elevation: 20 },
   attackCardRank: { position: "absolute", top: 3, left: 4, fontSize: 12, fontWeight: "900" },
   attackCardSuit: { position: "absolute", top: 15, width: "100%", textAlign: "center", fontSize: 21, fontWeight: "900" },
