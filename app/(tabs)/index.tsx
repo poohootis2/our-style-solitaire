@@ -45,6 +45,7 @@ type Sheet = "menu" | "rules" | "records" | "sound" | "companions" | null;
 type Records = { wins: number; bestScore: number; bestTimeSeconds: number | null };
 
 const CARD_RATIO = 1.42;
+const ROYAL_SPRITE = require("../../assets/images/royal-card-sprite.png");
 const ACTIVE_GAME_KEY = "our-style-solitaire:active-game";
 const ACTIVE_GAME_SAVE_VERSION = 3;
 const RECORDS_KEY = "our-style-solitaire:records";
@@ -79,37 +80,23 @@ function formatDuration(totalSeconds: number): string {
 }
 
 function RoyalPortrait({ rank, chapter = 1 }: { rank: 11 | 12 | 13; chapter?: number }) {
-  const isJack = rank === 11;
-  const isQueen = rank === 12;
-  const chapterPalette = [
-    { outfit: "#314A76", trim: "#FF8A76", crown: "#F3C969" },
-    { outfit: "#275C68", trim: "#77D6C3", crown: "#A5F0DF" },
-    { outfit: "#563D7A", trim: "#B9C9FF", crown: "#D0C4FF" },
-    { outfit: "#70402C", trim: "#F3C969", crown: "#FFE7A2" },
-  ][Math.max(0, Math.min(3, chapter - 1))];
-  const outfit = isJack ? chapterPalette.outfit : isQueen ? "#7A416B" : "#295D66";
-  const trim = isJack ? chapterPalette.trim : isQueen ? "#E785B5" : chapterPalette.crown;
-  const hair = isJack ? "#56392B" : isQueen ? "#4A2543" : "#302A25";
+  const chapterIndex = Math.max(0, Math.min(3, chapter - 1));
+  const rowIndex = rank === 11 ? 0 : rank === 12 ? 1 : 2;
 
   return (
     <View pointerEvents="none" style={styles.royalPortrait}>
-      <Svg width="100%" height="100%" viewBox="0 0 100 128">
-        <Rect x="10" y="62" width="80" height="61" rx="17" fill={outfit} />
-        <Path d="M14 111 L28 75 L50 96 L72 75 L86 111" fill={trim} opacity="0.9" />
-        <Path d="M33 78 L50 96 L67 78" fill="#FFF3D1" />
-        <Circle cx="50" cy="48" r="24" fill="#F3BF99" />
-        <Path d={isQueen ? "M25 54 C23 19 40 16 50 26 C60 16 77 19 75 54 L67 45 C62 31 38 31 33 45 Z" : "M25 49 C25 19 42 19 50 27 C58 19 75 19 75 49 L69 42 C58 30 42 30 31 42 Z"} fill={hair} />
-        {isJack ? <Path d="M32 29 L43 15 L50 27 L57 15 L68 29 L62 31 L50 25 L38 31 Z" fill={trim} /> : null}
-        {isQueen ? <Path d="M27 29 L34 10 L43 23 L50 7 L57 23 L66 10 L73 29 Z" fill={chapterPalette.crown} /> : null}
-        {rank === 13 ? <Path d="M23 31 L30 8 L41 23 L50 5 L59 23 L70 8 L77 31 Z" fill={chapterPalette.crown} /> : null}
-        {chapter >= 3 ? <Circle cx="50" cy="12" r="4" fill={chapterPalette.trim} /> : null}
-        <Circle cx="41" cy="49" r="2.2" fill="#1A2030" />
-        <Circle cx="59" cy="49" r="2.2" fill="#1A2030" />
-        <Path d={isQueen ? "M42 61 Q50 66 58 61" : "M42 61 Q50 65 58 61"} stroke="#B96862" strokeWidth="2" fill="none" strokeLinecap="round" />
-        {rank === 13 ? <Path d="M38 66 Q50 76 62 66 L59 78 L41 78 Z" fill={hair} /> : null}
-        <Path d="M50 93 L50 116" stroke="#F3C969" strokeWidth="3" />
-        <Circle cx="50" cy="95" r="5" fill="#FFF3D1" stroke="#F3C969" strokeWidth="2" />
-      </Svg>
+      <Image
+        source={ROYAL_SPRITE}
+        resizeMode="stretch"
+        accessibilityIgnoresInvertColors
+        style={[
+          styles.royalSprite,
+          {
+            left: `${chapterIndex * -100}%`,
+            top: `${rowIndex * -100}%`,
+          },
+        ]}
+      />
     </View>
   );
 }
@@ -1341,7 +1328,8 @@ const styles = StyleSheet.create({
   rankTop: { position: "absolute", fontSize: 14, lineHeight: 15, fontWeight: "900" },
   suitTop: { position: "absolute", fontSize: 12, lineHeight: 13, fontWeight: "900" },
   suitCenter: { position: "absolute", top: "31%", width: "100%", textAlign: "center", fontSize: 28, fontWeight: "900" },
-  royalPortrait: { position: "absolute", top: "24%", left: "13%", width: "74%", height: "61%" },
+  royalPortrait: { position: "absolute", top: "24%", left: "13%", width: "74%", height: "61%", overflow: "hidden", borderRadius: 12 },
+  royalSprite: { position: "absolute", width: "400%", height: "300%" },
   bottomMark: { position: "absolute", right: 5, bottom: 3, transform: [{ rotate: "180deg" }], alignItems: "center" },
   rankBottom: { fontSize: 14, lineHeight: 15, fontWeight: "900" },
   suitBottom: { fontSize: 12, lineHeight: 12, fontWeight: "900" },
