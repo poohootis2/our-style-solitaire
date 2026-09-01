@@ -949,10 +949,9 @@ export default function HomeScreen() {
   const playShuffleAnimation = () => {
     shuffleMotion.setValue(0);
     Animated.sequence([
-      Animated.timing(shuffleMotion, { toValue: 1, duration: 190, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(shuffleMotion, { toValue: 0, duration: 260, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      Animated.timing(shuffleMotion, { toValue: 0.45, duration: 110, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(shuffleMotion, { toValue: 0, duration: 170, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(shuffleMotion, { toValue: 1, duration: 650, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+      Animated.delay(1650),
+      Animated.timing(shuffleMotion, { toValue: 0, duration: 650, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
     ]).start();
   };
 
@@ -1546,7 +1545,7 @@ export default function HomeScreen() {
 
         <View style={[styles.tableau, { gap: tableauGap }, isLandscape && styles.tableauLandscape]}>
           {game.tableau.map((pile, column) => (
-            <Animated.View key={`column-${column}`} style={[styles.tableauColumn, { width: cardWidth, minHeight: cardWidth * renderCardRatio, transform: [{ translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, (3 - column) * Math.min(10, Math.max(4, cardWidth * 0.16))] }) }, { scaleY: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }) }] }]}>
+            <Animated.View key={`column-${column}`} style={[styles.tableauColumn, { width: cardWidth, minHeight: cardWidth * renderCardRatio, transform: [{ translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, (3 - column) * (cardWidth + tableauGap)] }) }, { scaleY: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 0.12] }) }, { scaleX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 0.9] }) }] }]}> 
               {pile.length === 0 ? <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label="K" onPress={() => moveSelectionToTableau(column)} /> : null}
               {pile.map((card, index) => (
                 <View ref={index === pile.length - 1 ? (node) => { tableauBottomCardRefs.current[column] = node; } : undefined} key={card.id} style={{ position: "absolute", top: index * stackOffset, left: 0, zIndex: index }}>
