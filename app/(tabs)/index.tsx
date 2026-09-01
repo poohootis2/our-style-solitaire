@@ -564,9 +564,6 @@ export default function HomeScreen() {
   const [rewardedRevealUsed, setRewardedRevealUsed] = useState(0);
   const [rewardedAdError, setRewardedAdError] = useState<string | null>(null);
   const [rewardedRetrySlot, setRewardedRetrySlot] = useState<1 | 2>(1);
-  const [showShuffleHelp, setShowShuffleHelp] = useState(false);
-  const [showRewardedShuffle, setShowRewardedShuffle] = useState(false);
-  const [showRewardedTooltip, setShowRewardedTooltip] = useState(false);
   const [showBossWarning, setShowBossWarning] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
@@ -833,7 +830,6 @@ export default function HomeScreen() {
     setShowNewGameConfirm(false);
     setHintMessage(null);
     setShowNoMovesPopup(false);
-    setShowShuffleHelp(false);
     setUndoStack([]);
     setShowTwoTouch(false);
     setTwoTouchOpensUsed(0);
@@ -1050,7 +1046,6 @@ export default function HomeScreen() {
 
   const useShuffleBonus = async (slot: 0 | 1 | 2) => {
     if (!showTwoTouch) return;
-    setShowShuffleHelp(false);
     if (slot === 0) {
       if (twoTouchOpensUsed > 0) { showTimedHint("기본 셔플은 이미 사용했습니다."); return; }
       const shuffledGame = shuffleAvailableCards(game);
@@ -1089,27 +1084,6 @@ export default function HomeScreen() {
     playShuffleAnimation();
     applyGame(shuffledGame, false, undefined);
     showTimedHint(`광고 보상 셔플을 사용했습니다. (${nextRewardedCount}/2)`);
-  };
-
-  const openShuffleHelp = () => {
-    if (!showTwoTouch) {
-      showTimedHint("지금은 셔플 보너스를 사용할 수 없습니다.");
-      haptic.light();
-      return;
-    }
-    setShowShuffleHelp(true);
-    haptic.light();
-  };
-
-  const openRewardedShuffle = () => {
-    if (!showTwoTouch || twoTouchOpensUsed === 0) {
-      showTimedHint("먼저 2Touch 셔플을 사용해 주세요.");
-      haptic.light();
-      return;
-    }
-    setShowShuffleHelp(false);
-    setShowRewardedShuffle(true);
-    haptic.light();
   };
 
   const selectCard = (nextSelection: Selection) => {
@@ -1397,7 +1371,7 @@ export default function HomeScreen() {
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} effectColor={companionAttackColor} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={flightTravelX} travelY={flightTravelY} /> : null}
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
-        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} showShuffleEffect={showTwoTouch} onPress={openShuffleHelp} />
+        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} showShuffleEffect={false} onPress={() => undefined} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
@@ -1436,30 +1410,6 @@ export default function HomeScreen() {
           </View>
         </Modal>
 
-        <Modal transparent visible={showShuffleHelp} animationType="fade" onRequestClose={() => setShowShuffleHelp(false)}>
-          <View style={styles.modalBackdropCenter}>
-            <View style={styles.shuffleHelpCard}>
-              <Text style={styles.shuffleHelpEyebrow}>PET SHUFFLE HELP</Text>
-              <Text style={styles.shuffleHelpTitle}>{activeShuffleStep === 0 ? "2Touch 안내" : "2Touch 사용 완료"}</Text>
-              <Text style={styles.shuffleHelpCopy}>{activeShuffleStep === 0 ? "펫을 누른 뒤 무료 2Touch 셔플로 막힌 카드 흐름을 한 번 바꿔 보세요." : "첫 셔플을 사용했습니다. 다음 셔플은 보상형 광고를 시청하면 이용할 수 있습니다."}</Text>
-              {activeShuffleStep === 0 ? <Pressable accessibilityRole="button" accessibilityLabel="2Touch 무료 셔플 사용" onPress={() => void useShuffleBonus(0)} style={({ pressed }) => [styles.shuffleHelpAction, pressed && styles.pressed]}><Text style={styles.shuffleHelpActionIcon}>↻</Text><View><Text style={styles.shuffleHelpActionTitle}>2Touch 무료 셔플 사용</Text><Text style={styles.shuffleHelpActionSub}>광고 없이 1회 이용</Text></View></Pressable> : <Pressable accessibilityRole="button" accessibilityLabel="보상형 광고 셔플 메뉴 열기" onPress={openRewardedShuffle} style={({ pressed }) => [styles.shuffleHelpAction, styles.shuffleHelpRewardAction, pressed && styles.pressed]}><Text style={styles.shuffleHelpActionIcon}>▶</Text><View><Text style={styles.shuffleHelpActionTitle}>보상형 광고 셔플 열기</Text><Text style={styles.shuffleHelpActionSub}>광고 시청 후 셔플 +1</Text></View></Pressable>}
-              <Pressable accessibilityRole="button" accessibilityLabel="셔플 도움 닫기" onPress={() => setShowShuffleHelp(false)} style={({ pressed }) => [styles.shuffleHelpClose, pressed && styles.pressed]}><Text style={styles.shuffleHelpCloseText}>나중에 하기</Text></Pressable>
-            </View>
-          </View>
-        </Modal>
-
-        <Modal transparent visible={showRewardedShuffle} animationType="fade" onRequestClose={() => setShowRewardedShuffle(false)}>
-          <View style={styles.modalBackdropCenter}>
-            <View style={styles.rewardedShuffleCard}>
-              <Text style={styles.shuffleHelpEyebrow}>REWARDED SHUFFLE</Text>
-              <Text style={styles.shuffleHelpTitle}>광고를 보면 셔플 +1</Text>
-              <Text style={styles.shuffleHelpCopy}>광고를 끝까지 시청하면 새로운 카드 흐름을 만들 수 있는 셔플 1회를 받습니다.</Text>
-              {showRewardedTooltip ? <View pointerEvents="none" style={styles.rewardedTooltip}><Text style={styles.rewardedTooltipText}>광고 시청 후 셔플 기능 사용 가능</Text></View> : null}
-              <Pressable accessibilityRole="button" accessibilityLabel={`광고 시청 후 셔플 +${activeShuffleStep}`} onHoverIn={() => setShowRewardedTooltip(true)} onHoverOut={() => setShowRewardedTooltip(false)} onPress={() => { setShowRewardedShuffle(false); setShowRewardedTooltip(false); void useShuffleBonus(activeShuffleStep); }} style={({ pressed }) => [styles.shuffleHelpAction, styles.shuffleHelpRewardAction, pressed && styles.pressed]}><Text style={styles.shuffleHelpActionIcon}>▶</Text><View><Text style={styles.shuffleHelpActionTitle}>광고 시청 후 셔플 +1</Text><Text style={styles.shuffleHelpActionSub}>현재 {Math.min(2, rewardedRevealUsed + 1)}/2회 보상 가능</Text></View></Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel="보상형 광고 메뉴 닫기" onPress={() => setShowRewardedShuffle(false)} style={({ pressed }) => [styles.shuffleHelpClose, pressed && styles.pressed]}><Text style={styles.shuffleHelpCloseText}>나중에 하기</Text></Pressable>
-            </View>
-          </View>
-        </Modal>
 
         <Modal transparent visible={sheet !== null} animationType="fade" onRequestClose={() => { setPaused(false); setSheet(null); }}>
           <View style={styles.modalBackdrop}>
