@@ -117,7 +117,7 @@ function MedievalBackdrop({ source }: { source: number }) {
   );
 }
 
-function CompanionAnchor({ companion, size, left, bottom, onPress }: { companion: BattleAsset; size: number; left: number; bottom: number; onPress: () => void }) {
+function CompanionAnchor({ companion, size, left, bottom, horizontalShift, onPress }: { companion: BattleAsset; size: number; left: number; bottom: number; horizontalShift: Animated.Value; onPress: () => void }) {
   const drift = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const animation = Animated.loop(Animated.sequence([
@@ -131,13 +131,13 @@ function CompanionAnchor({ companion, size, left, bottom, onPress }: { companion
   const translateX = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [-5, 0, 5] });
   const translateY = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] });
   const rotate = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-2deg", "0deg", "2deg"] });
-  return <View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom }]}>
+  return <Animated.View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom, transform: [{ translateX: horizontalShift }] }]}>
     <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 셔플 도움 보기`} onPress={onPress} style={({ pressed }) => [styles.companionPressTarget, pressed && styles.companionPressed]}>
       <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX }, { translateY }, { rotate }] }]}>
         <Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} />
       </Animated.View>
     </Pressable>
-  </View>;
+  </Animated.View>;
 }
 
 function MedievalIcon({ name, size = 22 }: { name: MedievalIconName; size?: number }) {
@@ -563,6 +563,11 @@ export default function HomeScreen() {
   const [showBossWarning, setShowBossWarning] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
+  const rootRef = useRef<View | null>(null);
+  const tableauBottomCardRefs = useRef<Array<View | null>>(Array.from({ length: 7 }, () => null));
+  const companionAvoidanceShift = useRef(new Animated.Value(0)).current;
+  const companionAvoidanceTargetRef = useRef(0);
+  const [companionAvoidanceTarget, setCompanionAvoidanceTarget] = useState(0);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gameRef = useRef(game);
   const elapsedSecondsRef = useRef(elapsedSeconds);
@@ -1169,7 +1174,7 @@ export default function HomeScreen() {
   const companionAttackStyle = getCompanionAttackStyle(selectedCompanion);
   const companionAttackColor = companionAttackColors[companionAttackStyle];
   const companionSize = Math.max(61, Math.round(cardWidth * 1.64 * 0.9));
-  const companionLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
+  const companionBaseLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
   const companionBottom = bottomControlsBottom + 52 + (!isLandscape ? 1 : 0);
   const renderCardRatio = !isLandscape ? Math.max(0.8, cardRatio - 1 / Math.max(1, cardWidth)) : cardRatio;
   const activeShuffleStep: 0 | 1 | 2 = twoTouchOpensUsed === 0 ? 0 : rewardedRevealUsed === 0 ? 1 : 2;
@@ -1178,13 +1183,66 @@ export default function HomeScreen() {
     ? "현재 막힌 카드 흐름을 한 번 섞어 새로운 수를 만들어 드립니다."
     : "짧은 광고를 끝까지 시청하면 셔플 1회를 추가로 이용할 수 있습니다.";
   const shuffleHelpButton = activeShuffleStep === 0 ? "무료로 카드 섞기" : "광고 시청 후 셔플 +1";
-  const companionCenterLeft = companionLeft + companionSize * 0.5 - cardWidth * 0.5;
+  const companionCenterLeft = companionBaseLeft + companionAvoidanceTarget + companionSize * 0.5 - cardWidth * 0.5;
   const companionCenterBottom = companionBottom + companionSize * 0.5 - cardWidth * renderCardRatio * 0.5;
   const flightStartLeft = companionCenterLeft;
   const flightStartBottom = companionCenterBottom;
   const flightTravelX = phoneLandscape ? 0 : isLandscape ? Math.round(safeScreenWidth * 0.04) : Math.round(safeScreenWidth * 0.05);
   const monsterTargetTop = rootTopPadding + (isLandscape ? (phoneLandscape ? 116 : 82) : 152);
   const flightTravelY = getAttackTravelY(safeScreenHeight, flightStartBottom, cardWidth * cardRatio, monsterTargetTop, 1.2);
+
+  useEffect(() => {
+    let cancelled = false;
+    const animateCompanionTo = (nextShift: number) => {
+      if (Math.abs(nextShift - companionAvoidanceTargetRef.current) < 2) return;
+      companionAvoidanceTargetRef.current = nextShift;
+      setCompanionAvoidanceTarget(nextShift);
+      companionAvoidanceShift.stopAnimation();
+      Animated.timing(companionAvoidanceShift, { toValue: nextShift, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    };
+    const timer = setTimeout(() => {
+      const root = rootRef.current;
+      if (!root) return;
+      root.measureInWindow((rootX, rootY, rootWidth, rootHeight) => {
+        if (cancelled || rootWidth <= 0 || rootHeight <= 0) return;
+        const cardRefs = tableauBottomCardRefs.current
+          .map((node, column) => node ? { node, column } : null)
+          .filter((entry): entry is { node: View; column: number } => entry !== null);
+        if (!cardRefs.length) { animateCompanionTo(0); return; }
+        const frames: Array<{ x: number; y: number; width: number; height: number }> = [];
+        cardRefs.forEach(({ node }) => node.measureInWindow((x, y, width, height) => {
+          if (cancelled || width <= 0 || height <= 0) return;
+          frames.push({ x, y, width, height });
+          if (frames.length !== cardRefs.length) return;
+          const petTop = rootY + rootHeight - companionBottom - companionSize;
+          const petBottom = petTop + companionSize;
+          const minLeft = 4;
+          const maxLeft = Math.max(minLeft, rootWidth - companionSize - 4);
+          const step = Math.max(companionSize * 0.9, cardWidth * 1.15);
+          const candidates = Array.from({ length: 9 }, (_, index) => {
+            if (index === 0) return companionBaseLeft;
+            const direction = index % 2 ? -1 : 1;
+            return companionBaseLeft + direction * Math.ceil(index / 2) * step;
+          }).map((left) => Math.max(minLeft, Math.min(maxLeft, left)));
+          const uniqueCandidates = Array.from(new Set(candidates));
+          const bestLeft = uniqueCandidates
+            .map((left) => {
+              const petLeft = rootX + left;
+              const petRight = petLeft + companionSize;
+              const collision = frames.reduce((total, frame) => {
+                const verticalOverlap = Math.max(0, Math.min(petBottom, frame.y + frame.height) - Math.max(petTop, frame.y));
+                const horizontalOverlap = Math.max(0, Math.min(petRight, frame.x + frame.width) - Math.max(petLeft, frame.x));
+                return total + verticalOverlap * horizontalOverlap;
+              }, 0);
+              return { left, collision, distance: Math.abs(left - companionBaseLeft) };
+            })
+            .sort((a, b) => a.collision - b.collision || a.distance - b.distance)[0]?.left ?? companionBaseLeft;
+          animateCompanionTo(bestLeft - companionBaseLeft);
+        }));
+      });
+    }, 90);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [cardWidth, companionAvoidanceShift, companionBaseLeft, companionBottom, companionSize, game.tableau, isLandscape, safeScreenHeight, safeScreenWidth]);
 
   useEffect(() => {
     if (!hydrated || !battleContent.isBoss || bossWarningStageRef.current === battleContent.stage) return;
@@ -1210,7 +1268,7 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
-      <Animated.View style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: [{ translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }] }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
+      <Animated.View ref={rootRef} style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: [{ translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }] }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
         <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
         {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={renderCardRatio} progress={flightProgress} travelX={flightTravelX} travelY={flightTravelY} startLeft={flightStartLeft} startBottom={flightStartBottom} flightColor={companionAttackColor} /> : null}
@@ -1286,7 +1344,7 @@ export default function HomeScreen() {
             <Animated.View key={`column-${column}`} style={[styles.tableauColumn, { width: cardWidth, minHeight: cardWidth * renderCardRatio, transform: [{ translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, (3 - column) * Math.min(10, Math.max(4, cardWidth * 0.16))] }) }, { scaleY: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }) }] }]}>
               {pile.length === 0 ? <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label="K" onPress={() => moveSelectionToTableau(column)} /> : null}
               {pile.map((card, index) => (
-                <View key={card.id} style={{ position: "absolute", top: index * stackOffset, left: 0, zIndex: index }}>
+                <View ref={index === pile.length - 1 ? (node) => { tableauBottomCardRefs.current[column] = node; } : undefined} key={card.id} style={{ position: "absolute", top: index * stackOffset, left: 0, zIndex: index }}>
                   {card.faceUp ? (
                     <CardFace card={card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => autoMoveToFoundation({ kind: "tableau", column, index })} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
                   ) : (
@@ -1302,7 +1360,7 @@ export default function HomeScreen() {
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} effectColor={companionAttackColor} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={flightTravelX} travelY={flightTravelY} /> : null}
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
-        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionLeft} bottom={companionBottom} onPress={openShuffleHelp} />
+        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} onPress={openShuffleHelp} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
