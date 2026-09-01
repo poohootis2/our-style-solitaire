@@ -936,6 +936,7 @@ export default function HomeScreen() {
     lastHintKeyRef.current = hintKey;
     if (hintRepeatCountRef.current >= 2) {
       setShowTwoTouch(true);
+      setShowNoMovesPopup(true);
       showTimedHint("같은 이동이 반복되고 있습니다. 셔플 기능을 사용해 보세요.");
     } else {
       showTimedHint(hint.message);
@@ -1371,7 +1372,7 @@ export default function HomeScreen() {
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} effectColor={companionAttackColor} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={flightTravelX} travelY={flightTravelY} /> : null}
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
-        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} showShuffleEffect={false} onPress={() => undefined} />
+        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} showShuffleEffect={showTwoTouch} onPress={() => undefined} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
