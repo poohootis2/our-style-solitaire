@@ -1,9 +1,11 @@
 import { getChapterForStage, isChapterBossStage } from "./solitaire";
+import type { CompanionAttackStyle } from "./companion-attack";
 
 export type BattleAsset = {
   id: string;
   name: string;
   image: number;
+  attackStyle?: CompanionAttackStyle;
 };
 
 export type BattleContent = {
@@ -55,9 +57,9 @@ const monstersByChapter: Record<number, { regular: BattleAsset[]; boss: BattleAs
 };
 
 const companions: BattleAsset[] = [
-  { id: "cloud-tiger", name: "구름 호랑이", image: require("../assets/images/characters/029_구름 호랑이.png") },
-  { id: "gumiho-tail", name: "구미호 꼬리", image: require("../assets/images/characters/042_구미호 꼬리.png") },
-  { id: "mochi-rabbit", name: "모찌 토끼", image: require("../assets/images/characters/051_모찌 토끼.png") },
+  { id: "cloud-tiger", name: "구름 호랑이", image: require("../assets/images/characters/029_구름 호랑이.png"), attackStyle: "orange" },
+  { id: "gumiho-tail", name: "구미호 꼬리", image: require("../assets/images/characters/042_구미호 꼬리.png"), attackStyle: "red" },
+  { id: "mochi-rabbit", name: "모찌 토끼", image: require("../assets/images/characters/051_모찌 토끼.png"), attackStyle: "white" },
 ];
 
 const landscapeBackgrounds: number[] = [
@@ -94,3 +96,4 @@ export function getBattleContent(stage: number, landscape: boolean): BattleConte
 export function getCompanionRoster(): BattleAsset[] {
   return [...companions];
 }
+

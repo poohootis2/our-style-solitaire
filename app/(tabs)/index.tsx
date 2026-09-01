@@ -35,6 +35,7 @@ import {
   SUITS,
 } from "@/lib/solitaire";
 import { getBattleContent, getCompanionRoster, type BattleAsset } from "@/lib/battle-content";
+import { companionAttackColors, getCompanionAttackStyle, type CompanionAttackStyle } from "@/lib/companion-attack";
 
 type Selection = CardSource & { cardId: string };
 type Sheet = "menu" | "rules" | "records" | "sound" | "companions" | null;
@@ -48,10 +49,11 @@ const SOUND_ENABLED_KEY = "our-style-solitaire:sound-enabled";
 const BACKGROUND_MUSIC_ENABLED_KEY = "our-style-solitaire:background-music-enabled";
 const SOUND_EFFECTS_VOLUME_KEY = "our-style-solitaire:sound-effects-volume";
 const BACKGROUND_MUSIC_VOLUME_KEY = "our-style-solitaire:background-music-volume";
+const CARD_SELECT_VIBRATION_KEY = "our-style-solitaire:card-select-vibration";
 const SELECTED_COMPANION_KEY = "our-style-solitaire:selected-companion";
 const PHYSICAL_EDGE_INSET = 52;
 const MAX_UNDO_STEPS = 3;
-const CARD_ATTACK_FLIGHT_DURATION = 500;
+const CARD_ATTACK_FLIGHT_DURATION = 1500;
 const FLYING_CARD_DURATION = 280;
 const emptyRecords: Records = { wins: 0, bestScore: 0, bestTimeSeconds: null };
 
@@ -276,11 +278,12 @@ function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress }: { width: nu
   );
 }
 
-function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, travelY = -180, startLeft = 16, startBottom = 44 }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; travelY?: number; startLeft?: number; startBottom?: number }) {
+function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, travelY = -180, startLeft = 16, startBottom = 44, flightColor }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; travelY?: number; startLeft?: number; startBottom?: number; flightColor?: string }) {
   const color = playingCardColor(card);
   const glow: Record<Suit, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
   const cardHeight = width * cardRatio;
   const distance = Math.max(48, Math.sqrt(travelX * travelX + travelY * travelY));
+  const glowColor = flightColor ?? glow[card.suit];
   const angle = `${Math.atan2(travelY, travelX) * (180 / Math.PI)}deg`;
   const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelX] });
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY] });
@@ -293,8 +296,8 @@ function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0
   const trailOpacity = progress.interpolate({ inputRange: [0, 0.18, 0.72, 1], outputRange: [0, 0.9, 0.55, 0] });
   return (
     <>
-      <Animated.View pointerEvents="none" style={[styles.flyingTrail, { left: startLeft + width * 0.5 - distance * 0.5, bottom: startBottom + cardHeight * 0.5 - 2, width: distance, backgroundColor: glow[card.suit], opacity: trailOpacity, transform: [{ translateX: trailTranslateX }, { translateY: trailTranslateY }, { rotate: angle }, { scaleX: trailScale }] }]} />
-      <Animated.View pointerEvents="none" style={[styles.flyingCard, { left: startLeft, bottom: startBottom, width, height: cardHeight, opacity, borderColor: glow[card.suit], shadowColor: glow[card.suit], transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}> 
+      <Animated.View pointerEvents="none" style={[styles.flyingTrail, { left: startLeft + width * 0.5 - distance * 0.5, bottom: startBottom + cardHeight * 0.5 - 2, width: distance, backgroundColor: glowColor, opacity: trailOpacity, transform: [{ translateX: trailTranslateX }, { translateY: trailTranslateY }, { rotate: angle }, { scaleX: trailScale }] }]} />
+      <Animated.View pointerEvents="none" style={[styles.flyingCard, { left: startLeft, bottom: startBottom, width, height: cardHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}> 
         <Text style={[styles.flyingRank, { color }]}>{rankLabels[card.rank]}</Text>
         <Text style={[styles.flyingSuit, { color }]}>{suitSymbols[card.suit]}</Text>
       </Animated.View>
@@ -334,13 +337,14 @@ function VictoryFireworks({ visible }: { visible: boolean }) {
   );
 }
 
-function CardAttackEffect({ kind, combo, travelX, travelY, startLeft = 16, startBottom = 44 }: { kind: AttackKind; combo: boolean; travelX: number; travelY: number; startLeft?: number; startBottom?: number }) {
+function CardAttackEffect({ kind, combo, travelX, travelY, startLeft = 16, startBottom = 44, effectColor }: { kind: AttackKind; combo: boolean; travelX: number; travelY: number; startLeft?: number; startBottom?: number; effectColor?: string }) {
   const progress = useRef(new Animated.Value(0)).current;
   const symbols: Record<AttackKind, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
   const colors: Record<AttackKind, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
+  const effectTone = effectColor ?? colors[kind];
   useEffect(() => {
     progress.setValue(0);
-    const animation = Animated.timing(progress, { toValue: 1, duration: combo ? 640 : CARD_ATTACK_FLIGHT_DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+    const animation = Animated.timing(progress, { toValue: 1, duration: CARD_ATTACK_FLIGHT_DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true });
     animation.start();
     return () => animation.stop();
   }, [combo, progress]);
@@ -349,9 +353,9 @@ function CardAttackEffect({ kind, combo, travelX, travelY, startLeft = 16, start
   const scale = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [0.8, 1.06, 0.76] });
   const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "900deg"] });
   const opacity = progress.interpolate({ inputRange: [0, 0.82, 1], outputRange: [1, 1, 0] });
-  return <Animated.View pointerEvents="none" style={[styles.attackCard, { left: startLeft, bottom: startBottom, opacity, borderColor: colors[kind], transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}>
-    <Text style={[styles.attackCardRank, { color: colors[kind] }]}>A</Text>
-    <Text style={[styles.attackCardSuit, { color: colors[kind] }]}>{symbols[kind]}</Text>
+  return <Animated.View pointerEvents="none" style={[styles.attackCard, { left: startLeft, bottom: startBottom, opacity, borderColor: effectTone, shadowColor: effectTone, transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}>
+    <Text style={[styles.attackCardRank, { color: effectTone }]}>A</Text>
+    <Text style={[styles.attackCardSuit, { color: effectTone }]}>{symbols[kind]}</Text>
   </Animated.View>;
 }
 
@@ -481,6 +485,7 @@ export default function HomeScreen() {
   const [backgroundMusicEnabled, setBackgroundMusicEnabled] = useState(true);
   const [soundEffectsVolume, setSoundEffectsVolume] = useState(0.9);
   const [backgroundMusicVolume, setBackgroundMusicVolume] = useState(0.2);
+  const [cardSelectVibrationEnabled, setCardSelectVibrationEnabled] = useState(true);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
   const [flyingCard, setFlyingCard] = useState<Card | null>(null);
   const [showFireworks, setShowFireworks] = useState(false);
@@ -562,6 +567,12 @@ export default function HomeScreen() {
     haptic.light();
   };
 
+  const setCardSelectVibrationPreference = (enabled: boolean) => {
+    setCardSelectVibrationEnabled(enabled);
+    showTimedHint(enabled ? "카드 선택 진동을 켰습니다." : "카드 선택 진동을 껐습니다.");
+    haptic.light();
+  };
+
   useEffect(() => () => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
   }, []);
@@ -570,7 +581,7 @@ export default function HomeScreen() {
     let mounted = true;
     const loadLocalGame = async () => {
       try {
-        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, selectedCompanionValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, SELECTED_COMPANION_KEY]);
+        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, cardSelectVibrationValue, selectedCompanionValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, CARD_SELECT_VIBRATION_KEY, SELECTED_COMPANION_KEY]);
         if (!mounted) return;
         if (activeGameValue[1] && !newGameStarted.current) {
           const saved = JSON.parse(activeGameValue[1]) as { saveVersion?: number; game?: typeof game; elapsedSeconds?: number };
@@ -588,6 +599,7 @@ export default function HomeScreen() {
         if (backgroundMusicValue[1]) setBackgroundMusicEnabled(backgroundMusicValue[1] === "true");
         if (soundEffectsVolumeValue[1]) setSoundEffectsVolume(clampVolume(Number(soundEffectsVolumeValue[1])));
         if (backgroundMusicVolumeValue[1]) setBackgroundMusicVolume(clampVolume(Number(backgroundMusicVolumeValue[1])));
+        if (cardSelectVibrationValue[1]) setCardSelectVibrationEnabled(cardSelectVibrationValue[1] === "true");
         if (selectedCompanionValue[1]) setSelectedCompanionId(selectedCompanionValue[1]);
       } catch {
         // A fresh local game is retained when storage is unavailable or malformed.
@@ -638,6 +650,11 @@ export default function HomeScreen() {
     if (!hydrated) return;
     AsyncStorage.setItem(BACKGROUND_MUSIC_VOLUME_KEY, String(backgroundMusicVolume)).catch(() => undefined);
   }, [backgroundMusicVolume, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    AsyncStorage.setItem(CARD_SELECT_VIBRATION_KEY, String(cardSelectVibrationEnabled)).catch(() => undefined);
+  }, [cardSelectVibrationEnabled, hydrated]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -842,7 +859,7 @@ export default function HomeScreen() {
   };
 
   const selectCard = (nextSelection: Selection) => {
-    haptic.light();
+    if (cardSelectVibrationEnabled) haptic.light();
     playEffect("select");
     setSelection((current) => (current?.cardId === nextSelection.cardId ? null : nextSelection));
   };
@@ -939,6 +956,8 @@ export default function HomeScreen() {
   const selectedCompanion = companionRoster.find((candidate) => candidate.id === selectedCompanionId) ?? battleContent.companion;
   const bossWarningOpacity = bossIntroProgress.interpolate({ inputRange: [0, 0.18, 0.82, 1], outputRange: [0, 1, 1, 0] });
   const bossWarningScale = bossIntroProgress.interpolate({ inputRange: [0, 0.22, 0.82, 1], outputRange: [0.82, 1, 1.04, 0.94] });
+  const companionAttackStyle = getCompanionAttackStyle(selectedCompanion);
+  const companionAttackColor = companionAttackColors[companionAttackStyle];
   const companionSize = Math.max(68, Math.round(cardWidth * 1.64));
   const companionLeft = phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5));
   const companionBottom = bottomControlsBottom + 52;
@@ -946,8 +965,8 @@ export default function HomeScreen() {
   const companionCenterBottom = companionBottom + companionSize * 0.5 - cardWidth * cardRatio * 0.5;
   const flightStartLeft = companionCenterLeft;
   const flightStartBottom = companionCenterBottom;
-  const flightTravelX = phoneLandscape ? -Math.round(sideRailWidth * 0.58) : isLandscape ? Math.round(safeScreenWidth * 0.04) : Math.round(safeScreenWidth * 0.05);
-  const flightTravelY = -Math.round(safeScreenHeight * (isLandscape ? 0.48 : 0.58));
+  const flightTravelX = phoneLandscape ? 0 : isLandscape ? Math.round(safeScreenWidth * 0.04) : Math.round(safeScreenWidth * 0.05);
+  const flightTravelY = -Math.round(safeScreenHeight * (isLandscape ? 0.32 : 0.5));
 
   useEffect(() => {
     if (!hydrated || !battleContent.isBoss || bossWarningStageRef.current === battleContent.stage) return;
@@ -976,9 +995,9 @@ export default function HomeScreen() {
       <Animated.View style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: [{ translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }] }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
         <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
-        {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={cardRatio} progress={flightProgress} travelX={flightTravelX} travelY={flightTravelY} startLeft={flightStartLeft} startBottom={flightStartBottom} /> : null}
+        {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={cardRatio} progress={flightProgress} travelX={flightTravelX} travelY={flightTravelY} startLeft={flightStartLeft} startBottom={flightStartBottom} flightColor={companionAttackColor} /> : null}
         <VictoryFireworks visible={showFireworks} />
-        {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={Math.round(safeScreenWidth * (isLandscape ? 0.04 : 0.05))} travelY={-Math.round(safeScreenHeight * (isLandscape ? 0.45 : 0.68))} /> : null}
+        {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} effectColor={companionAttackColor} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={flightTravelX} travelY={flightTravelY} /> : null}
         <View style={[styles.header, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact, phoneLandscape && styles.headerPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
           <View style={phoneLandscape && styles.headerTitlePhoneLandscape}>
             <Text style={styles.eyebrow}>OUR STYLE</Text>
@@ -1114,6 +1133,10 @@ export default function HomeScreen() {
                       <View style={styles.audioOptionCopy}><Text style={styles.audioOptionTitle}>배경음</Text><Text style={styles.audioOptionSubtitle}>성채 분위기의 반복 배경음</Text></View>
                     </Pressable>
                     <VolumeSlider label="배경음 볼륨" value={backgroundMusicVolume} onChange={setBackgroundMusicVolumePreference} disabled={!backgroundMusicEnabled} />
+                    <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: cardSelectVibrationEnabled }} onPress={() => setCardSelectVibrationPreference(!cardSelectVibrationEnabled)} style={({ pressed }) => [styles.audioOption, pressed && styles.pressed]}>
+                      <View style={[styles.checkBox, cardSelectVibrationEnabled && styles.checkBoxChecked]}>{cardSelectVibrationEnabled ? <Text style={styles.checkMark}>✓</Text> : null}</View>
+                      <View style={styles.audioOptionCopy}><Text style={styles.audioOptionTitle}>카드 선택 진동</Text><Text style={styles.audioOptionSubtitle}>카드를 선택할 때 가볍게 진동</Text></View>
+                    </Pressable>
                   </View>
                   <Pressable onPress={() => { setPaused(false); setSheet(null); }} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>닫기</Text></Pressable>
                 </>
