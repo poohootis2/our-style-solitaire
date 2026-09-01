@@ -509,7 +509,9 @@ export default function HomeScreen() {
   const bossWarningStageRef = useRef<number | null>(null);
   const selectPlayer = useAudioPlayer(require("../../assets/sounds/card-select.wav"));
   const movePlayer = useAudioPlayer(require("../../assets/sounds/card-move.wav"));
-  const attackPlayer = useAudioPlayer(require("../../assets/sounds/card-attack.mp3"));
+  const shufflePlayer = useAudioPlayer(require("../../assets/sounds/card-shuffle.wav"));
+  const companionAttackPlayer = useAudioPlayer(require("../../assets/sounds/companion-attack.wav"));
+  const foundationAttackPlayer = useAudioPlayer(require("../../assets/sounds/foundation-attack.wav"));
   const backgroundPlayer = useAudioPlayer(require("../../assets/sounds/medieval-solitaire-loop.mp3"));
 
   const showTimedHint = (message: string) => {
@@ -524,7 +526,7 @@ export default function HomeScreen() {
   const setSoundEffectsVolumePreference = (value: number) => {
     const volume = clampVolume(value);
     setSoundEffectsVolume(volume);
-    for (const player of [selectPlayer, movePlayer, attackPlayer]) {
+    for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer]) {
       try { player.volume = soundEffectsEnabled ? volume : 0; } catch { /* optional audio */ }
     }
   };
@@ -538,9 +540,9 @@ export default function HomeScreen() {
   };
 
   const setSoundEffectsEnabledPreference = (enabled: boolean) => {
-    for (const player of [selectPlayer, movePlayer, attackPlayer]) {
-      try {
-        player.volume = enabled ? soundEffectsVolume : 0;
+        for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer]) {
+      try { player.volume = enabled ? soundEffectsVolume : 0;
+
         if (!enabled) player.pause();
       } catch {
         // Sound state must never block the game when a native player is unavailable.
@@ -663,7 +665,7 @@ export default function HomeScreen() {
   }, [hydrated, selectedCompanionId]);
 
   useEffect(() => {
-    for (const player of [selectPlayer, movePlayer, attackPlayer]) {
+    for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer]) {
       try {
         player.volume = soundEffectsEnabled ? soundEffectsVolume : 0;
         if (!soundEffectsEnabled) player.pause();
@@ -671,17 +673,17 @@ export default function HomeScreen() {
         // Keep the persisted preference even if a player is still loading.
       }
     }
-  }, [attackPlayer, movePlayer, selectPlayer, soundEffectsEnabled, soundEffectsVolume, backgroundPlayer, backgroundMusicEnabled, backgroundMusicVolume]);
+  }, [companionAttackPlayer, foundationAttackPlayer, movePlayer, selectPlayer, shufflePlayer, soundEffectsEnabled, soundEffectsVolume, backgroundPlayer, backgroundMusicEnabled, backgroundMusicVolume]);
 
   useEffect(() => {
     // Re-apply both independent mixer buses after either slider changes. This
     // prevents platform audio-session updates from leaving the music bus at the
     // effects bus level on some Android audio implementations.
-    for (const player of [selectPlayer, movePlayer, attackPlayer]) {
+    for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer]) {
       try { player.volume = soundEffectsEnabled ? soundEffectsVolume : 0; } catch { /* optional audio */ }
     }
     try { backgroundPlayer.volume = backgroundMusicEnabled ? backgroundMusicVolume : 0; } catch { /* optional audio */ }
-  }, [attackPlayer, backgroundPlayer, backgroundMusicEnabled, backgroundMusicVolume, movePlayer, selectPlayer, soundEffectsEnabled, soundEffectsVolume]);
+  }, [backgroundPlayer, backgroundMusicEnabled, backgroundMusicVolume, companionAttackPlayer, foundationAttackPlayer, movePlayer, selectPlayer, shufflePlayer, soundEffectsEnabled, soundEffectsVolume]);
 
   useEffect(() => {
     try {
@@ -773,9 +775,9 @@ export default function HomeScreen() {
     }));
   };
 
-  const playEffect = (effect: "select" | "move" | "attack") => {
+  const playEffect = (effect: "select" | "move" | "shuffle" | "companionAttack" | "foundationAttack") => {
     if (!soundEffectsEnabled) return;
-    const player = effect === "select" ? selectPlayer : effect === "move" ? movePlayer : attackPlayer;
+    const player = effect === "select" ? selectPlayer : effect === "move" ? movePlayer : effect === "shuffle" ? shufflePlayer : effect === "companionAttack" ? companionAttackPlayer : foundationAttackPlayer;
     try {
       player.seekTo(0);
       player.play();
@@ -841,7 +843,7 @@ export default function HomeScreen() {
       setAttackKind(changedSuit);
       setComboAttack(isCombo);
       setAttackToken((token) => token + 1);
-      playEffect("attack");
+      playEffect("foundationAttack");
       if (isCombo) setTimeout(() => setComboAttack(false), 900);
     }
     setUndoStack((history) => [...history.slice(-(MAX_UNDO_STEPS - 1)), cloneGameState(game)]);
@@ -850,7 +852,10 @@ export default function HomeScreen() {
     setGame(nextGame);
     setSelection(null);
     playEffect("move");
-    if (movedCard) animateFlight(movedCard);
+    if (movedCard) {
+      playEffect("companionAttack");
+      animateFlight(movedCard);
+    }
     if (success) {
       haptic.success();
     } else {
@@ -905,6 +910,7 @@ export default function HomeScreen() {
   const drawStockCard = () => {
     const drawnGame = drawFromStock(game);
     const drawnCard = drawnGame.waste.at(-1);
+    if (drawnCard) playEffect("shuffle");
     if (drawnCard?.rank === 1) {
       // Preserve the requested A-card auto move, but move only the A that was
       // just revealed. Never sweep other visible A cards into foundations.
