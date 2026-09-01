@@ -39,7 +39,6 @@ import {
 } from "@/lib/solitaire";
 import { getBattleContent, getCompanionRoster, type BattleAsset } from "@/lib/battle-content";
 import { PET_ROSTER } from "@/lib/pet-content";
-import { getPetVisibleAnchor, SHUFFLE_BURST_VISIBLE_ANCHOR } from "@/lib/pet-visible-anchor";
 import { showRewardedAd } from "@/components/rewarded-ad";
 import { companionAttackColors, getCompanionAttackStyle, type CompanionAttackStyle } from "@/lib/companion-attack";
 import { getAttackTravelY } from "@/lib/attack-layout";
@@ -50,7 +49,6 @@ type Records = { wins: number; bestScore: number; bestTimeSeconds: number | null
 
 const CARD_RATIO = 1.42;
 const ROYAL_SPRITE = require("../../assets/images/royal-card-sprite.png");
-const SHUFFLE_BURST = require("../../assets/images/shuffle-burst.png");
 const ACTIVE_GAME_KEY = "our-style-solitaire:active-game";
 const ACTIVE_GAME_SAVE_VERSION = 3;
 const RECORDS_KEY = "our-style-solitaire:records";
@@ -119,10 +117,8 @@ function MedievalBackdrop({ source }: { source: number }) {
   );
 }
 
-function CompanionAnchor({ companion, size, left, bottom, showTwoTouch, bonusStep, onBonusPress }: { companion: BattleAsset; size: number; left: number; bottom: number; showTwoTouch: boolean; bonusStep: 0 | 1 | 2; onBonusPress: (slot: 0 | 1 | 2) => void }) {
+function CompanionAnchor({ companion, size, left, bottom }: { companion: BattleAsset; size: number; left: number; bottom: number }) {
   const drift = useRef(new Animated.Value(0)).current;
-  const bounce = useRef(new Animated.Value(0)).current;
-  const burstSpin = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const animation = Animated.loop(Animated.sequence([
       Animated.timing(drift, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
@@ -132,43 +128,10 @@ function CompanionAnchor({ companion, size, left, bottom, showTwoTouch, bonusSte
     animation.start();
     return () => animation.stop();
   }, [drift]);
-  useEffect(() => {
-    if (!showTwoTouch) { bounce.stopAnimation(); bounce.setValue(0); burstSpin.stopAnimation(); burstSpin.setValue(0); return; }
-    bounce.setValue(0);
-    const bounceIn = Animated.sequence([
-      Animated.timing(bounce, { toValue: 1.14, duration: 170, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      Animated.spring(bounce, { toValue: 1, damping: 7, stiffness: 190, mass: 0.55, useNativeDriver: true }),
-    ]);
-    bounceIn.start();
-    const spin = Animated.loop(Animated.timing(burstSpin, { toValue: 1, duration: 4200, easing: Easing.linear, useNativeDriver: true }));
-    spin.start();
-    return () => { bounceIn.stop(); spin.stop(); };
-  }, [bounce, burstSpin, showTwoTouch]);
   const translateX = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [-5, 0, 5] });
   const translateY = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] });
   const rotate = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-2deg", "0deg", "2deg"] });
-  const bubbleTranslateY = bounce.interpolate({ inputRange: [0, 1, 1.14], outputRange: [18, 0, -3] });
-  const bubbleScale = bounce.interpolate({ inputRange: [0, 1, 1.14], outputRange: [0.65, 1, 1.04] });
-  const burstRotate = burstSpin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
-  const labels = ["2Touch", "AD +1", "AD +2"];
-  const activeLabel = labels[bonusStep];
-  const companionVisibleAnchor = getPetVisibleAnchor(companion.id);
-  const companionVisibleCenterX = size * companionVisibleAnchor.centerX;
-  const companionVisibleCenterY = size * companionVisibleAnchor.centerY;
-  const companionVisibleLeft = Math.max(0, size * (companionVisibleAnchor.centerX - companionVisibleAnchor.span * 0.5));
-  const burstSize = size * 1.28;
-  const burstLeft = companionVisibleCenterX - burstSize * SHUFFLE_BURST_VISIBLE_ANCHOR.centerX;
-  const burstTop = companionVisibleCenterY - burstSize * SHUFFLE_BURST_VISIBLE_ANCHOR.centerY;
-  const bubbleRight = size - companionVisibleLeft + 13;
-  const bubbleTop = Math.max(0, companionVisibleCenterY - 18);
   return <View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom }]}>
-    {showTwoTouch ? <Animated.View pointerEvents="box-none" style={[styles.bonusBubbleColumn, { right: bubbleRight, top: bubbleTop, transform: [{ translateX }, { translateY: bubbleTranslateY }, { scale: bubbleScale }, { rotate }] }]}> 
-      <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, ${activeLabel} 셔플`} onPress={() => onBonusPress(bonusStep)} style={({ pressed }) => [styles.bonusBubble, pressed && styles.pressed]}>
-        <Text style={styles.bonusBubbleText}>{activeLabel}</Text>
-        <Text pointerEvents="none" style={styles.bonusBubbleArrow}>▶</Text>
-      </Pressable>
-    </Animated.View> : null}
-    {showTwoTouch ? <Animated.View pointerEvents="none" style={[styles.shuffleBurstFrame, { width: burstSize, height: burstSize, left: burstLeft, top: burstTop, opacity: 0.62, transform: [{ translateX }, { translateY }, { rotate: burstRotate }, { scale: bounce.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] }) }] }]}><Image source={SHUFFLE_BURST} resizeMode="contain" style={styles.shuffleBurstImage} /></Animated.View> : null}
     <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 전투 펫`}>
       <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX }, { translateY }, { rotate }] }]}>
         <Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} />
@@ -1196,7 +1159,6 @@ export default function HomeScreen() {
   const companionLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
   const companionBottom = bottomControlsBottom + 52 + (!isLandscape ? 1 : 0);
   const renderCardRatio = !isLandscape ? Math.max(0.8, cardRatio - 1 / Math.max(1, cardWidth)) : cardRatio;
-  const bonusStep: 0 | 1 | 2 = twoTouchOpensUsed === 0 ? 0 : rewardedRevealUsed === 0 ? 1 : 2;
   const companionCenterLeft = companionLeft + companionSize * 0.5 - cardWidth * 0.5;
   const companionCenterBottom = companionBottom + companionSize * 0.5 - cardWidth * renderCardRatio * 0.5;
   const flightStartLeft = companionCenterLeft;
@@ -1321,7 +1283,7 @@ export default function HomeScreen() {
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} effectColor={companionAttackColor} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={flightTravelX} travelY={flightTravelY} /> : null}
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
-        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionLeft} bottom={companionBottom} showTwoTouch={showTwoTouch} bonusStep={bonusStep} onBonusPress={useShuffleBonus} />
+        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionLeft} bottom={companionBottom} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
