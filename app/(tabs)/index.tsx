@@ -152,13 +152,13 @@ function CompanionAnchor({ companion, size, left, bottom, showTwoTouch, bonusSte
   const labels = ["2Touch", "AD +1", "AD +2"];
   const activeLabel = labels[bonusStep];
   return <View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom }]}>
-    {showTwoTouch ? <Animated.View pointerEvents="box-none" style={[styles.bonusBubbleColumn, { right: size + 6, transform: [{ translateY: bubbleTranslateY }, { scale: bubbleScale }] }]}> 
+    {showTwoTouch ? <Animated.View pointerEvents="box-none" style={[styles.bonusBubbleColumn, { right: size + 6, transform: [{ translateX }, { translateY: bubbleTranslateY }, { scale: bubbleScale }, { rotate }] }]}> 
       <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, ${activeLabel} 셔플`} onPress={() => onBonusPress(bonusStep)} style={({ pressed }) => [styles.bonusBubble, pressed && styles.pressed]}>
         <Text style={styles.bonusBubbleText}>{activeLabel}</Text>
         <Text pointerEvents="none" style={styles.bonusBubbleArrow}>▶</Text>
       </Pressable>
     </Animated.View> : null}
-    {showTwoTouch ? <Animated.View pointerEvents="none" style={[styles.shuffleBurstFrame, { width: size * 1.28, height: size * 1.28, left: -size * 0.14, top: -size * 0.14, opacity: 0.62, transform: [{ rotate: burstRotate }, { scale: bounce.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] }) }] }]}><Image source={SHUFFLE_BURST} resizeMode="contain" style={styles.shuffleBurstImage} /></Animated.View> : null}
+    {showTwoTouch ? <Animated.View pointerEvents="none" style={[styles.shuffleBurstFrame, { width: size * 1.28, height: size * 1.28, left: -size * 0.14, top: -size * 0.14, opacity: 0.62, transform: [{ translateX }, { translateY }, { rotate: burstRotate }, { scale: bounce.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] }) }] }]}><Image source={SHUFFLE_BURST} resizeMode="contain" style={styles.shuffleBurstImage} /></Animated.View> : null}
     <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 전투 펫`}>
       <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX }, { translateY }, { rotate }] }]}>
         <Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} />
@@ -1183,7 +1183,7 @@ export default function HomeScreen() {
   const companionAttackStyle = getCompanionAttackStyle(selectedCompanion);
   const companionAttackColor = companionAttackColors[companionAttackStyle];
   const companionSize = Math.max(61, Math.round(cardWidth * 1.64 * 0.9));
-  const companionLeft = phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5));
+  const companionLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
   const companionBottom = bottomControlsBottom + 52 + (!isLandscape ? 1 : 0);
   const renderCardRatio = !isLandscape ? Math.max(0.8, cardRatio - 1 / Math.max(1, cardWidth)) : cardRatio;
   const bonusStep: 0 | 1 | 2 = twoTouchOpensUsed === 0 ? 0 : rewardedRevealUsed === 0 ? 1 : 2;
