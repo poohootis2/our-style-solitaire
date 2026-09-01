@@ -359,6 +359,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
   const [damageVisible, setDamageVisible] = useState(false);
   const [defeatVisible, setDefeatVisible] = useState(false);
   const damageProgress = useRef(new Animated.Value(0)).current;
+  const hpFlash = useRef(new Animated.Value(0)).current;
   const defeatProgress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -385,11 +386,19 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
     setDamageVisible(true);
     attackProgress.setValue(0);
     damageProgress.setValue(0);
+    hpFlash.setValue(0);
+    const flashSequence = Animated.sequence([
+      Animated.timing(hpFlash, { toValue: 1, duration: 90, useNativeDriver: true }),
+      Animated.timing(hpFlash, { toValue: 0, duration: 90, useNativeDriver: true }),
+      Animated.timing(hpFlash, { toValue: 1, duration: 90, useNativeDriver: true }),
+      Animated.timing(hpFlash, { toValue: 0, duration: 180, useNativeDriver: true }),
+    ]);
     Animated.parallel([
       Animated.timing(attackProgress, { toValue: 1, duration: combo ? 520 : 360, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       Animated.timing(damageProgress, { toValue: 1, duration: 780, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      flashSequence,
     ]).start(() => { setAttackVisible(false); setDamageVisible(false); });
-  }, [attackToken, attackProgress, damageProgress, combo]);
+  }, [attackToken, attackProgress, damageProgress, hpFlash, combo]);
 
   useEffect(() => {
     const defeated = hp <= 0;
@@ -406,6 +415,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
   const projectileScale = attackProgress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.5, 1.15, 0.2] });
   const damageTranslateY = damageProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
   const damageOpacity = damageProgress.interpolate({ inputRange: [0, 0.65, 1], outputRange: [0, 1, 0] });
+  const hpFlashOpacity = hpFlash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.92] });
   const defeatScale = defeatProgress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0.3, 1.6, 2.8] });
   const defeatOpacity = defeatProgress.interpolate({ inputRange: [0, 0.45, 1], outputRange: [1, 1, 0] });
   const attackColors: Record<AttackKind, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
@@ -417,14 +427,16 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
   return (
     <View style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
       <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, transform: [{ translateX: monsterTranslate }] }]}>
-        <Image source={monster.image} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, defeatVisible && styles.monsterDefeated, { transform: [{ scale: monsterScale }, { scaleX: facingLeft ? -1 : 1 }] }]} accessibilityLabel={monster.name} />
+        <Animated.View style={[styles.monsterImageLayer, { width: spriteSize, height: spriteSize, transform: [{ scale: monsterScale }, { scaleX: facingLeft ? -1 : 1 }] }]}>
+          <Image source={monster.image} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, defeatVisible && styles.monsterDefeated]} accessibilityLabel={monster.name} />
+        </Animated.View>
         {attackVisible ? <Animated.Text style={[styles.monsterProjectile, { color: attackColors[attackKind], transform: [{ translateX: projectileTranslate }, { scale: projectileScale }] }]}>{attackSymbols[attackKind]}</Animated.Text> : null}
         {damageVisible ? <Animated.Text style={[styles.damageText, { opacity: damageOpacity, transform: [{ translateY: damageTranslateY }] }]}>−{damage}</Animated.Text> : null}
         {defeatVisible ? <Animated.View pointerEvents="none" style={[styles.defeatBurst, { opacity: defeatOpacity, transform: [{ scale: defeatScale }] }]}>{Array.from({ length: 12 }, (_, index) => <Text key={index} style={[styles.defeatSpark, { transform: [{ rotate: `${index * 30}deg` }, { translateY: -24 }] }]}>{index % 2 ? "✦" : "•"}</Text>)}</Animated.View> : null}
       </Animated.View>
       <View style={[styles.monsterInfo, { width: infoWidth }, compact && styles.monsterInfoCompact, !landscape && styles.monsterInfoPortrait]}>
         <View style={styles.monsterNameRow}><Text style={styles.monsterName} numberOfLines={2}>{monster.name.toUpperCase()}</Text>{isBoss ? <Text style={styles.bossBadge}>BOSS</Text> : null}</View>
-        <View style={styles.monsterBar}><View style={[styles.monsterBarFill, { width: `${Math.max(0, Math.min(100, hp))}%` }]} /></View>
+        <View style={styles.monsterBar}><View style={[styles.monsterBarFill, { width: `${Math.max(0, Math.min(100, hp))}%` }]} /><Animated.View pointerEvents="none" style={[styles.monsterHpFlash, { opacity: hpFlashOpacity }]} /></View>
         <Text style={styles.monsterHp}>{Math.round(hp)}%</Text>
       </View>
     </View>
@@ -1304,6 +1316,7 @@ const styles = StyleSheet.create({
   monsterSpriteWrapCompact: { width: 32, height: 38 },
   monsterSprite: { width: 50, height: 54 },
   monsterSpriteCompact: { width: 34, height: 38 },
+  monsterImageLayer: { alignItems: "center", justifyContent: "center" },
   monsterInfo: { width: 68, alignItems: "flex-start", transform: [{ translateX: 60 }] },
   monsterInfoCompact: { width: 54, transform: [{ translateX: 60 }] },
   monsterInfoPortrait: { transform: [{ translateX: 80 }] },
@@ -1314,6 +1327,7 @@ const styles = StyleSheet.create({
   bossBadge: { color: "#11182C", backgroundColor: "#F3C969", borderRadius: 3, paddingHorizontal: 2, paddingVertical: 1, fontSize: 5, fontWeight: "900" },
   monsterBar: { width: "100%", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
+  monsterHpFlash: { position: "absolute", left: 0, top: 0, right: 0, bottom: 0, borderRadius: 3, backgroundColor: "#FF1F3D" },
   monsterHp: { color: "#BCEAE2", fontSize: 11, fontWeight: "800", marginTop: 2 },
   monsterProjectile: { position: "absolute", left: 8, top: 12, fontSize: 24, fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 7 },
   companionAnchor: { position: "absolute", zIndex: 22, alignItems: "center", justifyContent: "center" },
