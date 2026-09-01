@@ -352,8 +352,9 @@ function CardAttackEffect({ kind, combo, travelX, travelY, startLeft = 16, start
 type AttackKind = Suit;
 
 function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = false, landscape = false, phoneLandscape = false, travelDistance = 24, monster, isBoss, cardSize }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; travelDistance?: number; monster: BattleAsset; isBoss: boolean; cardSize: number }) {
-  const monsterMotion = useRef(new Animated.Value(0)).current;
+  const monsterMotion = useRef(new Animated.Value(1)).current;
   const attackProgress = useRef(new Animated.Value(0)).current;
+  const [facingLeft, setFacingLeft] = useState(true);
   const [attackVisible, setAttackVisible] = useState(false);
   const [damageVisible, setDamageVisible] = useState(false);
   const [defeatVisible, setDefeatVisible] = useState(false);
@@ -361,12 +362,21 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
   const defeatProgress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const motion = Animated.loop(Animated.sequence([
-      Animated.timing(monsterMotion, { toValue: 1, duration: 4290, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(monsterMotion, { toValue: 0, duration: 4290, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-    ]));
-    motion.start();
-    return () => motion.stop();
+    let cancelled = false;
+    const moveRightToLeft = () => {
+      if (cancelled) return;
+      setFacingLeft(true);
+      Animated.timing(monsterMotion, { toValue: 0, duration: 4290, easing: Easing.inOut(Easing.sin), useNativeDriver: true }).start(({ finished }) => {
+        if (!finished || cancelled) return;
+        setFacingLeft(false);
+        Animated.timing(monsterMotion, { toValue: 1, duration: 4290, easing: Easing.inOut(Easing.sin), useNativeDriver: true }).start(({ finished: returned }) => {
+          if (returned && !cancelled) moveRightToLeft();
+        });
+      });
+    };
+    monsterMotion.setValue(1);
+    moveRightToLeft();
+    return () => { cancelled = true; monsterMotion.stopAnimation(); };
   }, [monsterMotion]);
 
   useEffect(() => {
@@ -391,6 +401,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
   }, [defeatProgress, hp]);
 
   const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-travelDistance, travelDistance] });
+  const monsterScale = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [1.5, 1] });
   const projectileTranslate = attackProgress.interpolate({ inputRange: [0, 1], outputRange: [0, 92] });
   const projectileScale = attackProgress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.5, 1.15, 0.2] });
   const damageTranslateY = damageProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
@@ -406,7 +417,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
   return (
     <View style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
       <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, transform: [{ translateX: monsterTranslate }] }]}>
-        <Image source={monster.image} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, defeatVisible && styles.monsterDefeated]} accessibilityLabel={monster.name} />
+        <Image source={monster.image} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, defeatVisible && styles.monsterDefeated, { transform: [{ scale: monsterScale }, { scaleX: facingLeft ? -1 : 1 }] }]} accessibilityLabel={monster.name} />
         {attackVisible ? <Animated.Text style={[styles.monsterProjectile, { color: attackColors[attackKind], transform: [{ translateX: projectileTranslate }, { scale: projectileScale }] }]}>{attackSymbols[attackKind]}</Animated.Text> : null}
         {damageVisible ? <Animated.Text style={[styles.damageText, { opacity: damageOpacity, transform: [{ translateY: damageTranslateY }] }]}>−{damage}</Animated.Text> : null}
         {defeatVisible ? <Animated.View pointerEvents="none" style={[styles.defeatBurst, { opacity: defeatOpacity, transform: [{ scale: defeatScale }] }]}>{Array.from({ length: 12 }, (_, index) => <Text key={index} style={[styles.defeatSpark, { transform: [{ rotate: `${index * 30}deg` }, { translateY: -24 }] }]}>{index % 2 ? "✦" : "•"}</Text>)}</Animated.View> : null}
