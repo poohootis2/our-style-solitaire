@@ -5,6 +5,7 @@ import {
   canPlaceOnTableau,
   createNewGame,
   drawFromStock,
+  shuffleAvailableCards,
   findHint,
   findAutoFoundationMove,
   getDifficulty,
@@ -37,6 +38,16 @@ const foundationGame = (waste: Card[], clubs: Card[] = []): GameState => ({
 });
 
 describe("클론다이크 규칙", () => {
+  it("보너스 셔플은 스톡과 웨이스트를 섞고 웨이스트를 비운다", () => {
+    const game = foundationGame([card(3, "hearts"), card(7, "clubs")]);
+    game.stock = [card(9, "spades"), card(2, "diamonds")];
+    const shuffled = shuffleAvailableCards(game);
+    expect(shuffled).not.toBeNull();
+    expect(shuffled?.waste).toEqual([]);
+    expect(shuffled?.stock).toHaveLength(4);
+    expect(shuffled?.stock.every((item) => !item.faceUp)).toBe(true);
+    expect(shuffled?.moves).toBe(1);
+  });
   it("고난도 랜덤 새 게임은 52장의 카드를 정확히 배치한다", () => {
     const game = createNewGame(6);
     const totalCards = game.stock.length + game.waste.length + game.tableau.flat().length;

@@ -187,6 +187,15 @@ export function canPlaceOnFoundation(card: Card, foundation: Card[]): boolean {
   return topCard.suit === card.suit && card.rank === topCard.rank + 1;
 }
 
+export function shuffleAvailableCards(game: GameState): GameState | null {
+  const available = [...game.stock, ...game.waste];
+  if (available.length < 2) return null;
+  const next = cloneGame(game);
+  next.stock = shuffle(available).map((card) => ({ ...card, faceUp: false }));
+  next.waste = [];
+  return withMove(next);
+}
+
 export function drawFromStock(game: GameState): GameState {
   const next = cloneGame(game);
   const difficulty = getDifficulty(next.level);

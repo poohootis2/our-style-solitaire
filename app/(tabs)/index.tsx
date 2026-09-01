@@ -19,6 +19,7 @@ import {
   createPlayableGame,
   drawFromStock,
   flipTableauCard,
+  shuffleAvailableCards,
   findHint,
   getDifficulty,
   getChapterForStage,
@@ -147,11 +148,11 @@ function CompanionAnchor({ companion, size, left, bottom, showTwoTouch, touchLab
     if (now - lastTapAt.current < 360) onDoubleTap();
     lastTapAt.current = now;
   };
-  return <View pointerEvents="box-none" style={[styles.companionAnchor, { width: size + 16, height: size + 58, left: left - 8, bottom }]}>
-    {showTwoTouch ? <View pointerEvents="none" style={styles.twoTouchBubble}><Text style={styles.twoTouchText}>{touchLabel}</Text></View> : null}
-    <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 2Touch 히든카드 열기`} onPress={handlePress}>
-      <Animated.View style={[styles.companionTapFrame, { width: size + 16, height: size + 16, borderColor: "#FFD86B", opacity: borderOpacity, transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1.04] }) }] }]} />
-      <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 8, top: 8, transform: [{ translateX }, { translateY }, { rotate }] }]}>
+  return <View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom }]}>
+    {showTwoTouch ? <View pointerEvents="none" style={[styles.twoTouchBubble, { left: size - 2 }]}><Text style={styles.twoTouchText}>{touchLabel}</Text></View> : null}
+    <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 2Touch 셔플 보너스 사용`} onPress={handlePress}>
+      <Animated.View style={[styles.companionTapFrame, { width: size, height: size, borderColor: "#FFD86B", opacity: borderOpacity, transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1.04] }) }] }]} />
+      <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX }, { translateY }, { rotate }] }]}>
         <Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} />
       </Animated.View>
     </Pressable>
@@ -574,7 +575,7 @@ export default function HomeScreen() {
   const [unlockedPetIds, setUnlockedPetIds] = useState<string[]>(INITIAL_UNLOCKED_PET_IDS);
   const [showTwoTouch, setShowTwoTouch] = useState(false);
   const [twoTouchOpensUsed, setTwoTouchOpensUsed] = useState(0);
-  const [rewardedRevealUsed, setRewardedRevealUsed] = useState(false);
+  const [rewardedRevealUsed, setRewardedRevealUsed] = useState(0);
   const [showBossWarning, setShowBossWarning] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
@@ -584,6 +585,7 @@ export default function HomeScreen() {
   const flightProgress = useRef(new Animated.Value(0)).current;
   const layoutTransition = useRef(new Animated.Value(1)).current;
   const bossIntroProgress = useRef(new Animated.Value(0)).current;
+  const shuffleMotion = useRef(new Animated.Value(0)).current;
   const screenShake = useRef(new Animated.Value(0)).current;
   const bossWarningStageRef = useRef<number | null>(null);
   const stagnantMovesRef = useRef(0);
@@ -835,7 +837,7 @@ export default function HomeScreen() {
     setUndoStack([]);
     setShowTwoTouch(false);
     setTwoTouchOpensUsed(0);
-    setRewardedRevealUsed(false);
+    setRewardedRevealUsed(0);
     stagnantMovesRef.current = 0;
     if (manualReset) {
       setUnlockedPetIds(INITIAL_UNLOCKED_PET_IDS);
@@ -888,6 +890,16 @@ export default function HomeScreen() {
       bestScore: Math.max(current.bestScore, finishedGame.score),
       bestTimeSeconds: current.bestTimeSeconds === null ? elapsedSeconds : Math.min(current.bestTimeSeconds, elapsedSeconds),
     }));
+  };
+
+  const playShuffleAnimation = () => {
+    shuffleMotion.setValue(0);
+    Animated.sequence([
+      Animated.timing(shuffleMotion, { toValue: 1, duration: 110, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(shuffleMotion, { toValue: -1, duration: 180, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(shuffleMotion, { toValue: 0.6, duration: 150, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(shuffleMotion, { toValue: 0, duration: 220, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+    ]).start();
   };
 
   const playEffect = (effect: "select" | "move" | "shuffle" | "companionAttack" | "foundationAttack") => {
@@ -1019,30 +1031,32 @@ export default function HomeScreen() {
     }
   };
 
-  const revealHiddenCardWithTwoTouch = () => {
-    if (!showTwoTouch || twoTouchOpensUsed >= 2) return;
-    const column = game.tableau.findIndex((pile) => pile.at(-1)?.faceUp === false);
-    if (column < 0) { showTimedHint("현재 뒤집을 히든카드가 없습니다."); setShowTwoTouch(false); return; }
-    const nextGame = flipTableauCard(game, column);
-    if (!nextGame) return;
-    setTwoTouchOpensUsed((used) => used + 1);
-    setShowTwoTouch(twoTouchOpensUsed + 1 <= 2 && !rewardedRevealUsed);
-    applyGame(nextGame, false, undefined);
-    showTimedHint(`히든카드를 열었습니다. (${twoTouchOpensUsed + 1}/2)`);
-  };
-
-  const revealHiddenCardWithRewardedAd = async () => {
-    if (!showTwoTouch || twoTouchOpensUsed !== 2 || rewardedRevealUsed) return;
-    showTimedHint("광고를 불러오는 중입니다.");
+  const useShuffleBonus = async () => {
+    if (!showTwoTouch) return;
+    if (twoTouchOpensUsed === 0) {
+      const shuffledGame = shuffleAvailableCards(game);
+      if (!shuffledGame) { showTimedHint("현재 섞을 카드가 없습니다."); setShowTwoTouch(false); return; }
+      setTwoTouchOpensUsed(1);
+      setShowTwoTouch(true);
+      playEffect("shuffle");
+      playShuffleAnimation();
+      applyGame(shuffledGame, false, undefined);
+      showTimedHint("보너스 셔플을 사용했습니다. 광고를 보면 2회 더 사용할 수 있습니다.");
+      return;
+    }
+    if (rewardedRevealUsed >= 2) { showTimedHint("이번 스테이지의 보너스 셔플을 모두 사용했습니다."); return; }
+    showTimedHint("보상형 광고를 불러오는 중입니다.");
     const completed = await showRewardedAd();
     if (!completed) { showTimedHint("광고를 끝까지 시청하지 못했습니다."); return; }
-    const column = game.tableau.findIndex((pile) => pile.at(-1)?.faceUp === false);
-    const nextGame = column >= 0 ? flipTableauCard(game, column) : null;
-    if (!nextGame) { showTimedHint("현재 뒤집을 히든카드가 없습니다."); setShowTwoTouch(false); return; }
-    setRewardedRevealUsed(true);
-    setShowTwoTouch(false);
-    applyGame(nextGame, false, undefined);
-    showTimedHint("광고 보상으로 히든카드 1장을 열었습니다.");
+    const shuffledGame = shuffleAvailableCards(game);
+    if (!shuffledGame) { showTimedHint("현재 섞을 카드가 없습니다."); setShowTwoTouch(false); return; }
+    const nextRewardedCount = rewardedRevealUsed + 1;
+    setRewardedRevealUsed(nextRewardedCount);
+    setShowTwoTouch(nextRewardedCount < 2);
+    playEffect("shuffle");
+    playShuffleAnimation();
+    applyGame(shuffledGame, false, undefined);
+    showTimedHint(`광고 보상 셔플을 사용했습니다. (${nextRewardedCount}/2)`);
   };
 
   const selectCard = (nextSelection: Selection) => {
@@ -1148,9 +1162,10 @@ export default function HomeScreen() {
   const companionAttackColor = companionAttackColors[companionAttackStyle];
   const companionSize = Math.max(68, Math.round(cardWidth * 1.64));
   const companionLeft = phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5));
-  const companionBottom = bottomControlsBottom + 52;
+  const companionBottom = bottomControlsBottom + 52 + (!isLandscape ? 1 : 0);
+  const renderCardRatio = !isLandscape ? Math.max(0.8, cardRatio - 1 / Math.max(1, cardWidth)) : cardRatio;
   const companionCenterLeft = companionLeft + companionSize * 0.5 - cardWidth * 0.5;
-  const companionCenterBottom = companionBottom + companionSize * 0.5 - cardWidth * cardRatio * 0.5;
+  const companionCenterBottom = companionBottom + companionSize * 0.5 - cardWidth * renderCardRatio * 0.5;
   const flightStartLeft = companionCenterLeft;
   const flightStartBottom = companionCenterBottom;
   const flightTravelX = phoneLandscape ? 0 : isLandscape ? Math.round(safeScreenWidth * 0.04) : Math.round(safeScreenWidth * 0.05);
@@ -1184,7 +1199,7 @@ export default function HomeScreen() {
       <Animated.View style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: [{ translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }] }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
         <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
-        {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={cardRatio} progress={flightProgress} travelX={flightTravelX} travelY={flightTravelY} startLeft={flightStartLeft} startBottom={flightStartBottom} flightColor={companionAttackColor} /> : null}
+        {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={renderCardRatio} progress={flightProgress} travelX={flightTravelX} travelY={flightTravelY} startLeft={flightStartLeft} startBottom={flightStartBottom} flightColor={companionAttackColor} /> : null}
         <VictoryFireworks visible={showFireworks} />
         <View style={[styles.header, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact, phoneLandscape && styles.headerPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
           <View style={phoneLandscape && styles.headerTitlePhoneLandscape}>
@@ -1225,28 +1240,28 @@ export default function HomeScreen() {
           <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={isLandscape ? Math.max(160, Math.min(310, Math.round(safeScreenWidth * 0.2) + 50)) : 94} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
-        <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ scale: layoutTransition }] }]}>
+        <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [-1, 0, 1], outputRange: [-5, 0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-0.7deg", "0deg", "0.7deg"] }) }] }]}>
         <View style={[styles.board, { width: boardWidth }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
             {game.stock.length ? (
-              <CardBack width={cardWidth} cardRatio={cardRatio} theme={cardBackTheme} onPress={drawStockCard} />
+              <CardBack width={cardWidth} cardRatio={renderCardRatio} theme={cardBackTheme} onPress={drawStockCard} />
             ) : (
-              <EmptySlot width={cardWidth} cardRatio={cardRatio} label={game.waste.length ? "↻" : ""} onPress={() => applyGame(drawFromStock(game))} />
+              <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label={game.waste.length ? "↻" : ""} onPress={() => applyGame(drawFromStock(game))} />
             )}
             {game.waste.at(-1) ? (
-              <CardFace card={game.waste.at(-1)!} width={cardWidth} cardRatio={cardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.kind === "waste"} onPress={onWastePress} onDoublePress={() => autoMoveToFoundation({ kind: "waste" })} />
+              <CardFace card={game.waste.at(-1)!} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.kind === "waste"} onPress={onWastePress} onDoublePress={() => autoMoveToFoundation({ kind: "waste" })} />
             ) : (
-              <EmptySlot width={cardWidth} cardRatio={cardRatio} label="" />
+              <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label="" />
             )}
           </View>
           <View style={[styles.foundationGroup, { gap: Math.max(3, Math.round(cardWidth * 0.08)) }]}>
             {SUITS.map((suit) => {
               const card = game.foundations[suit].at(-1);
               return card ? (
-                <CardFace key={suit} card={card} width={cardWidth} cardRatio={cardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.kind === "foundation" && selection.suit === suit} onPress={() => onFoundationPress(suit)} onDragEnd={(dx, dy) => dragMoveCard({ kind: "foundation", suit }, dx, dy)} />
+                <CardFace key={suit} card={card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.kind === "foundation" && selection.suit === suit} onPress={() => onFoundationPress(suit)} onDragEnd={(dx, dy) => dragMoveCard({ kind: "foundation", suit }, dx, dy)} />
               ) : (
-                <EmptySlot key={suit} width={cardWidth} cardRatio={cardRatio} label={suitSymbols[suit]} onPress={() => onFoundationPress(suit)} />
+                <EmptySlot key={suit} width={cardWidth} cardRatio={renderCardRatio} label={suitSymbols[suit]} onPress={() => onFoundationPress(suit)} />
               );
             })}
           </View>
@@ -1254,14 +1269,14 @@ export default function HomeScreen() {
 
         <View style={[styles.tableau, { gap: tableauGap }, isLandscape && styles.tableauLandscape]}>
           {game.tableau.map((pile, column) => (
-            <View key={`column-${column}`} style={[styles.tableauColumn, { width: cardWidth, minHeight: cardWidth * cardRatio }]}>
-              {pile.length === 0 ? <EmptySlot width={cardWidth} cardRatio={cardRatio} label="K" onPress={() => moveSelectionToTableau(column)} /> : null}
+            <View key={`column-${column}`} style={[styles.tableauColumn, { width: cardWidth, minHeight: cardWidth * renderCardRatio }]}>
+              {pile.length === 0 ? <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label="K" onPress={() => moveSelectionToTableau(column)} /> : null}
               {pile.map((card, index) => (
                 <View key={card.id} style={{ position: "absolute", top: index * stackOffset, left: 0, zIndex: index }}>
                   {card.faceUp ? (
-                    <CardFace card={card} width={cardWidth} cardRatio={cardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => autoMoveToFoundation({ kind: "tableau", column, index })} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
+                    <CardFace card={card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => autoMoveToFoundation({ kind: "tableau", column, index })} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
                   ) : (
-                    <CardBack width={cardWidth} cardRatio={cardRatio} theme={cardBackTheme} onPress={() => onTableauPress(column, index, card)} />
+                    <CardBack width={cardWidth} cardRatio={renderCardRatio} theme={cardBackTheme} onPress={() => onTableauPress(column, index, card)} />
                   )}
                 </View>
               ))}
@@ -1273,7 +1288,7 @@ export default function HomeScreen() {
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} effectColor={companionAttackColor} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={flightTravelX} travelY={flightTravelY} /> : null}
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
-        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionLeft} bottom={companionBottom} showTwoTouch={showTwoTouch} touchLabel={twoTouchOpensUsed < 2 ? "2Touch" : "AD +1"} onDoubleTap={twoTouchOpensUsed < 2 ? revealHiddenCardWithTwoTouch : revealHiddenCardWithRewardedAd} />
+        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionLeft} bottom={companionBottom} showTwoTouch={showTwoTouch} touchLabel={twoTouchOpensUsed === 0 ? "2Touch" : rewardedRevealUsed < 2 ? "AD +1" : "DONE"} onDoubleTap={useShuffleBonus} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
@@ -1467,8 +1482,8 @@ const styles = StyleSheet.create({
   companionAnchor: { position: "absolute", zIndex: 22, alignItems: "center", justifyContent: "center" },
   companionTapFrame: { position: "absolute", borderWidth: 3, borderRadius: 999, shadowColor: "#FFD86B", shadowOpacity: 0.95, shadowRadius: 12, elevation: 14 },
   companionImageFrame: { position: "absolute", alignItems: "center", justifyContent: "center" },
-  twoTouchBubble: { position: "absolute", top: -8, right: -12, zIndex: 3, backgroundColor: "#FFD86B", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: "#FFF7C7" },
-  twoTouchText: { color: "#1A1B2E", fontSize: 11, fontWeight: "900" },
+  twoTouchBubble: { position: "absolute", top: 8, zIndex: 3, backgroundColor: "#FFD86B", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, borderWidth: 2, borderColor: "#FFF7C7", shadowColor: "#FFB629", shadowOpacity: 0.8, shadowRadius: 7, elevation: 8, transform: [{ rotate: "-4deg" }] },
+  twoTouchText: { color: "#1A1B2E", fontSize: 11, fontWeight: "900", textShadowColor: "#FFF7C7", textShadowRadius: 2 },
   attackCard: { position: "absolute", left: "43%", bottom: "14%", zIndex: 70, width: 34, height: 48, borderRadius: 6, borderWidth: 2, backgroundColor: "#FFFDF8", shadowColor: "#FFFFFF", shadowOpacity: 0.9, shadowRadius: 8, elevation: 20 },
   attackCardRank: { position: "absolute", top: 3, left: 4, fontSize: 12, fontWeight: "900" },
   attackCardSuit: { position: "absolute", top: 15, width: "100%", textAlign: "center", fontSize: 21, fontWeight: "900" },
