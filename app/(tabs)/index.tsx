@@ -111,29 +111,30 @@ function RoyalPortrait({ rank, chapter = 1 }: { rank: 11 | 12 | 13; chapter?: nu
 
 type MedievalIconName = "auto" | "new" | "orientation" | "sound" | "soundOff" | "menu" | "hint" | "undo";
 
-function MedievalBackdrop({ source, width, height }: { source: number; width: number; height: number }) {
-  const bandHeight = Math.max(1, height / 5);
-  const blurRadii = [18, 14, 10, 6, 3];
-  const shadeOpacities = [0.26, 0.22, 0.18, 0.14, 0.1];
+function MedievalBackdrop({ source }: { source: number }) {
   return (
     <View pointerEvents="none" style={styles.medievalBackdrop}>
-      {blurRadii.map((blurRadius, index) => (
-        <View key={`backdrop-band-${blurRadius}`} style={[styles.medievalBackdropBand, { top: index * bandHeight, height: bandHeight }]}>
-          <Image
-            source={source}
-            resizeMode="cover"
-            blurRadius={blurRadius}
-            style={[styles.medievalBackdropImage, { width, height, top: -index * bandHeight }]}
-          />
-          <View style={[styles.medievalBackdropOverlay, { backgroundColor: `rgba(4, 10, 19, ${shadeOpacities[index]})` }]} />
-        </View>
-      ))}
+      <Image source={source} resizeMode="cover" style={styles.medievalBackdropImage} />
+      <View style={styles.medievalBackdropDim} />
     </View>
   );
 }
 
 function CompanionAnchor({ companion, size, left, bottom }: { companion: BattleAsset; size: number; left: number; bottom: number }) {
-  return <View pointerEvents="none" style={[styles.companionAnchor, { width: size, height: size, left, bottom }]}><Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} /></View>;
+  const drift = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(drift, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(drift, { toValue: -1, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(drift, { toValue: 0, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]));
+    animation.start();
+    return () => animation.stop();
+  }, [drift]);
+  const translateX = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [-5, 0, 5] });
+  const translateY = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] });
+  const rotate = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-2deg", "0deg", "2deg"] });
+  return <Animated.View pointerEvents="none" style={[styles.companionAnchor, { width: size, height: size, left, bottom, transform: [{ translateX }, { translateY }, { rotate }] }]}><Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} /></Animated.View>;
 }
 
 function MedievalIcon({ name, size = 22 }: { name: MedievalIconName; size?: number }) {
@@ -938,7 +939,7 @@ export default function HomeScreen() {
   const selectedCompanion = companionRoster.find((candidate) => candidate.id === selectedCompanionId) ?? battleContent.companion;
   const bossWarningOpacity = bossIntroProgress.interpolate({ inputRange: [0, 0.18, 0.82, 1], outputRange: [0, 1, 1, 0] });
   const bossWarningScale = bossIntroProgress.interpolate({ inputRange: [0, 0.22, 0.82, 1], outputRange: [0.82, 1, 1.04, 0.94] });
-  const companionSize = Math.max(34, Math.round(cardWidth * 0.82));
+  const companionSize = Math.max(68, Math.round(cardWidth * 1.64));
   const companionLeft = phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5));
   const companionBottom = bottomControlsBottom + 52;
   const companionCenterLeft = companionLeft + companionSize * 0.5 - cardWidth * 0.5;
@@ -973,7 +974,7 @@ export default function HomeScreen() {
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
       <Animated.View style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: [{ translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }] }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
-        <MedievalBackdrop source={battleContent.background} width={screenWidth} height={screenHeight} />
+        <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
         {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={cardRatio} progress={flightProgress} travelX={flightTravelX} travelY={flightTravelY} startLeft={flightStartLeft} startBottom={flightStartBottom} /> : null}
         <VictoryFireworks visible={showFireworks} />
@@ -1180,10 +1181,8 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#11182C", paddingHorizontal: 12 },
   medievalBackdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, overflow: "hidden" },
-  medievalBackdropBand: { position: "absolute", left: 0, right: 0, overflow: "hidden" },
-  medievalBackdropFill: { flex: 1 },
-  medievalBackdropImage: { opacity: 0.94 },
-  medievalBackdropOverlay: { flex: 1, backgroundColor: "rgba(4, 10, 19, 0.30)" },
+  medievalBackdropImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, opacity: 1 },
+  medievalBackdropDim: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0, 0, 0, 0.50)" },
   rootLandscape: { paddingHorizontal: 16 },
   rootPhoneLandscape: { paddingHorizontal: 8, position: "relative" },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 6, paddingBottom: 12 },
