@@ -49,7 +49,6 @@ type Records = { wins: number; bestScore: number; bestTimeSeconds: number | null
 
 const CARD_RATIO = 1.42;
 const ROYAL_SPRITE = require("../../assets/images/royal-card-sprite.png");
-const SHUFFLE_EFFECT = require("../../assets/images/shuffle-burst.png");
 const ACTIVE_GAME_KEY = "our-style-solitaire:active-game";
 const ACTIVE_GAME_SAVE_VERSION = 3;
 const RECORDS_KEY = "our-style-solitaire:records";
@@ -119,7 +118,7 @@ function MedievalBackdrop({ source }: { source: number }) {
   );
 }
 
-function CompanionAnchor({ companion, size, left, bottom, horizontalShift, onPress, showShuffleEffect = false }: { companion: BattleAsset; size: number; left: number; bottom: number; horizontalShift: Animated.Value; onPress: () => void; showShuffleEffect?: boolean }) {
+function CompanionAnchor({ companion, size, left, bottom, horizontalShift, onPress }: { companion: BattleAsset; size: number; left: number; bottom: number; horizontalShift: Animated.Value; onPress: () => void }) {
   const drift = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const animation = Animated.loop(Animated.sequence([
@@ -133,10 +132,7 @@ function CompanionAnchor({ companion, size, left, bottom, horizontalShift, onPre
   const translateX = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [-5, 0, 5] });
   const translateY = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] });
   const rotate = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-2deg", "0deg", "2deg"] });
-  const effectRotate = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-12deg", "0deg", "12deg"] });
-  const effectSize = size * 1.42;
   return <Animated.View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom, transform: [{ translateX: horizontalShift }] }]}> 
-    {showShuffleEffect ? <Animated.View pointerEvents="none" style={[styles.shuffleBurstFrame, { width: effectSize, height: effectSize, left: (size - effectSize) / 2, top: (size - effectSize) / 2, transform: [{ rotate: effectRotate }] }]}><Image source={SHUFFLE_EFFECT} resizeMode="contain" style={styles.shuffleBurstImage} /></Animated.View> : null}
     <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 셔플 도움 보기`} onPress={onPress} style={({ pressed }) => [styles.companionPressTarget, pressed && styles.companionPressed]}>
       <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX }, { translateY }, { rotate }] }]}>
         <Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} />
@@ -1153,18 +1149,28 @@ export default function HomeScreen() {
     showTimedHint(`광고 보상 셔플을 사용했습니다. (${nextRewardedCount}/2)`);
   };
 
-  const claimMagnetFromAd = async () => {
-    if (magnetCharges > 0) return;
+  const claimMagnetFromAd = async (slot: 1 | 2 = 1) => {
+    if (magnetCharges > 0) {
+      showTimedHint("가지고 있는 자석을 먼저 사용해 주세요.");
+      return;
+    }
+    if (rewardedRevealUsed !== slot - 1) {
+      showTimedHint(slot === 2 ? "첫 번째 광고 자석을 먼저 사용해 주세요." : "이번 광고 자석은 이미 받았습니다.");
+      return;
+    }
+    setRewardedRetrySlot(slot);
     setRewardedAdError(null);
     showTimedHint("보상형 광고를 불러오는 중입니다.");
     const completed = await showRewardedAd();
     if (!completed) {
-      setRewardedRetrySlot(1);
       setRewardedRetryKind("magnet");
       setRewardedAdError("광고가 준비되지 않았거나 끝까지 시청되지 않았습니다. 다시 시도해 주세요.");
       return;
     }
+    setRewardedRevealUsed(slot);
     setMagnetCharges(1);
+    setShowTwoTouch(false);
+    setShowNoMovesPopup(false);
     setShowMagnetReward(true);
     setMagnetRewardReady(false);
     haptic.success();
@@ -1172,12 +1178,17 @@ export default function HomeScreen() {
 
   const activateMagnet = () => {
     if (magnetCharges <= 0) {
-      void claimMagnetFromAd();
+      const nextSlot = rewardedRevealUsed + 1;
+      if (nextSlot > 2) {
+        showTimedHint("사용 가능한 광고 자석을 모두 받았습니다. 새 게임을 시작해 주세요.");
+        return;
+      }
+      void claimMagnetFromAd(nextSlot as 1 | 2);
       return;
     }
     if (magnetRunningRef.current) return;
     if (!findAutoFoundationMove(game)) {
-      showTimedHint("자석으로 옮길 수 있는 카드가 아직 없습니다.");
+      showTimedHint("정렬할 카드가 없습니다");
       haptic.error();
       return;
     }
@@ -1500,7 +1511,7 @@ export default function HomeScreen() {
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} effectColor={companionAttackColor} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={flightTravelX} travelY={flightTravelY} /> : null}
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
-        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} showShuffleEffect={showTwoTouch && !showNoMovesPopup} onPress={() => undefined} />
+        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} onPress={() => undefined} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
@@ -1529,9 +1540,9 @@ export default function HomeScreen() {
             <View style={styles.noMovesPopupCard}>
               <Pressable accessibilityRole="button" accessibilityLabel="이동 불가 안내 닫기" onPress={() => setShowNoMovesPopup(false)} style={({ pressed }) => [styles.noMovesPopupClose, pressed && styles.pressed]}><Text style={styles.noMovesPopupCloseText}>×</Text></Pressable>
               <Text style={styles.noMovesPopupTitle}>더 이상 이동할 수 없습니다.</Text>
-              {activeShuffleStep === 0 ? <Text style={styles.noMovesPopupCopy}>펫을 두번 터치시, 셔플기능 1번 사용 가능</Text> : activeShuffleStep < 2 ? <Text style={styles.noMovesPopupCopy}>광고시청후 셔플기능 1번 사용 가능</Text> : <Text style={styles.noMovesPopupCopy}>게임을 새로시작하세요.</Text>}
+              {activeShuffleStep === 0 ? <Text style={styles.noMovesPopupCopy}>무료 셔플기능 1번 사용 가능</Text> : magnetCharges > 0 ? <Text style={styles.noMovesPopupCopy}>보유한 자석정렬 1번 사용 가능</Text> : activeShuffleStep < 2 ? <Text style={styles.noMovesPopupCopy}>광고시청후 자석정렬 1번 사용 가능</Text> : <Text style={styles.noMovesPopupCopy}>게임을 새로시작하세요.</Text>}
               <View style={styles.noMovesPopupActions}>
-                {activeShuffleStep === 0 ? <Pressable accessibilityRole="button" accessibilityLabel="무료 셔플" onPress={() => { setShowNoMovesPopup(false); void useShuffleBonus(0); }} style={({ pressed }) => [styles.noMovesPopupPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>무료 셔플</Text></Pressable> : activeShuffleStep < 2 ? <Pressable accessibilityRole="button" accessibilityLabel="광고 셔플" onPress={() => { setShowNoMovesPopup(false); void useShuffleBonus(activeShuffleStep); }} style={({ pressed }) => [styles.noMovesPopupPrimary, styles.noMovesPopupAd, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>광고 셔플</Text></Pressable> : null}
+                {activeShuffleStep === 0 ? <Pressable accessibilityRole="button" accessibilityLabel="무료 셔플" onPress={() => { setShowNoMovesPopup(false); void useShuffleBonus(0); }} style={({ pressed }) => [styles.noMovesPopupPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>무료 셔플</Text></Pressable> : magnetCharges > 0 ? <Pressable accessibilityRole="button" accessibilityLabel="자석 정렬" onPress={() => { setShowNoMovesPopup(false); activateMagnet(); }} style={({ pressed }) => [styles.noMovesPopupPrimary, styles.magnetButtonReady, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>자석 정렬</Text></Pressable> : activeShuffleStep < 2 ? <Pressable accessibilityRole="button" accessibilityLabel="광고 시청 후 자석 정렬" onPress={() => { setShowNoMovesPopup(false); void claimMagnetFromAd(activeShuffleStep); }} style={({ pressed }) => [styles.noMovesPopupPrimary, styles.noMovesPopupAd, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>광고 자석</Text></Pressable> : null}
                 <Pressable accessibilityRole="button" accessibilityLabel="새로 시작" onPress={() => { setShowNoMovesPopup(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>새로 시작</Text></Pressable>
               </View>
             </View>
