@@ -671,7 +671,17 @@ export default function HomeScreen() {
         // Keep the persisted preference even if a player is still loading.
       }
     }
-  }, [attackPlayer, movePlayer, selectPlayer, soundEffectsEnabled, soundEffectsVolume]);
+  }, [attackPlayer, movePlayer, selectPlayer, soundEffectsEnabled, soundEffectsVolume, backgroundPlayer, backgroundMusicEnabled, backgroundMusicVolume]);
+
+  useEffect(() => {
+    // Re-apply both independent mixer buses after either slider changes. This
+    // prevents platform audio-session updates from leaving the music bus at the
+    // effects bus level on some Android audio implementations.
+    for (const player of [selectPlayer, movePlayer, attackPlayer]) {
+      try { player.volume = soundEffectsEnabled ? soundEffectsVolume : 0; } catch { /* optional audio */ }
+    }
+    try { backgroundPlayer.volume = backgroundMusicEnabled ? backgroundMusicVolume : 0; } catch { /* optional audio */ }
+  }, [attackPlayer, backgroundPlayer, backgroundMusicEnabled, backgroundMusicVolume, movePlayer, selectPlayer, soundEffectsEnabled, soundEffectsVolume]);
 
   useEffect(() => {
     try {
