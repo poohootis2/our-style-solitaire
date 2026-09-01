@@ -38,6 +38,7 @@ import {
 } from "@/lib/solitaire";
 import { getBattleContent, getCompanionRoster, type BattleAsset } from "@/lib/battle-content";
 import { PET_ROSTER } from "@/lib/pet-content";
+import { showRewardedAd } from "@/components/rewarded-ad";
 import { companionAttackColors, getCompanionAttackStyle, type CompanionAttackStyle } from "@/lib/companion-attack";
 import { getAttackTravelY } from "@/lib/attack-layout";
 
@@ -115,8 +116,10 @@ function MedievalBackdrop({ source }: { source: number }) {
   );
 }
 
-function CompanionAnchor({ companion, size, left, bottom }: { companion: BattleAsset; size: number; left: number; bottom: number }) {
+function CompanionAnchor({ companion, size, left, bottom, showTwoTouch, touchLabel, onDoubleTap }: { companion: BattleAsset; size: number; left: number; bottom: number; showTwoTouch: boolean; touchLabel: string; onDoubleTap: () => void }) {
   const drift = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(0)).current;
+  const lastTapAt = useRef(0);
   useEffect(() => {
     const animation = Animated.loop(Animated.sequence([
       Animated.timing(drift, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
@@ -129,7 +132,30 @@ function CompanionAnchor({ companion, size, left, bottom }: { companion: BattleA
   const translateX = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [-5, 0, 5] });
   const translateY = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] });
   const rotate = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-2deg", "0deg", "2deg"] });
-  return <Animated.View pointerEvents="none" style={[styles.companionAnchor, { width: size, height: size, left, bottom, transform: [{ translateX }, { translateY }, { rotate }] }]}><Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} /></Animated.View>;
+  const borderOpacity = showTwoTouch ? pulse.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] }) : 0;
+  useEffect(() => {
+    if (!showTwoTouch) { pulse.stopAnimation(); pulse.setValue(0); return; }
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1, duration: 520, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 0, duration: 520, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]));
+    animation.start();
+    return () => animation.stop();
+  }, [pulse, showTwoTouch]);
+  const handlePress = () => {
+    const now = Date.now();
+    if (now - lastTapAt.current < 360) onDoubleTap();
+    lastTapAt.current = now;
+  };
+  return <View pointerEvents="box-none" style={[styles.companionAnchor, { width: size + 16, height: size + 58, left: left - 8, bottom }]}>
+    {showTwoTouch ? <View pointerEvents="none" style={styles.twoTouchBubble}><Text style={styles.twoTouchText}>{touchLabel}</Text></View> : null}
+    <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 2Touch 히든카드 열기`} onPress={handlePress}>
+      <Animated.View style={[styles.companionTapFrame, { width: size + 16, height: size + 16, borderColor: "#FFD86B", opacity: borderOpacity, transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1.04] }) }] }]} />
+      <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 8, top: 8, transform: [{ translateX }, { translateY }, { rotate }] }]}>
+        <Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} />
+      </Animated.View>
+    </Pressable>
+  </View>;
 }
 
 function MedievalIcon({ name, size = 22 }: { name: MedievalIconName; size?: number }) {
@@ -546,6 +572,9 @@ export default function HomeScreen() {
   const [comboAttack, setComboAttack] = useState(false);
   const [selectedCompanionId, setSelectedCompanionId] = useState("cloud-tiger");
   const [unlockedPetIds, setUnlockedPetIds] = useState<string[]>(INITIAL_UNLOCKED_PET_IDS);
+  const [showTwoTouch, setShowTwoTouch] = useState(false);
+  const [twoTouchOpensUsed, setTwoTouchOpensUsed] = useState(0);
+  const [rewardedRevealUsed, setRewardedRevealUsed] = useState(false);
   const [showBossWarning, setShowBossWarning] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
@@ -557,6 +586,7 @@ export default function HomeScreen() {
   const bossIntroProgress = useRef(new Animated.Value(0)).current;
   const screenShake = useRef(new Animated.Value(0)).current;
   const bossWarningStageRef = useRef<number | null>(null);
+  const stagnantMovesRef = useRef(0);
   const autoFinishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoFinishRunningRef = useRef(false);
   const selectPlayer = useAudioPlayer(require("../../assets/sounds/card-select.wav"));
@@ -803,6 +833,10 @@ export default function HomeScreen() {
     setShowNewGameConfirm(false);
     setHintMessage(null);
     setUndoStack([]);
+    setShowTwoTouch(false);
+    setTwoTouchOpensUsed(0);
+    setRewardedRevealUsed(false);
+    stagnantMovesRef.current = 0;
     if (manualReset) {
       setUnlockedPetIds(INITIAL_UNLOCKED_PET_IDS);
       AsyncStorage.setItem(UNLOCKED_PETS_KEY, JSON.stringify(INITIAL_UNLOCKED_PET_IDS)).catch(() => undefined);
@@ -952,6 +986,11 @@ export default function HomeScreen() {
       playEffect("foundationAttack");
       if (isCombo) setTimeout(() => setComboAttack(false), 900);
     }
+    const previousProgress = game.foundations.clubs.length + game.foundations.diamonds.length + game.foundations.hearts.length + game.foundations.spades.length + game.tableau.flat().filter((card) => card.faceUp).length;
+    const nextProgress = nextGame.foundations.clubs.length + nextGame.foundations.diamonds.length + nextGame.foundations.hearts.length + nextGame.foundations.spades.length + nextGame.tableau.flat().filter((card) => card.faceUp).length;
+    if (nextProgress > previousProgress || nextGame.stock.length !== game.stock.length || nextGame.waste.length !== game.waste.length) stagnantMovesRef.current = 0;
+    else stagnantMovesRef.current += 1;
+    if (findHint(nextGame) === null || stagnantMovesRef.current >= 3) setShowTwoTouch(true);
     setUndoStack((history) => [...history.slice(-(MAX_UNDO_STEPS - 1)), cloneGameState(game)]);
     gameRef.current = nextGame;
     AsyncStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify({ saveVersion: ACTIVE_GAME_SAVE_VERSION, game: nextGame, elapsedSeconds: elapsedSecondsRef.current })).catch(() => undefined);
@@ -978,6 +1017,32 @@ export default function HomeScreen() {
       showTimedHint(nextChapter !== battleContent.chapter ? `챕터 ${nextChapter} 보스가 등장합니다. 스테이지 ${nextStage} 시작!` : `스테이지 ${nextStage}로 이동합니다.`);
       setTimeout(() => startNewGame(nextStage), 2350);
     }
+  };
+
+  const revealHiddenCardWithTwoTouch = () => {
+    if (!showTwoTouch || twoTouchOpensUsed >= 2) return;
+    const column = game.tableau.findIndex((pile) => pile.at(-1)?.faceUp === false);
+    if (column < 0) { showTimedHint("현재 뒤집을 히든카드가 없습니다."); setShowTwoTouch(false); return; }
+    const nextGame = flipTableauCard(game, column);
+    if (!nextGame) return;
+    setTwoTouchOpensUsed((used) => used + 1);
+    setShowTwoTouch(twoTouchOpensUsed + 1 <= 2 && !rewardedRevealUsed);
+    applyGame(nextGame, false, undefined);
+    showTimedHint(`히든카드를 열었습니다. (${twoTouchOpensUsed + 1}/2)`);
+  };
+
+  const revealHiddenCardWithRewardedAd = async () => {
+    if (!showTwoTouch || twoTouchOpensUsed !== 2 || rewardedRevealUsed) return;
+    showTimedHint("광고를 불러오는 중입니다.");
+    const completed = await showRewardedAd();
+    if (!completed) { showTimedHint("광고를 끝까지 시청하지 못했습니다."); return; }
+    const column = game.tableau.findIndex((pile) => pile.at(-1)?.faceUp === false);
+    const nextGame = column >= 0 ? flipTableauCard(game, column) : null;
+    if (!nextGame) { showTimedHint("현재 뒤집을 히든카드가 없습니다."); setShowTwoTouch(false); return; }
+    setRewardedRevealUsed(true);
+    setShowTwoTouch(false);
+    applyGame(nextGame, false, undefined);
+    showTimedHint("광고 보상으로 히든카드 1장을 열었습니다.");
   };
 
   const selectCard = (nextSelection: Selection) => {
@@ -1208,7 +1273,7 @@ export default function HomeScreen() {
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} effectColor={companionAttackColor} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={flightTravelX} travelY={flightTravelY} /> : null}
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
-        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionLeft} bottom={companionBottom} />
+        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionLeft} bottom={companionBottom} showTwoTouch={showTwoTouch} touchLabel={twoTouchOpensUsed < 2 ? "2Touch" : "AD +1"} onDoubleTap={twoTouchOpensUsed < 2 ? revealHiddenCardWithTwoTouch : revealHiddenCardWithRewardedAd} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
@@ -1400,6 +1465,10 @@ const styles = StyleSheet.create({
   monsterHp: { color: "#BCEAE2", fontSize: 11, fontWeight: "800", marginTop: 2 },
   monsterProjectile: { position: "absolute", left: 8, top: 12, fontSize: 24, fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 7 },
   companionAnchor: { position: "absolute", zIndex: 22, alignItems: "center", justifyContent: "center" },
+  companionTapFrame: { position: "absolute", borderWidth: 3, borderRadius: 999, shadowColor: "#FFD86B", shadowOpacity: 0.95, shadowRadius: 12, elevation: 14 },
+  companionImageFrame: { position: "absolute", alignItems: "center", justifyContent: "center" },
+  twoTouchBubble: { position: "absolute", top: -8, right: -12, zIndex: 3, backgroundColor: "#FFD86B", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: "#FFF7C7" },
+  twoTouchText: { color: "#1A1B2E", fontSize: 11, fontWeight: "900" },
   attackCard: { position: "absolute", left: "43%", bottom: "14%", zIndex: 70, width: 34, height: 48, borderRadius: 6, borderWidth: 2, backgroundColor: "#FFFDF8", shadowColor: "#FFFFFF", shadowOpacity: 0.9, shadowRadius: 8, elevation: 20 },
   attackCardRank: { position: "absolute", top: 3, left: 4, fontSize: 12, fontWeight: "900" },
   attackCardSuit: { position: "absolute", top: 15, width: "100%", textAlign: "center", fontSize: 21, fontWeight: "900" },

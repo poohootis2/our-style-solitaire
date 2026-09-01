@@ -41,7 +41,7 @@ const env = {
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
-  version: "1.6.7",
+  version: "1.6.8",
   orientation: "default",
   icon: "./assets/images/icon.png",
   scheme: env.scheme,
@@ -55,7 +55,7 @@ const config: ExpoConfig = {
       }
   },
   android: {
-    versionCode: 23,
+    versionCode: 24,
     adaptiveIcon: {
       backgroundColor: "#E6F4FE",
       foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -65,7 +65,7 @@ const config: ExpoConfig = {
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
-    permissions: ["POST_NOTIFICATIONS"],
+    permissions: ["POST_NOTIFICATIONS", "com.google.android.gms.permission.AD_ID"],
     // The game has no boot-time work, scheduled notifications, or foreground service.
     // Keep Android 15 BOOT_COMPLETED restrictions from being reintroduced by a transitive module.
     blockedPermissions: ["android.permission.RECEIVE_BOOT_COMPLETED"],
