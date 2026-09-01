@@ -7,6 +7,8 @@ import {
   drawFromStock,
   findHint,
   getDifficulty,
+  getChapterForStage,
+  isChapterBossStage,
   moveAceToFoundation,
   moveAvailableAcesToFoundation,
   moveToFoundation,
@@ -81,6 +83,15 @@ describe("클론다이크 규칙", () => {
       expect(game.tableau.flat().filter((item) => item.faceUp && item.rank === 1)).not.toHaveLength(4);
     }
     expect(new Set(games.map((game) => [...game.tableau.flat(), ...game.stock].map((item) => item.id).join(","))).size).toBeGreaterThan(1);
+  });
+
+  it("스테이지 1~3·4~6·7~10·11 이상이 네 챕터로 이어진다", () => {
+    expect([1, 3].map(getChapterForStage)).toEqual([1, 1]);
+    expect([4, 6].map(getChapterForStage)).toEqual([2, 2]);
+    expect([7, 10].map(getChapterForStage)).toEqual([3, 3]);
+    expect(getChapterForStage(11)).toBe(4);
+    expect([4, 7, 11].every(isChapterBossStage)).toBe(true);
+    expect(isChapterBossStage(1)).toBe(false);
   });
 
   it("레벨 1~3은 한 장, 레벨 4~5는 두 장, 레벨 6 이상은 세 장씩 공개한다", () => {

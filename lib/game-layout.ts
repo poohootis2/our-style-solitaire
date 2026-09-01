@@ -29,6 +29,10 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const isTablet = shortestSide >= 600;
   const isFoldedCover = !isLandscape && width <= 430;
   const isPhoneLandscape = isLandscape && !isTablet;
+  const landscapeAspect = width / Math.max(1, height);
+  // Narrow phone-landscape windows need tighter tableau overlap to keep the cards readable.
+  // Wide windows preserve the more generous spacing used by the previous Fold/tablet layout.
+  const phoneLandscapeOverlap = isPhoneLandscape ? clamp(landscapeAspect / 2.2, 0.78, 1) : 1;
   const sideRailWidth = isPhoneLandscape ? clamp(Math.round(width * 0.30), 190, 248) : 0;
   const cardRatio = isLandscape ? 1.18 : CARD_RATIO;
   const outerPadding = isPhoneLandscape ? 8 : isLandscape ? 24 : isTablet ? 30 : isFoldedCover ? 8 : 12;
@@ -44,7 +48,7 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const reservedHeight = (isPhoneLandscape ? 84 : isLandscape ? 116 : isTablet ? 250 : isFoldedCover ? 230 : 214) + extraReservedHeight;
   const usableTableauHeight = Math.max(isLandscape ? 118 : 210, height - verticalEdgeInset - reservedHeight);
   const topPilesGap = isLandscape ? 6 : 16;
-  const minimumStackOffset = isPhoneLandscape ? 10 : isLandscape ? 8 : isFoldedCover ? 19 : 22;
+  const minimumStackOffset = isPhoneLandscape ? Math.max(8, Math.round(10 * phoneLandscapeOverlap)) : isLandscape ? 8 : isFoldedCover ? 19 : 22;
   // The board contains a top-pile card, a gap, and the deepest seven-card tableau.
   const heightCardLimit = (usableTableauHeight - topPilesGap - TABLEAU_STEPS * minimumStackOffset) / (cardRatio * 2);
   const foldableOrLandscapeReduction = isPhoneLandscape ? 1 : isLandscape || (isTablet && !isFoldedCover) ? 0.9 : 1;
@@ -52,7 +56,7 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const cardWidth = Math.floor(clamp(Math.min(rawCardWidth, widthCardLimit, heightCardLimit) * foldableOrLandscapeReduction, minimumCardWidth, widthCardLimit));
   const cardHeight = cardWidth * cardRatio;
   const availableStackOffset = (usableTableauHeight - topPilesGap - cardHeight * 2) / TABLEAU_STEPS;
-  const stackOffset = Math.floor(clamp(availableStackOffset, minimumStackOffset, cardWidth * (isLandscape ? 0.62 : 0.74)));
+  const stackOffset = Math.floor(clamp(availableStackOffset, minimumStackOffset, cardWidth * (isLandscape ? 0.62 * phoneLandscapeOverlap : 0.74)));
 
   return {
     boardWidth: cardWidth * TABLEAU_COLUMNS + tableauGap * TABLEAU_STEPS,

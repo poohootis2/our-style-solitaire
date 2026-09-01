@@ -67,6 +67,22 @@ export const rankLabels: Record<Rank, string> = {
 
 export type Difficulty = { drawCount: number; maxRecycles: number; label: string };
 
+/**
+ * The stored `level` field represents the current stage for backward compatibility.
+ * This helper exposes the player's four visual chapters without changing saved-game shape.
+ * Stage 6 belongs to chapter 2; chapter 3 therefore starts at stage 7 to avoid overlap.
+ */
+export function getChapterForStage(stage: number): number {
+  if (stage <= 3) return 1;
+  if (stage <= 6) return 2;
+  if (stage <= 10) return 3;
+  return 4;
+}
+
+export function isChapterBossStage(stage: number): boolean {
+  return stage === 4 || stage === 7 || stage === 11;
+}
+
 export function getDifficulty(level: number): Difficulty {
   if (level <= 3) return { drawCount: 1, maxRecycles: Number.POSITIVE_INFINITY, label: level === 1 ? "입문" : "도전" };
   if (level <= 5) return { drawCount: 2, maxRecycles: Math.max(1, 6 - level), label: "전문가" };

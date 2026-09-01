@@ -19,6 +19,7 @@ import {
   flipTableauCard,
   findHint,
   getDifficulty,
+  getChapterForStage,
   isWon,
   moveFoundationToTableau,
   moveAceToFoundation,
@@ -33,6 +34,7 @@ import {
   type Suit,
   SUITS,
 } from "@/lib/solitaire";
+import { getBattleContent, type BattleAsset } from "@/lib/battle-content";
 
 type Selection = CardSource & { cardId: string };
 type Sheet = "menu" | "rules" | "records" | "sound" | null;
@@ -44,11 +46,12 @@ const ACTIVE_GAME_SAVE_VERSION = 3;
 const RECORDS_KEY = "our-style-solitaire:records";
 const SOUND_ENABLED_KEY = "our-style-solitaire:sound-enabled";
 const BACKGROUND_MUSIC_ENABLED_KEY = "our-style-solitaire:background-music-enabled";
+const SOUND_EFFECTS_VOLUME_KEY = "our-style-solitaire:sound-effects-volume";
+const BACKGROUND_MUSIC_VOLUME_KEY = "our-style-solitaire:background-music-volume";
 const PHYSICAL_EDGE_INSET = 52;
 const MAX_UNDO_STEPS = 3;
 const CARD_ATTACK_FLIGHT_DURATION = 500;
-const MONSTER_IMAGE = require("../../assets/images/monsters/boss_coral_golem_king.png");
-
+const FLYING_CARD_DURATION = 280;
 const emptyRecords: Records = { wins: 0, bestScore: 0, bestTimeSeconds: null };
 
 function cardLabel(card: Card): string {
@@ -59,17 +62,27 @@ function playingCardColor(card: Card): string {
   return card.suit === "diamonds" || card.suit === "hearts" ? "#E94B5F" : "#1A2030";
 }
 
+function clampVolume(value: number): number {
+  return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 1));
+}
+
 function formatDuration(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
   const seconds = (totalSeconds % 60).toString().padStart(2, "0");
   return `${minutes}:${seconds}`;
 }
 
-function RoyalPortrait({ rank }: { rank: 11 | 12 | 13 }) {
+function RoyalPortrait({ rank, chapter = 1 }: { rank: 11 | 12 | 13; chapter?: number }) {
   const isJack = rank === 11;
   const isQueen = rank === 12;
-  const outfit = isJack ? "#314A76" : isQueen ? "#7A416B" : "#295D66";
-  const trim = isJack ? "#FF8A76" : isQueen ? "#E785B5" : "#D6A956";
+  const chapterPalette = [
+    { outfit: "#314A76", trim: "#FF8A76", crown: "#F3C969" },
+    { outfit: "#275C68", trim: "#77D6C3", crown: "#A5F0DF" },
+    { outfit: "#563D7A", trim: "#B9C9FF", crown: "#D0C4FF" },
+    { outfit: "#70402C", trim: "#F3C969", crown: "#FFE7A2" },
+  ][Math.max(0, Math.min(3, chapter - 1))];
+  const outfit = isJack ? chapterPalette.outfit : isQueen ? "#7A416B" : "#295D66";
+  const trim = isJack ? chapterPalette.trim : isQueen ? "#E785B5" : chapterPalette.crown;
   const hair = isJack ? "#56392B" : isQueen ? "#4A2543" : "#302A25";
 
   return (
@@ -81,8 +94,9 @@ function RoyalPortrait({ rank }: { rank: 11 | 12 | 13 }) {
         <Circle cx="50" cy="48" r="24" fill="#F3BF99" />
         <Path d={isQueen ? "M25 54 C23 19 40 16 50 26 C60 16 77 19 75 54 L67 45 C62 31 38 31 33 45 Z" : "M25 49 C25 19 42 19 50 27 C58 19 75 19 75 49 L69 42 C58 30 42 30 31 42 Z"} fill={hair} />
         {isJack ? <Path d="M32 29 L43 15 L50 27 L57 15 L68 29 L62 31 L50 25 L38 31 Z" fill={trim} /> : null}
-        {isQueen ? <Path d="M27 29 L34 10 L43 23 L50 7 L57 23 L66 10 L73 29 Z" fill="#F3C969" /> : null}
-        {rank === 13 ? <Path d="M23 31 L30 8 L41 23 L50 5 L59 23 L70 8 L77 31 Z" fill="#F3C969" /> : null}
+        {isQueen ? <Path d="M27 29 L34 10 L43 23 L50 7 L57 23 L66 10 L73 29 Z" fill={chapterPalette.crown} /> : null}
+        {rank === 13 ? <Path d="M23 31 L30 8 L41 23 L50 5 L59 23 L70 8 L77 31 Z" fill={chapterPalette.crown} /> : null}
+        {chapter >= 3 ? <Circle cx="50" cy="12" r="4" fill={chapterPalette.trim} /> : null}
         <Circle cx="41" cy="49" r="2.2" fill="#1A2030" />
         <Circle cx="59" cy="49" r="2.2" fill="#1A2030" />
         <Path d={isQueen ? "M42 61 Q50 66 58 61" : "M42 61 Q50 65 58 61"} stroke="#B96862" strokeWidth="2" fill="none" strokeLinecap="round" />
@@ -96,11 +110,11 @@ function RoyalPortrait({ rank }: { rank: 11 | 12 | 13 }) {
 
 type MedievalIconName = "auto" | "new" | "orientation" | "sound" | "soundOff" | "menu" | "hint" | "undo";
 
-function MedievalBackdrop() {
+function MedievalBackdrop({ source }: { source: number }) {
   return (
     <View pointerEvents="none" style={styles.medievalBackdrop}>
       <ImageBackground
-        source={require("../../assets/images/medieval-great-hall.webp")}
+        source={source}
         resizeMode="cover"
         style={styles.medievalBackdropFill}
         imageStyle={styles.medievalBackdropImage}
@@ -139,6 +153,7 @@ function CardFace({
   onPress,
   onDoublePress,
   onDragEnd,
+  chapter = 1,
 }: {
   card: Card;
   width: number;
@@ -147,6 +162,7 @@ function CardFace({
   onPress?: () => void;
   onDoublePress?: () => void;
   onDragEnd?: (dx: number, dy: number) => void;
+  chapter?: number;
 }) {
   const height = width * cardRatio;
   const color = playingCardColor(card);
@@ -196,12 +212,39 @@ function CardFace({
     >
       <Text style={[styles.rankTop, { color, top: markInset, left: markInset, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
       <Text style={[styles.suitTop, { color, top: suitTopOffset, left: markInset, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
-      {isRoyal ? <RoyalPortrait rank={card.rank as 11 | 12 | 13} /> : <Text style={[styles.suitCenter, { color, fontSize: centerSize }]}>{suitSymbols[card.suit]}</Text>}
+      {isRoyal ? <RoyalPortrait rank={card.rank as 11 | 12 | 13} chapter={chapter} /> : <Text style={[styles.suitCenter, { color, fontSize: centerSize }]}>{suitSymbols[card.suit]}</Text>}
       <View style={[styles.bottomMark, { right: markInset, bottom: markInset * 0.65 }]}>
         <Text style={[styles.rankBottom, { color, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
         <Text style={[styles.suitBottom, { color, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
       </View>
     </Pressable>
+  );
+}
+
+function VolumeSlider({ label, value, onChange, disabled = false }: { label: string; value: number; onChange: (value: number) => void; disabled?: boolean }) {
+  const [trackWidth, setTrackWidth] = useState(1);
+  const updateFromLocation = (locationX: number) => {
+    if (!trackWidth) return;
+    onChange(Math.max(0, Math.min(1, locationX / trackWidth)));
+  };
+  return (
+    <View style={[styles.volumeSliderRow, disabled && styles.volumeSliderDisabled]}>
+      <View style={styles.volumeSliderHeader}><Text style={styles.volumeSliderLabel}>{label}</Text><Text style={styles.volumeSliderValue}>{Math.round(value * 100)}%</Text></View>
+      <View
+        style={styles.volumeSliderTrack}
+        onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+        onStartShouldSetResponder={() => !disabled}
+        onMoveShouldSetResponder={() => !disabled}
+        onResponderGrant={(event) => updateFromLocation(event.nativeEvent.locationX)}
+        onResponderMove={(event) => updateFromLocation(event.nativeEvent.locationX)}
+        accessibilityRole="adjustable"
+        accessibilityLabel={`${label} 볼륨`}
+        accessibilityValue={{ min: 0, max: 100, now: Math.round(value * 100) }}
+      >
+        <View style={[styles.volumeSliderFill, { width: `${value * 100}%` }]} />
+        <View style={[styles.volumeSliderThumb, { left: `${value * 100}%` }]} />
+      </View>
+    </View>
   );
 }
 
@@ -224,16 +267,26 @@ function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress }: { width: nu
 function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, travelY = -180, startLeft = 16, startBottom = 44 }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; travelY?: number; startLeft?: number; startBottom?: number }) {
   const color = playingCardColor(card);
   const glow: Record<Suit, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
+  const cardHeight = width * cardRatio;
+  const distance = Math.max(48, Math.sqrt(travelX * travelX + travelY * travelY));
+  const angle = `${Math.atan2(travelY, travelX) * (180 / Math.PI)}deg`;
   const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelX] });
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY] });
   const scale = progress.interpolate({ inputRange: [0, 0.62, 1], outputRange: [1, 1.08, 0.5] });
   const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
   const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "720deg"] });
+  const trailTranslateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelX * 0.22] });
+  const trailTranslateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY * 0.22] });
+  const trailScale = progress.interpolate({ inputRange: [0, 0.22, 1], outputRange: [0.2, 1, 0.42] });
+  const trailOpacity = progress.interpolate({ inputRange: [0, 0.18, 0.72, 1], outputRange: [0, 0.9, 0.55, 0] });
   return (
-    <Animated.View pointerEvents="none" style={[styles.flyingCard, { left: startLeft, bottom: startBottom, width, height: width * cardRatio, opacity, borderColor: glow[card.suit], shadowColor: glow[card.suit], transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}> 
-      <Text style={[styles.flyingRank, { color }]}>{rankLabels[card.rank]}</Text>
-      <Text style={[styles.flyingSuit, { color }]}>{suitSymbols[card.suit]}</Text>
-    </Animated.View>
+    <>
+      <Animated.View pointerEvents="none" style={[styles.flyingTrail, { left: startLeft + width * 0.5 - distance * 0.5, bottom: startBottom + cardHeight * 0.5 - 2, width: distance, backgroundColor: glow[card.suit], opacity: trailOpacity, transform: [{ translateX: trailTranslateX }, { translateY: trailTranslateY }, { rotate: angle }, { scaleX: trailScale }] }]} />
+      <Animated.View pointerEvents="none" style={[styles.flyingCard, { left: startLeft, bottom: startBottom, width, height: cardHeight, opacity, borderColor: glow[card.suit], shadowColor: glow[card.suit], transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}> 
+        <Text style={[styles.flyingRank, { color }]}>{rankLabels[card.rank]}</Text>
+        <Text style={[styles.flyingSuit, { color }]}>{suitSymbols[card.suit]}</Text>
+      </Animated.View>
+    </>
   );
 }
 
@@ -292,7 +345,7 @@ function CardAttackEffect({ kind, combo, travelX, travelY }: { kind: AttackKind;
 
 type AttackKind = Suit;
 
-function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = false, landscape = false, phoneLandscape = false, travelDistance = 24 }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; travelDistance?: number }) {
+function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = false, landscape = false, phoneLandscape = false, travelDistance = 24, monster, companion, isBoss, cardSize }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; travelDistance?: number; monster: BattleAsset; companion: BattleAsset; isBoss: boolean; cardSize: number }) {
   const monsterMotion = useRef(new Animated.Value(0)).current;
   const attackProgress = useRef(new Animated.Value(0)).current;
   const [attackVisible, setAttackVisible] = useState(false);
@@ -340,17 +393,21 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
   const defeatOpacity = defeatProgress.interpolate({ inputRange: [0, 0.45, 1], outputRange: [1, 1, 0] });
   const attackColors: Record<AttackKind, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
   const attackSymbols: Record<AttackKind, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
+  const spriteSize = Math.max(34, Math.round(cardSize * 0.9));
+  const companionSize = Math.max(24, Math.round(cardSize * 0.62));
+  const infoWidth = Math.max(54, Math.round(cardSize * 1.02));
 
   return (
     <View style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
-      <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { transform: [{ translateX: monsterTranslate }] }]}>
-        <Image source={MONSTER_IMAGE} resizeMode="contain" style={[styles.monsterSprite, compact && styles.monsterSpriteCompact, defeatVisible && styles.monsterDefeated]} />
+      <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, transform: [{ translateX: monsterTranslate }] }]}>
+        <Image source={monster.image} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, compact && styles.monsterSpriteCompact, defeatVisible && styles.monsterDefeated]} accessibilityLabel={monster.name} />
         {attackVisible ? <Animated.Text style={[styles.monsterProjectile, { color: attackColors[attackKind], transform: [{ translateX: projectileTranslate }, { scale: projectileScale }] }]}>{attackSymbols[attackKind]}</Animated.Text> : null}
         {damageVisible ? <Animated.Text style={[styles.damageText, { opacity: damageOpacity, transform: [{ translateY: damageTranslateY }] }]}>−{damage}</Animated.Text> : null}
         {defeatVisible ? <Animated.View pointerEvents="none" style={[styles.defeatBurst, { opacity: defeatOpacity, transform: [{ scale: defeatScale }] }]}>{Array.from({ length: 12 }, (_, index) => <Text key={index} style={[styles.defeatSpark, { transform: [{ rotate: `${index * 30}deg` }, { translateY: -24 }] }]}>{index % 2 ? "✦" : "•"}</Text>)}</Animated.View> : null}
       </Animated.View>
-      <View style={[styles.monsterInfo, compact && styles.monsterInfoCompact, !landscape && styles.monsterInfoPortrait]}>
-        <Text style={styles.monsterName}>CORAL GOLEM</Text>
+      <Image source={companion.image} resizeMode="contain" style={[styles.companionSprite, { width: companionSize, height: companionSize }, compact && styles.companionSpriteCompact]} accessibilityLabel={`${companion.name}, 전투 동료`} />
+      <View style={[styles.monsterInfo, { width: infoWidth }, compact && styles.monsterInfoCompact, !landscape && styles.monsterInfoPortrait]}>
+        <View style={styles.monsterNameRow}><Text style={styles.monsterName} numberOfLines={2}>{monster.name.toUpperCase()}</Text>{isBoss ? <Text style={styles.bossBadge}>BOSS</Text> : null}</View>
         <View style={styles.monsterBar}><View style={[styles.monsterBarFill, { width: `${Math.max(0, Math.min(100, hp))}%` }]} /></View>
         <Text style={styles.monsterHp}>{Math.round(hp)}%</Text>
       </View>
@@ -411,6 +468,8 @@ export default function HomeScreen() {
   const [hydrated, setHydrated] = useState(false);
   const [soundEffectsEnabled, setSoundEffectsEnabled] = useState(true);
   const [backgroundMusicEnabled, setBackgroundMusicEnabled] = useState(true);
+  const [soundEffectsVolume, setSoundEffectsVolume] = useState(0.9);
+  const [backgroundMusicVolume, setBackgroundMusicVolume] = useState(0.2);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
   const [flyingCard, setFlyingCard] = useState<Card | null>(null);
   const [showFireworks, setShowFireworks] = useState(false);
@@ -440,10 +499,26 @@ export default function HomeScreen() {
     }, 2000);
   };
 
+  const setSoundEffectsVolumePreference = (value: number) => {
+    const volume = clampVolume(value);
+    setSoundEffectsVolume(volume);
+    for (const player of [selectPlayer, movePlayer, attackPlayer]) {
+      try { player.volume = soundEffectsEnabled ? volume : 0; } catch { /* optional audio */ }
+    }
+  };
+
+  const setBackgroundMusicVolumePreference = (value: number) => {
+    const volume = clampVolume(value);
+    setBackgroundMusicVolume(volume);
+    try {
+      backgroundPlayer.volume = backgroundMusicEnabled ? volume : 0;
+    } catch { /* optional audio */ }
+  };
+
   const setSoundEffectsEnabledPreference = (enabled: boolean) => {
     for (const player of [selectPlayer, movePlayer, attackPlayer]) {
       try {
-        player.volume = enabled ? 1 : 0;
+        player.volume = enabled ? soundEffectsVolume : 0;
         if (!enabled) player.pause();
       } catch {
         // Sound state must never block the game when a native player is unavailable.
@@ -456,7 +531,7 @@ export default function HomeScreen() {
 
   const setBackgroundMusicEnabledPreference = (enabled: boolean) => {
     try {
-      backgroundPlayer.volume = enabled ? 0.2 : 0;
+      backgroundPlayer.volume = enabled ? backgroundMusicVolume : 0;
       if (enabled && !paused) {
         backgroundPlayer.seekTo(0);
         backgroundPlayer.play();
@@ -479,7 +554,7 @@ export default function HomeScreen() {
     let mounted = true;
     const loadLocalGame = async () => {
       try {
-        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY]);
+        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY]);
         if (!mounted) return;
         if (activeGameValue[1] && !newGameStarted.current) {
           const saved = JSON.parse(activeGameValue[1]) as { saveVersion?: number; game?: typeof game; elapsedSeconds?: number };
@@ -495,6 +570,8 @@ export default function HomeScreen() {
         if (recordsValue[1]) setRecords({ ...emptyRecords, ...(JSON.parse(recordsValue[1]) as Records) });
         if (soundEffectsValue[1]) setSoundEffectsEnabled(soundEffectsValue[1] === "true");
         if (backgroundMusicValue[1]) setBackgroundMusicEnabled(backgroundMusicValue[1] === "true");
+        if (soundEffectsVolumeValue[1]) setSoundEffectsVolume(clampVolume(Number(soundEffectsVolumeValue[1])));
+        if (backgroundMusicVolumeValue[1]) setBackgroundMusicVolume(clampVolume(Number(backgroundMusicVolumeValue[1])));
       } catch {
         // A fresh local game is retained when storage is unavailable or malformed.
       } finally {
@@ -536,20 +613,30 @@ export default function HomeScreen() {
   }, [backgroundMusicEnabled, hydrated]);
 
   useEffect(() => {
+    if (!hydrated) return;
+    AsyncStorage.setItem(SOUND_EFFECTS_VOLUME_KEY, String(soundEffectsVolume)).catch(() => undefined);
+  }, [hydrated, soundEffectsVolume]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    AsyncStorage.setItem(BACKGROUND_MUSIC_VOLUME_KEY, String(backgroundMusicVolume)).catch(() => undefined);
+  }, [backgroundMusicVolume, hydrated]);
+
+  useEffect(() => {
     for (const player of [selectPlayer, movePlayer, attackPlayer]) {
       try {
-        player.volume = soundEffectsEnabled ? 1 : 0;
+        player.volume = soundEffectsEnabled ? soundEffectsVolume : 0;
         if (!soundEffectsEnabled) player.pause();
       } catch {
         // Keep the persisted preference even if a player is still loading.
       }
     }
-  }, [attackPlayer, movePlayer, selectPlayer, soundEffectsEnabled]);
+  }, [attackPlayer, movePlayer, selectPlayer, soundEffectsEnabled, soundEffectsVolume]);
 
   useEffect(() => {
     try {
       backgroundPlayer.loop = true;
-      backgroundPlayer.volume = backgroundMusicEnabled ? 0.2 : 0;
+      backgroundPlayer.volume = backgroundMusicEnabled ? backgroundMusicVolume : 0;
       if (!hydrated || paused || !backgroundMusicEnabled) {
         backgroundPlayer.pause();
       } else {
@@ -558,7 +645,7 @@ export default function HomeScreen() {
     } catch {
       // Background music is optional and must never interrupt gameplay.
     }
-  }, [backgroundMusicEnabled, backgroundPlayer, hydrated, paused]);
+  }, [backgroundMusicEnabled, backgroundMusicVolume, backgroundPlayer, hydrated, paused]);
 
   useEffect(() => {
     setAudioModeAsync({ playsInSilentMode: true }).catch(() => undefined);
@@ -648,7 +735,7 @@ export default function HomeScreen() {
   const animateFlight = (card: Card) => {
     setFlyingCard(card);
     flightProgress.setValue(0);
-    Animated.timing(flightProgress, { toValue: 1, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setFlyingCard(null));
+    Animated.timing(flightProgress, { toValue: 1, duration: FLYING_CARD_DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setFlyingCard(null));
   };
 
   const cardFromSource = (source: CardSource): Card | undefined => {
@@ -721,11 +808,12 @@ export default function HomeScreen() {
     }
     if (isWon(nextGame)) {
       saveWin(nextGame);
-      const nextLevel = Math.min(nextGame.level + 1, 6);
+      const nextStage = nextGame.level + 1;
+      const nextChapter = getChapterForStage(nextStage);
       setShowFireworks(true);
       setTimeout(() => setShowFireworks(false), 1550);
-      showTimedHint(`보스 처치! 레벨 ${nextLevel}로 이동합니다.`);
-      setTimeout(() => startNewGame(nextLevel), 2350);
+      showTimedHint(nextChapter !== battleContent.chapter ? `챕터 ${nextChapter} 보스가 등장합니다. 스테이지 ${nextStage} 시작!` : `스테이지 ${nextStage}로 이동합니다.`);
+      setTimeout(() => startNewGame(nextStage), 2350);
     }
   };
 
@@ -821,7 +909,8 @@ export default function HomeScreen() {
   };
 
   const difficulty = getDifficulty(game.level);
-  const cardBackTheme = getCardBackTheme(game.level);
+  const cardBackTheme = getCardBackTheme(getChapterForStage(game.level));
+  const battleContent = getBattleContent(game.level, isLandscape);
   const flightStartLeft = phoneLandscape ? sideRailWidth + Math.max(8, Math.round((safeScreenWidth - sideRailWidth - cardWidth) * 0.5)) : Math.max(16, Math.round((safeScreenWidth - cardWidth) * 0.5));
   const flightStartBottom = bottomControlsBottom + (phoneLandscape ? 58 : 64);
   const flightTravelX = phoneLandscape ? -Math.round(sideRailWidth * 0.58) : isLandscape ? Math.round(safeScreenWidth * 0.04) : Math.round(safeScreenWidth * 0.05);
@@ -830,7 +919,7 @@ export default function HomeScreen() {
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
       <View style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
-        <MedievalBackdrop />
+        <MedievalBackdrop source={battleContent.background} />
         {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={cardRatio} progress={flightProgress} travelX={flightTravelX} travelY={flightTravelY} startLeft={flightStartLeft} startBottom={flightStartBottom} /> : null}
         <VictoryFireworks visible={showFireworks} />
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} travelX={Math.round(safeScreenWidth * (isLandscape ? 0.04 : 0.05))} travelY={-Math.round(safeScreenHeight * (isLandscape ? 0.45 : 0.68))} /> : null}
@@ -839,7 +928,7 @@ export default function HomeScreen() {
             <Text style={styles.eyebrow}>OUR STYLE</Text>
             <View style={styles.titleLine}>
               <Text style={[styles.title, { fontSize: Math.round((compactLandscape ? 23 : 27) * (isLandscape ? 1 : uiScale)), lineHeight: Math.round((compactLandscape ? 27 : 31) * (isLandscape ? 1 : uiScale)) }]}>Solitaire</Text>
-              <View style={styles.levelBadge}><Text style={styles.levelText}>LV {game.level} · {difficulty.label}</Text></View>
+              <View style={styles.levelBadge}><Text style={styles.levelText}>LV {battleContent.chapter} · STAGE {game.level}</Text></View>
             </View>
           </View>
           {isLandscape ? <View style={[styles.landscapeHeaderBanner, phoneLandscape && styles.landscapeHeaderBannerPhone]}><AdBanner compact inline /></View> : null}
@@ -870,7 +959,7 @@ export default function HomeScreen() {
             <View style={styles.statDivider} />
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
           </View>
-          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={isLandscape ? Math.max(110, Math.min(260, Math.round(safeScreenWidth * 0.2))) : 44} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} />
+          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={isLandscape ? Math.max(110, Math.min(260, Math.round(safeScreenWidth * 0.2))) : 44} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} monster={battleContent.monster} companion={battleContent.companion} isBoss={battleContent.isBoss} cardSize={cardWidth} />
           <View style={[styles.statusWrap, isLandscape && styles.statusWrapLandscape, compactControls && !isLandscape && styles.statusWrapCompact, phoneLandscape && styles.statusWrapPhoneLandscape]}>
             <View style={[styles.statusDot, selection ? styles.statusDotSelected : styles.statusDotReady]} />
             <Text numberOfLines={1} style={styles.statusText}>{hydrated ? (selection ? "이동할 곳을 탭하세요" : "카드를 선택하세요") : "게임 준비 중"}</Text>
@@ -887,7 +976,7 @@ export default function HomeScreen() {
               <EmptySlot width={cardWidth} cardRatio={cardRatio} label={game.waste.length ? "↻" : ""} onPress={() => applyGame(drawFromStock(game))} />
             )}
             {game.waste.at(-1) ? (
-              <CardFace card={game.waste.at(-1)!} width={cardWidth} cardRatio={cardRatio} selected={selection?.kind === "waste"} onPress={onWastePress} onDoublePress={() => autoMoveToFoundation({ kind: "waste" })} />
+              <CardFace card={game.waste.at(-1)!} width={cardWidth} cardRatio={cardRatio} chapter={battleContent.chapter} selected={selection?.kind === "waste"} onPress={onWastePress} onDoublePress={() => autoMoveToFoundation({ kind: "waste" })} />
             ) : (
               <EmptySlot width={cardWidth} cardRatio={cardRatio} label="" />
             )}
@@ -896,7 +985,7 @@ export default function HomeScreen() {
             {SUITS.map((suit) => {
               const card = game.foundations[suit].at(-1);
               return card ? (
-                <CardFace key={suit} card={card} width={cardWidth} cardRatio={cardRatio} selected={selection?.kind === "foundation" && selection.suit === suit} onPress={() => onFoundationPress(suit)} onDragEnd={(dx, dy) => dragMoveCard({ kind: "foundation", suit }, dx, dy)} />
+                <CardFace key={suit} card={card} width={cardWidth} cardRatio={cardRatio} chapter={battleContent.chapter} selected={selection?.kind === "foundation" && selection.suit === suit} onPress={() => onFoundationPress(suit)} onDragEnd={(dx, dy) => dragMoveCard({ kind: "foundation", suit }, dx, dy)} />
               ) : (
                 <EmptySlot key={suit} width={cardWidth} cardRatio={cardRatio} label={suitSymbols[suit]} onPress={() => onFoundationPress(suit)} />
               );
@@ -911,7 +1000,7 @@ export default function HomeScreen() {
               {pile.map((card, index) => (
                 <View key={card.id} style={{ position: "absolute", top: index * stackOffset, left: 0, zIndex: index }}>
                   {card.faceUp ? (
-                    <CardFace card={card} width={cardWidth} cardRatio={cardRatio} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => autoMoveToFoundation({ kind: "tableau", column, index })} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
+                    <CardFace card={card} width={cardWidth} cardRatio={cardRatio} chapter={battleContent.chapter} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => autoMoveToFoundation({ kind: "tableau", column, index })} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
                   ) : (
                     <CardBack width={cardWidth} cardRatio={cardRatio} theme={cardBackTheme} onPress={() => onTableauPress(column, index, card)} />
                   )}
@@ -961,10 +1050,12 @@ export default function HomeScreen() {
                       <View style={[styles.checkBox, soundEffectsEnabled && styles.checkBoxChecked]}>{soundEffectsEnabled ? <Text style={styles.checkMark}>✓</Text> : null}</View>
                       <View style={styles.audioOptionCopy}><Text style={styles.audioOptionTitle}>효과음</Text><Text style={styles.audioOptionSubtitle}>카드 선택·이동·공격 소리</Text></View>
                     </Pressable>
+                    <VolumeSlider label="효과음 볼륨" value={soundEffectsVolume} onChange={setSoundEffectsVolumePreference} disabled={!soundEffectsEnabled} />
                     <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: backgroundMusicEnabled }} onPress={() => setBackgroundMusicEnabledPreference(!backgroundMusicEnabled)} style={({ pressed }) => [styles.audioOption, pressed && styles.pressed]}>
                       <View style={[styles.checkBox, backgroundMusicEnabled && styles.checkBoxChecked]}>{backgroundMusicEnabled ? <Text style={styles.checkMark}>✓</Text> : null}</View>
                       <View style={styles.audioOptionCopy}><Text style={styles.audioOptionTitle}>배경음</Text><Text style={styles.audioOptionSubtitle}>성채 분위기의 반복 배경음</Text></View>
                     </Pressable>
+                    <VolumeSlider label="배경음 볼륨" value={backgroundMusicVolume} onChange={setBackgroundMusicVolumePreference} disabled={!backgroundMusicEnabled} />
                   </View>
                   <Pressable onPress={() => { setPaused(false); setSheet(null); }} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>닫기</Text></Pressable>
                 </>
@@ -1073,10 +1164,14 @@ const styles = StyleSheet.create({
   monsterSpriteWrapCompact: { width: 32, height: 38 },
   monsterSprite: { width: 50, height: 54 },
   monsterSpriteCompact: { width: 34, height: 38 },
-  monsterInfo: { width: 56, alignItems: "flex-start", transform: [{ translateX: 10 }] },
-  monsterInfoCompact: { width: 44, transform: [{ translateX: 10 }] },
+  monsterInfo: { width: 68, alignItems: "flex-start", transform: [{ translateX: 10 }] },
+  monsterInfoCompact: { width: 54, transform: [{ translateX: 10 }] },
   monsterInfoPortrait: { transform: [{ translateX: 30 }] },
-  monsterName: { color: "#F3C969", fontSize: 7, fontWeight: "900", letterSpacing: 0.5 },
+  companionSprite: { width: 34, height: 38, marginHorizontal: 1 },
+  companionSpriteCompact: { width: 27, height: 31 },
+  monsterNameRow: { flexDirection: "row", alignItems: "flex-start", gap: 3, width: "100%" },
+  monsterName: { flex: 1, color: "#F3C969", fontSize: 7, fontWeight: "900", letterSpacing: 0.5 },
+  bossBadge: { color: "#11182C", backgroundColor: "#F3C969", borderRadius: 3, paddingHorizontal: 2, paddingVertical: 1, fontSize: 5, fontWeight: "900" },
   monsterBar: { width: "100%", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
   monsterHp: { color: "#BCEAE2", fontSize: 8, fontWeight: "800", marginTop: 2 },
@@ -1128,6 +1223,7 @@ const styles = StyleSheet.create({
   hintToast: { position: "absolute", left: 16, right: 16, bottom: 56, zIndex: 20, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 13, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   hintToastLandscape: { bottom: 60 },
   hintToastText: { color: "#BCEAE2", fontSize: 12, fontWeight: "700", textAlign: "center" },
+  flyingTrail: { position: "absolute", height: 4, borderRadius: 2, zIndex: 29, shadowOpacity: 0.85, shadowRadius: 8, elevation: 8 },
   flyingCard: { position: "absolute", left: 16, bottom: 44, zIndex: 30, overflow: "hidden", borderRadius: 8, backgroundColor: "#FFFDF8", borderWidth: 2, borderColor: "#FF7A66", shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 9, elevation: 12 },
   flyingRank: { position: "absolute", top: 6, left: 7, fontSize: 16, fontWeight: "900" },
   flyingSuit: { position: "absolute", top: "31%", width: "100%", textAlign: "center", fontSize: 30, fontWeight: "900" },
@@ -1141,6 +1237,14 @@ const styles = StyleSheet.create({
   sheetTitle: { color: "#FFFDF8", fontSize: 26, lineHeight: 31, fontWeight: "800", letterSpacing: -0.6 },
   sheetCopy: { color: "#A6B4CE", fontSize: 14, lineHeight: 21, marginTop: 8, marginBottom: 21 },
   soundSettings: { gap: 10, marginTop: 2 },
+  volumeSliderRow: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 12, backgroundColor: "#12213A", borderWidth: 1, borderColor: "#2E4A70" },
+  volumeSliderDisabled: { opacity: 0.45 },
+  volumeSliderHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 7 },
+  volumeSliderLabel: { color: "#CFE9E4", fontSize: 11, fontWeight: "800" },
+  volumeSliderValue: { color: "#77D6C3", fontSize: 11, fontWeight: "900", fontVariant: ["tabular-nums"] },
+  volumeSliderTrack: { height: 20, justifyContent: "center", position: "relative" },
+  volumeSliderFill: { position: "absolute", left: 0, height: 6, borderRadius: 3, backgroundColor: "#77D6C3" },
+  volumeSliderThumb: { position: "absolute", top: 4, width: 12, height: 12, marginLeft: -6, borderRadius: 6, backgroundColor: "#FFFDF8", borderWidth: 2, borderColor: "#FF8A76" },
   audioOption: { minHeight: 64, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, borderRadius: 15, backgroundColor: "#152542", borderWidth: 1, borderColor: "#36527A" },
   checkBox: { width: 24, height: 24, alignItems: "center", justifyContent: "center", borderRadius: 7, borderWidth: 2, borderColor: "#58739D", backgroundColor: "#11182C" },
   checkBoxChecked: { borderColor: "#77D6C3", backgroundColor: "#2B6B72" },

@@ -1,40 +1,30 @@
 from pathlib import Path
-import wave
 from PIL import Image
 
-root = Path(__file__).resolve().parents[1]
-monster_dir = root / "assets" / "images" / "monsters"
-keep = monster_dir / "boss_coral_golem_king.png"
-for path in monster_dir.glob("*.png"):
-    if path != keep:
-        path.unlink()
+ROOT = Path(__file__).resolve().parents[1] / "assets/images"
 
-image = Image.open(keep).convert("RGBA")
-image.thumbnail((768, 768), Image.Resampling.LANCZOS)
-image.save(keep, optimize=True)
+for path in sorted((ROOT / "monsters").glob("*.png")):
+    with Image.open(path) as image:
+        image = image.convert("RGBA")
+        image.thumbnail((768, 768), Image.Resampling.LANCZOS)
+        image.save(path, format="PNG", optimize=True, compress_level=9)
 
-source = root / "assets" / "sounds" / "card-attack.wav"
-tmp = source.with_suffix(".tmp.wav")
-with wave.open(str(source), "rb") as inp:
-    frames = inp.readframes(inp.getnframes())
-    channels = inp.getnchannels()
-    rate = inp.getframerate()
-    width = inp.getsampwidth()
+for folder, size in ((ROOT / "backgrounds" / "landscape", (1280, 720)), (ROOT / "backgrounds" / "portrait", (900, 1600))):
+    for path in sorted(folder.iterdir()):
+        if path.suffix.lower() not in {".png", ".jpg", ".jpeg"}:
+            continue
+        with Image.open(path) as source:
+            source = source.convert("RGBA")
+            source.thumbnail(size, Image.Resampling.LANCZOS)
+            if source.size != size:
+                canvas = Image.new("RGBA", size, "#101522")
+                left = (size[0] - source.width) // 2
+                top = (size[1] - source.height) // 2
+                canvas.alpha_composite(source, (left, top))
+                source = canvas
+            target = path.with_suffix(".jpg")
+            source.convert("RGB").save(target, format="JPEG", quality=80, optimize=True, progressive=True)
+        if target != path:
+            path.unlink()
 
-if channels > 1:
-    sample_width = width
-    samples = [int.from_bytes(frames[i:i+sample_width], "little", signed=True) for i in range(0, len(frames), sample_width)]
-    mono = []
-    for i in range(0, len(samples), channels):
-        mono.append(int(sum(samples[i:i+channels]) / min(channels, len(samples[i:i+channels]))))
-    frames = b"".join(max(-32768, min(32767, s)).to_bytes(2, "little", signed=True) for s in mono)
-    channels = 1
-    width = 2
-with wave.open(str(tmp), "wb") as out:
-    out.setnchannels(channels)
-    out.setsampwidth(width)
-    out.setframerate(min(rate, 22050))
-    out.writeframes(frames)
-tmp.replace(source)
-print(f"monster={keep.stat().st_size} bytes")
-print(f"attack={source.stat().st_size} bytes")
+print("optimized battle assets")
