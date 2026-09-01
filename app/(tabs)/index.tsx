@@ -179,12 +179,29 @@ function CardFace({
   const suitTopOffset = Math.max(16, rankSize + Math.round(width * 0.12));
   const isRoyal = card.rank >= 11;
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bossShine = useRef(new Animated.Value(-1)).current;
   const dragEndRef = useRef(onDragEnd);
   dragEndRef.current = onDragEnd;
   const panResponder = useRef(PanResponder.create({
     onMoveShouldSetPanResponder: (_, gesture) => Boolean(dragEndRef.current && (Math.abs(gesture.dx) > 8 || Math.abs(gesture.dy) > 8)),
     onPanResponderRelease: (_, gesture) => dragEndRef.current?.(gesture.dx, gesture.dy),
   })).current;
+
+  useEffect(() => {
+    if (!isBoss) {
+      bossShine.setValue(-1);
+      return;
+    }
+    const shineLoop = Animated.loop(Animated.sequence([
+      Animated.timing(bossShine, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      Animated.delay(700),
+      Animated.timing(bossShine, { toValue: -1, duration: 0, useNativeDriver: true }),
+    ]));
+    shineLoop.start();
+    return () => shineLoop.stop();
+  }, [bossShine, isBoss]);
+
+  const shineTranslateX = bossShine.interpolate({ inputRange: [-1, 1], outputRange: [-width * 1.4, width * 1.4] });
 
   const handlePress = () => {
     if (!onDoublePress) {
@@ -224,6 +241,7 @@ function CardFace({
         <Text style={[styles.rankBottom, { color, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
         <Text style={[styles.suitBottom, { color, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
       </View>
+      {isBoss ? <Animated.View pointerEvents="none" style={[styles.bossCardShine, { opacity: 0.9, transform: [{ translateX: shineTranslateX }, { rotate: "18deg" }] }]} /> : null}
     </Pressable>
   );
 }
@@ -364,6 +382,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
   const damageProgress = useRef(new Animated.Value(0)).current;
   const hpFlash = useRef(new Animated.Value(0)).current;
   const defeatProgress = useRef(new Animated.Value(0)).current;
+  const bossEntrance = useRef(new Animated.Value(isBoss ? 0 : 1)).current;
 
   useEffect(() => {
     let cancelled = false;
@@ -404,6 +423,14 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
   }, [attackToken, attackProgress, damageProgress, hpFlash, combo]);
 
   useEffect(() => {
+    bossEntrance.setValue(isBoss ? 0 : 1);
+    if (!isBoss) return;
+    const entrance = Animated.timing(bossEntrance, { toValue: 1, duration: 1050, easing: Easing.out(Easing.back(1.15)), useNativeDriver: true });
+    entrance.start();
+    return () => entrance.stop();
+  }, [bossEntrance, isBoss, monster.name]);
+
+  useEffect(() => {
     const defeated = hp <= 0;
     setDefeatVisible(defeated);
     if (defeated) {
@@ -419,6 +446,9 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
   const damageTranslateY = damageProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
   const damageOpacity = damageProgress.interpolate({ inputRange: [0, 0.65, 1], outputRange: [0, 1, 0] });
   const hpFlashOpacity = hpFlash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.92] });
+  const bossEntranceScale = bossEntrance.interpolate({ inputRange: [0, 0.45, 1], outputRange: [2.6, 1.25, 1] });
+  const bossEntranceTranslateY = bossEntrance.interpolate({ inputRange: [0, 1], outputRange: [-86, 0] });
+  const bossEntranceOpacity = bossEntrance.interpolate({ inputRange: [0, 0.16, 1], outputRange: [0, 1, 1] });
   const defeatScale = defeatProgress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0.3, 1.6, 2.8] });
   const defeatOpacity = defeatProgress.interpolate({ inputRange: [0, 0.45, 1], outputRange: [1, 1, 0] });
   const attackColors: Record<AttackKind, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
@@ -429,7 +459,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
 
   return (
     <View style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
-      <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, transform: [{ translateX: monsterTranslate }] }]}>
+      <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, transform: [{ translateX: monsterTranslate }, { translateY: bossEntranceTranslateY }, { scale: bossEntranceScale }] }]}>
         <Animated.View style={[styles.monsterImageLayer, { width: spriteSize, height: spriteSize, transform: [{ scale: monsterScale }, { scaleX: facingLeft ? -1 : 1 }] }]}>
           <Image source={monster.image} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, defeatVisible && styles.monsterDefeated]} accessibilityLabel={monster.name} />
           <Animated.View pointerEvents="none" style={[styles.monsterRedFlash, { opacity: hpFlashOpacity }]} />
@@ -1321,6 +1351,7 @@ const styles = StyleSheet.create({
   monsterSprite: { width: 50, height: 54 },
   monsterSpriteCompact: { width: 34, height: 38 },
   monsterImageLayer: { alignItems: "center", justifyContent: "center" },
+  bossCardShine: { position: "absolute", top: "-45%", bottom: "-45%", left: "-12%", width: 11, backgroundColor: "rgba(255, 246, 180, 0.92)", shadowColor: "#FFFFFF", shadowOpacity: 1, shadowRadius: 8, elevation: 8 },
   monsterInfo: { width: 68, alignItems: "flex-start", transform: [{ translateX: 60 }] },
   monsterInfoCompact: { width: 54, transform: [{ translateX: 60 }] },
   monsterInfoPortrait: { transform: [{ translateX: 80 }] },
