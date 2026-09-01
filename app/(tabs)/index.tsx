@@ -49,6 +49,7 @@ type Records = { wins: number; bestScore: number; bestTimeSeconds: number | null
 
 const CARD_RATIO = 1.42;
 const ROYAL_SPRITE = require("../../assets/images/royal-card-sprite.png");
+const SHUFFLE_BURST = require("../../assets/images/shuffle-burst.png");
 const ACTIVE_GAME_KEY = "our-style-solitaire:active-game";
 const ACTIVE_GAME_SAVE_VERSION = 3;
 const RECORDS_KEY = "our-style-solitaire:records";
@@ -117,10 +118,10 @@ function MedievalBackdrop({ source }: { source: number }) {
   );
 }
 
-function CompanionAnchor({ companion, size, left, bottom, showTwoTouch, touchLabel, onDoubleTap }: { companion: BattleAsset; size: number; left: number; bottom: number; showTwoTouch: boolean; touchLabel: string; onDoubleTap: () => void }) {
+function CompanionAnchor({ companion, size, left, bottom, showTwoTouch, onBonusPress }: { companion: BattleAsset; size: number; left: number; bottom: number; showTwoTouch: boolean; onBonusPress: (slot: 0 | 1 | 2) => void }) {
   const drift = useRef(new Animated.Value(0)).current;
-  const pulse = useRef(new Animated.Value(0)).current;
-  const lastTapAt = useRef(0);
+  const bounce = useRef(new Animated.Value(0)).current;
+  const burstSpin = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const animation = Animated.loop(Animated.sequence([
       Animated.timing(drift, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
@@ -130,28 +131,33 @@ function CompanionAnchor({ companion, size, left, bottom, showTwoTouch, touchLab
     animation.start();
     return () => animation.stop();
   }, [drift]);
+  useEffect(() => {
+    if (!showTwoTouch) { bounce.stopAnimation(); bounce.setValue(0); burstSpin.stopAnimation(); burstSpin.setValue(0); return; }
+    bounce.setValue(0);
+    const bounceIn = Animated.sequence([
+      Animated.timing(bounce, { toValue: 1.14, duration: 170, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.spring(bounce, { toValue: 1, damping: 7, stiffness: 190, mass: 0.55, useNativeDriver: true }),
+    ]);
+    bounceIn.start();
+    const spin = Animated.loop(Animated.timing(burstSpin, { toValue: 1, duration: 4200, easing: Easing.linear, useNativeDriver: true }));
+    spin.start();
+    return () => { bounceIn.stop(); spin.stop(); };
+  }, [bounce, burstSpin, showTwoTouch]);
   const translateX = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [-5, 0, 5] });
   const translateY = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] });
   const rotate = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-2deg", "0deg", "2deg"] });
-  const borderOpacity = showTwoTouch ? pulse.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] }) : 0;
-  useEffect(() => {
-    if (!showTwoTouch) { pulse.stopAnimation(); pulse.setValue(0); return; }
-    const animation = Animated.loop(Animated.sequence([
-      Animated.timing(pulse, { toValue: 1, duration: 520, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(pulse, { toValue: 0, duration: 520, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-    ]));
-    animation.start();
-    return () => animation.stop();
-  }, [pulse, showTwoTouch]);
-  const handlePress = () => {
-    const now = Date.now();
-    if (now - lastTapAt.current < 360) onDoubleTap();
-    lastTapAt.current = now;
-  };
+  const bubbleTranslateY = bounce.interpolate({ inputRange: [0, 1, 1.14], outputRange: [18, 0, -3] });
+  const bubbleScale = bounce.interpolate({ inputRange: [0, 1, 1.14], outputRange: [0.65, 1, 1.04] });
+  const burstRotate = burstSpin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
+  const labels = ["2Touch", "AD +1", "AD +2"];
   return <View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom }]}>
-    {showTwoTouch ? <View pointerEvents="none" style={[styles.twoTouchBubble, { left: size - 2 }]}><Text style={styles.twoTouchText}>{touchLabel}</Text></View> : null}
-    <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 2Touch 셔플 보너스 사용`} onPress={handlePress}>
-      <Animated.View style={[styles.companionTapFrame, { width: size, height: size, borderColor: "#FFD86B", opacity: borderOpacity, transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1.04] }) }] }]} />
+    {showTwoTouch ? <Animated.View pointerEvents="box-none" style={[styles.bonusBubbleColumn, { right: size + 6, transform: [{ translateY: bubbleTranslateY }, { scale: bubbleScale }] }]}>
+      {labels.map((label, index) => <Pressable key={label} accessibilityRole="button" accessibilityLabel={`${companion.name}, ${label} 셔플`} onPress={() => onBonusPress(index as 0 | 1 | 2)} style={({ pressed }) => [styles.bonusBubble, pressed && styles.pressed]}>
+        <Text style={styles.bonusBubbleText}>{label}</Text>
+      </Pressable>)}
+    </Animated.View> : null}
+    {showTwoTouch ? <Animated.View pointerEvents="none" style={[styles.shuffleBurstFrame, { width: size * 1.42, height: size * 1.42, left: -size * 0.21, top: -size * 0.21, opacity: 0.58, transform: [{ rotate: burstRotate }, { scale: bounce.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) }] }]}><Image source={SHUFFLE_BURST} resizeMode="contain" style={styles.shuffleBurstImage} /></Animated.View> : null}
+    <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 전투 펫`}>
       <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX }, { translateY }, { rotate }] }]}>
         <Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} />
       </Animated.View>
@@ -576,6 +582,8 @@ export default function HomeScreen() {
   const [showTwoTouch, setShowTwoTouch] = useState(false);
   const [twoTouchOpensUsed, setTwoTouchOpensUsed] = useState(0);
   const [rewardedRevealUsed, setRewardedRevealUsed] = useState(0);
+  const [rewardedAdError, setRewardedAdError] = useState<string | null>(null);
+  const [rewardedRetrySlot, setRewardedRetrySlot] = useState<1 | 2>(1);
   const [showBossWarning, setShowBossWarning] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
@@ -895,10 +903,10 @@ export default function HomeScreen() {
   const playShuffleAnimation = () => {
     shuffleMotion.setValue(0);
     Animated.sequence([
-      Animated.timing(shuffleMotion, { toValue: 1, duration: 110, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(shuffleMotion, { toValue: -1, duration: 180, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(shuffleMotion, { toValue: 0.6, duration: 150, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(shuffleMotion, { toValue: 0, duration: 220, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(shuffleMotion, { toValue: 1, duration: 190, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(shuffleMotion, { toValue: 0, duration: 260, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(shuffleMotion, { toValue: 0.45, duration: 110, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(shuffleMotion, { toValue: 0, duration: 170, easing: Easing.out(Easing.quad), useNativeDriver: true }),
     ]).start();
   };
 
@@ -1031,9 +1039,10 @@ export default function HomeScreen() {
     }
   };
 
-  const useShuffleBonus = async () => {
+  const useShuffleBonus = async (slot: 0 | 1 | 2) => {
     if (!showTwoTouch) return;
-    if (twoTouchOpensUsed === 0) {
+    if (slot === 0) {
+      if (twoTouchOpensUsed > 0) { showTimedHint("기본 셔플은 이미 사용했습니다."); return; }
       const shuffledGame = shuffleAvailableCards(game);
       if (!shuffledGame) { showTimedHint("현재 섞을 카드가 없습니다."); setShowTwoTouch(false); return; }
       setTwoTouchOpensUsed(1);
@@ -1041,13 +1050,24 @@ export default function HomeScreen() {
       playEffect("shuffle");
       playShuffleAnimation();
       applyGame(shuffledGame, false, undefined);
-      showTimedHint("보너스 셔플을 사용했습니다. 광고를 보면 2회 더 사용할 수 있습니다.");
+      showTimedHint("2Touch 셔플을 사용했습니다. AD +1 또는 AD +2를 이용할 수 있습니다.");
       return;
     }
-    if (rewardedRevealUsed >= 2) { showTimedHint("이번 스테이지의 보너스 셔플을 모두 사용했습니다."); return; }
+    const requestedReward = slot - 1;
+    setRewardedRetrySlot(slot === 1 ? 1 : 2);
+    if (twoTouchOpensUsed === 0) { showTimedHint("먼저 2Touch 셔플을 사용해 주세요."); return; }
+    if (rewardedRevealUsed !== requestedReward) {
+      if (rewardedRevealUsed > requestedReward) showTimedHint(`${slot === 1 ? "AD +1" : "AD +2"} 셔플은 이미 사용했습니다.`);
+      else showTimedHint("AD +1을 먼저 사용해 주세요.");
+      return;
+    }
+    setRewardedAdError(null);
     showTimedHint("보상형 광고를 불러오는 중입니다.");
     const completed = await showRewardedAd();
-    if (!completed) { showTimedHint("광고를 끝까지 시청하지 못했습니다."); return; }
+    if (!completed) {
+      setRewardedAdError("광고가 준비되지 않았거나 끝까지 시청되지 않았습니다. 다시 시도해 주세요.");
+      return;
+    }
     const shuffledGame = shuffleAvailableCards(game);
     if (!shuffledGame) { showTimedHint("현재 섞을 카드가 없습니다."); setShowTwoTouch(false); return; }
     const nextRewardedCount = rewardedRevealUsed + 1;
@@ -1160,7 +1180,7 @@ export default function HomeScreen() {
   const bossWarningScale = bossIntroProgress.interpolate({ inputRange: [0, 0.22, 0.82, 1], outputRange: [0.82, 1, 1.04, 0.94] });
   const companionAttackStyle = getCompanionAttackStyle(selectedCompanion);
   const companionAttackColor = companionAttackColors[companionAttackStyle];
-  const companionSize = Math.max(68, Math.round(cardWidth * 1.64));
+  const companionSize = Math.max(61, Math.round(cardWidth * 1.64 * 0.9));
   const companionLeft = phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5));
   const companionBottom = bottomControlsBottom + 52 + (!isLandscape ? 1 : 0);
   const renderCardRatio = !isLandscape ? Math.max(0.8, cardRatio - 1 / Math.max(1, cardWidth)) : cardRatio;
@@ -1240,7 +1260,7 @@ export default function HomeScreen() {
           <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={isLandscape ? Math.max(160, Math.min(310, Math.round(safeScreenWidth * 0.2) + 50)) : 94} damage={lastDamage} hp={Math.max(0, 100 - (SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
-        <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [-1, 0, 1], outputRange: [-5, 0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-0.7deg", "0deg", "0.7deg"] }) }] }]}>
+        <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}>
         <View style={[styles.board, { width: boardWidth }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
@@ -1269,7 +1289,7 @@ export default function HomeScreen() {
 
         <View style={[styles.tableau, { gap: tableauGap }, isLandscape && styles.tableauLandscape]}>
           {game.tableau.map((pile, column) => (
-            <View key={`column-${column}`} style={[styles.tableauColumn, { width: cardWidth, minHeight: cardWidth * renderCardRatio }]}>
+            <Animated.View key={`column-${column}`} style={[styles.tableauColumn, { width: cardWidth, minHeight: cardWidth * renderCardRatio, transform: [{ translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, (3 - column) * Math.min(10, Math.max(4, cardWidth * 0.16))] }) }, { scaleY: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }) }] }]}>
               {pile.length === 0 ? <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label="K" onPress={() => moveSelectionToTableau(column)} /> : null}
               {pile.map((card, index) => (
                 <View key={card.id} style={{ position: "absolute", top: index * stackOffset, left: 0, zIndex: index }}>
@@ -1280,7 +1300,7 @@ export default function HomeScreen() {
                   )}
                 </View>
               ))}
-            </View>
+            </Animated.View>
           ))}
         </View>
         </View>
@@ -1288,7 +1308,7 @@ export default function HomeScreen() {
         {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} effectColor={companionAttackColor} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={flightTravelX} travelY={flightTravelY} /> : null}
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
-        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionLeft} bottom={companionBottom} showTwoTouch={showTwoTouch} touchLabel={twoTouchOpensUsed === 0 ? "2Touch" : rewardedRevealUsed < 2 ? "AD +1" : "DONE"} onDoubleTap={useShuffleBonus} />
+        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionLeft} bottom={companionBottom} showTwoTouch={showTwoTouch} onBonusPress={useShuffleBonus} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
@@ -1299,6 +1319,19 @@ export default function HomeScreen() {
           </Pressable>
         </View>
         {hintMessage ? <View style={[styles.hintToast, isLandscape && styles.hintToastLandscape, phoneLandscape && { left: 8, right: undefined, width: Math.max(160, sideRailWidth - 16), bottom: 160 }]}><Text style={styles.hintToastText}>{hintMessage}</Text></View> : null}
+
+        <Modal transparent visible={rewardedAdError !== null} animationType="fade" onRequestClose={() => setRewardedAdError(null)}>
+          <View style={styles.modalBackdropCenter}>
+            <View style={styles.rewardedErrorCard}>
+              <Text style={styles.rewardedErrorTitle}>광고를 불러오지 못했어요</Text>
+              <Text style={styles.rewardedErrorCopy}>{rewardedAdError}</Text>
+              <View style={styles.rewardedErrorActions}>
+                <Pressable accessibilityRole="button" accessibilityLabel="보상형 광고 다시 시도" onPress={() => { setRewardedAdError(null); void useShuffleBonus(rewardedRetrySlot); }} style={({ pressed }) => [styles.rewardedRetryButton, pressed && styles.pressed]}><Text style={styles.rewardedRetryText}>다시 시도</Text></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel="광고 안내 닫기" onPress={() => setRewardedAdError(null)} style={({ pressed }) => [styles.rewardedCloseButton, pressed && styles.pressed]}><Text style={styles.rewardedCloseText}>닫기</Text></Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         <Modal transparent visible={sheet !== null} animationType="fade" onRequestClose={() => { setPaused(false); setSheet(null); }}>
           <View style={styles.modalBackdrop}>
@@ -1482,8 +1515,11 @@ const styles = StyleSheet.create({
   companionAnchor: { position: "absolute", zIndex: 22, alignItems: "center", justifyContent: "center" },
   companionTapFrame: { position: "absolute", borderWidth: 3, borderRadius: 999, shadowColor: "#FFD86B", shadowOpacity: 0.95, shadowRadius: 12, elevation: 14 },
   companionImageFrame: { position: "absolute", alignItems: "center", justifyContent: "center" },
-  twoTouchBubble: { position: "absolute", top: 8, zIndex: 3, backgroundColor: "#FFD86B", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, borderWidth: 2, borderColor: "#FFF7C7", shadowColor: "#FFB629", shadowOpacity: 0.8, shadowRadius: 7, elevation: 8, transform: [{ rotate: "-4deg" }] },
-  twoTouchText: { color: "#1A1B2E", fontSize: 11, fontWeight: "900", textShadowColor: "#FFF7C7", textShadowRadius: 2 },
+  shuffleBurstFrame: { position: "absolute", zIndex: 0, alignItems: "center", justifyContent: "center" },
+  shuffleBurstImage: { width: "100%", height: "100%" },
+  bonusBubbleColumn: { position: "absolute", top: -14, zIndex: 5, alignItems: "flex-end", gap: 5 },
+  bonusBubble: { minWidth: 70, paddingHorizontal: 9, paddingVertical: 6, backgroundColor: "#FFD86B", borderRadius: 13, borderWidth: 2, borderColor: "#FFF7C7", shadowColor: "#FFB629", shadowOpacity: 0.9, shadowRadius: 7, elevation: 9, transform: [{ rotate: "-4deg" }] },
+  bonusBubbleText: { color: "#1A1B2E", fontSize: 11, fontWeight: "900", textAlign: "center", textShadowColor: "#FFF7C7", textShadowRadius: 2 },
   attackCard: { position: "absolute", left: "43%", bottom: "14%", zIndex: 70, width: 34, height: 48, borderRadius: 6, borderWidth: 2, backgroundColor: "#FFFDF8", shadowColor: "#FFFFFF", shadowOpacity: 0.9, shadowRadius: 8, elevation: 20 },
   attackCardRank: { position: "absolute", top: 3, left: 4, fontSize: 12, fontWeight: "900" },
   attackCardSuit: { position: "absolute", top: 15, width: "100%", textAlign: "center", fontSize: 21, fontWeight: "900" },
@@ -1507,7 +1543,7 @@ const styles = StyleSheet.create({
   rankTop: { position: "absolute", fontSize: 14, lineHeight: 15, fontWeight: "900" },
   suitTop: { position: "absolute", fontSize: 12, lineHeight: 13, fontWeight: "900" },
   suitCenter: { position: "absolute", top: "31%", width: "100%", textAlign: "center", fontSize: 28, fontWeight: "900" },
-  royalPortrait: { position: "absolute", top: "24%", left: "13%", width: "74%", height: "61%", overflow: "hidden", borderRadius: 12 },
+  royalPortrait: { position: "absolute", top: "24%", left: "13%", width: "74%", height: "61%", overflow: "hidden", borderRadius: 12, transform: [{ scale: 0.9 }] },
   royalSprite: { position: "absolute", width: "400%", height: "300%" },
   bottomMark: { position: "absolute", right: 5, bottom: 3, transform: [{ rotate: "180deg" }], alignItems: "center" },
   rankBottom: { fontSize: 14, lineHeight: 15, fontWeight: "900" },
@@ -1546,6 +1582,15 @@ const styles = StyleSheet.create({
   victoryText: { position: "absolute", top: "43%", color: "#FFFDF8", fontSize: 28, fontWeight: "900", letterSpacing: 1.8, textShadowColor: "#FF7A66", textShadowRadius: 14 },
   pressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
   modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(3, 7, 18, 0.76)" },
+  modalBackdropCenter: { flex: 1, alignItems: "center", justifyContent: "center", padding: 20, backgroundColor: "rgba(3, 7, 18, 0.76)" },
+  rewardedErrorCard: { width: "100%", maxWidth: 360, padding: 20, borderRadius: 22, borderWidth: 2, borderColor: "#F3C969", backgroundColor: "#17233C", shadowColor: "#000000", shadowOpacity: 0.35, shadowRadius: 18, elevation: 16 },
+  rewardedErrorTitle: { color: "#F3C969", fontSize: 18, fontWeight: "900", textAlign: "center" },
+  rewardedErrorCopy: { color: "#E5ECF8", fontSize: 13, lineHeight: 20, textAlign: "center", marginTop: 10 },
+  rewardedErrorActions: { flexDirection: "row", justifyContent: "center", gap: 10, marginTop: 18 },
+  rewardedRetryButton: { minWidth: 112, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 13, backgroundColor: "#F3C969", alignItems: "center" },
+  rewardedRetryText: { color: "#17233C", fontSize: 13, fontWeight: "900" },
+  rewardedCloseButton: { minWidth: 82, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 13, borderWidth: 1, borderColor: "#64799D", alignItems: "center" },
+  rewardedCloseText: { color: "#E5ECF8", fontSize: 13, fontWeight: "800" },
   sheet: { backgroundColor: "#1E3153", borderTopLeftRadius: 26, borderTopRightRadius: 26, borderTopWidth: 1, borderColor: "#45628E", paddingHorizontal: 24, paddingTop: 26, paddingBottom: 34 },
   sheetEyebrow: { color: "#77D6C3", fontSize: 10, fontWeight: "900", letterSpacing: 1.7, marginBottom: 7 },
   sheetTitle: { color: "#FFFDF8", fontSize: 26, lineHeight: 31, fontWeight: "800", letterSpacing: -0.6 },
