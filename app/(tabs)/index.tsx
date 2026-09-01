@@ -559,6 +559,7 @@ export default function HomeScreen() {
   const [selectedCompanionId, setSelectedCompanionId] = useState("cloud-tiger");
   const [unlockedPetIds, setUnlockedPetIds] = useState<string[]>(INITIAL_UNLOCKED_PET_IDS);
   const [showTwoTouch, setShowTwoTouch] = useState(false);
+  const [showNoMovesPopup, setShowNoMovesPopup] = useState(false);
   const [twoTouchOpensUsed, setTwoTouchOpensUsed] = useState(0);
   const [rewardedRevealUsed, setRewardedRevealUsed] = useState(0);
   const [rewardedAdError, setRewardedAdError] = useState<string | null>(null);
@@ -831,6 +832,7 @@ export default function HomeScreen() {
     setSheet(null);
     setShowNewGameConfirm(false);
     setHintMessage(null);
+    setShowNoMovesPopup(false);
     setShowShuffleHelp(false);
     setUndoStack([]);
     setShowTwoTouch(false);
@@ -928,7 +930,8 @@ export default function HomeScreen() {
   const showHint = () => {
     const hint = findHint(game);
     if (!hint) {
-      showTimedHint("지금은 새로운 이동을 찾기 어렵습니다. 실행 취소를 사용해 보세요.");
+      setShowNoMovesPopup(true);
+      showTimedHint("더 이상 이동할 카드가 없습니다. 펫을 두 번 터치해 셔플하거나 새 게임을 시작하세요.");
       haptic.error();
       return;
     }
@@ -1010,7 +1013,11 @@ export default function HomeScreen() {
     const nextProgress = nextGame.foundations.clubs.length + nextGame.foundations.diamonds.length + nextGame.foundations.hearts.length + nextGame.foundations.spades.length + nextGame.tableau.flat().filter((card) => card.faceUp).length;
     if (nextProgress > previousProgress || nextGame.stock.length !== game.stock.length || nextGame.waste.length !== game.waste.length) stagnantMovesRef.current = 0;
     else stagnantMovesRef.current += 1;
-    if (findHint(nextGame) === null || stagnantMovesRef.current >= 2) setShowTwoTouch(true);
+    const noMovesLeft = findHint(nextGame) === null;
+    if (noMovesLeft || stagnantMovesRef.current >= 2) {
+      setShowTwoTouch(true);
+      if (noMovesLeft && !isWon(nextGame)) setShowNoMovesPopup(true);
+    }
     lastHintKeyRef.current = null;
     hintRepeatCountRef.current = 0;
     setUndoStack((history) => [...history.slice(-(MAX_UNDO_STEPS - 1)), cloneGameState(game)]);
@@ -1049,7 +1056,8 @@ export default function HomeScreen() {
       const shuffledGame = shuffleAvailableCards(game);
       if (!shuffledGame) { showTimedHint("현재 섞을 카드가 없습니다."); setShowTwoTouch(false); return; }
       setTwoTouchOpensUsed(1);
-      setShowTwoTouch(true);
+      setShowTwoTouch(false);
+      setShowNoMovesPopup(false);
       playEffect("shuffle");
       playShuffleAnimation();
       applyGame(shuffledGame, false, undefined);
@@ -1075,7 +1083,8 @@ export default function HomeScreen() {
     if (!shuffledGame) { showTimedHint("현재 섞을 카드가 없습니다."); setShowTwoTouch(false); return; }
     const nextRewardedCount = rewardedRevealUsed + 1;
     setRewardedRevealUsed(nextRewardedCount);
-    setShowTwoTouch(nextRewardedCount < 2);
+    setShowTwoTouch(false);
+    setShowNoMovesPopup(false);
     playEffect("shuffle");
     playShuffleAnimation();
     applyGame(shuffledGame, false, undefined);
@@ -1400,6 +1409,19 @@ export default function HomeScreen() {
         </View>
         {hintMessage ? <View style={[styles.hintToast, isLandscape && styles.hintToastLandscape, phoneLandscape && { left: 8, right: undefined, width: Math.max(160, sideRailWidth - 16), bottom: 160 }]}><Text style={styles.hintToastText}>{hintMessage}</Text></View> : null}
 
+        <Modal transparent visible={showNoMovesPopup} animationType="fade" onRequestClose={() => setShowNoMovesPopup(false)}>
+          <View style={styles.modalBackdropCenter}>
+            <View style={styles.noMovesPopupCard}>
+              <Text style={styles.noMovesPopupTitle}>이동할 카드가 없어요</Text>
+              <Text style={styles.noMovesPopupCopy}>{"더 이상 이동할 카드가 없습니다. 펫캐릭터를 두번 터치하면 셔플기능이 실행됩니다."}{"\n"}{"또는 게임을 새로 시작하세요"}</Text>
+              <View style={styles.noMovesPopupActions}>
+                <Pressable accessibilityRole="button" accessibilityLabel="펫 두 번 터치로 셔플" onPress={() => { setShowNoMovesPopup(false); setShowShuffleHelp(true); }} style={({ pressed }) => [styles.shuffleHelpAction, pressed && styles.pressed]}><Text style={styles.shuffleHelpActionIcon}>↻</Text><Text style={styles.shuffleHelpActionTitle}>펫 두 번 터치</Text></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel="새 게임 시작" onPress={() => { setShowNoMovesPopup(false); requestNewGame(); }} style={({ pressed }) => [styles.shuffleHelpClose, pressed && styles.pressed]}><Text style={styles.shuffleHelpCloseText}>새 게임 시작</Text></Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         <Modal transparent visible={rewardedAdError !== null} animationType="fade" onRequestClose={() => setRewardedAdError(null)}>
           <View style={styles.modalBackdropCenter}>
             <View style={styles.rewardedErrorCard}>
@@ -1702,6 +1724,10 @@ const styles = StyleSheet.create({
   rewardedCloseText: { color: "#E5ECF8", fontSize: 13, fontWeight: "800" },
   shuffleHelpCard: { width: "100%", maxWidth: 370, padding: 22, borderRadius: 24, borderWidth: 2, borderColor: "#77D6C3", backgroundColor: "#17233C", shadowColor: "#000000", shadowOpacity: 0.42, shadowRadius: 20, elevation: 18 },
   rewardedShuffleCard: { width: "100%", maxWidth: 370, padding: 22, borderRadius: 24, borderWidth: 2, borderColor: "#F3C969", backgroundColor: "#17233C", shadowColor: "#000000", shadowOpacity: 0.42, shadowRadius: 20, elevation: 18 },
+  noMovesPopupCard: { width: "100%", maxWidth: 370, padding: 22, borderRadius: 24, borderWidth: 2, borderColor: "#77D6C3", backgroundColor: "#17233C", shadowColor: "#000000", shadowOpacity: 0.42, shadowRadius: 20, elevation: 18 },
+  noMovesPopupTitle: { color: "#FFF3D1", fontSize: 23, fontWeight: "900", textAlign: "center" },
+  noMovesPopupCopy: { color: "#D4E2F7", fontSize: 14, lineHeight: 22, textAlign: "center", marginTop: 12 },
+  noMovesPopupActions: { gap: 10, marginTop: 20 },
   rewardedTooltip: { alignSelf: "center", marginTop: 12, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: "#FFF3D1", borderWidth: 1, borderColor: "#F3C969" },
   rewardedTooltipText: { color: "#17233C", fontSize: 12, fontWeight: "900", textAlign: "center" },
   shuffleHelpEyebrow: { color: "#77D6C3", fontSize: 10, fontWeight: "900", letterSpacing: 1.4, textAlign: "center" },
