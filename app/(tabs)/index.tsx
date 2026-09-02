@@ -1483,9 +1483,6 @@ export default function HomeScreen() {
             <Pressable accessibilityRole="button" accessibilityLabel="가능한 카드 자동 정리" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, compactControls && styles.autoButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="auto" size={19} />
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={magnetCharges > 0 ? `자석 자동 정렬 ${magnetCharges}회 남음` : "광고 시청 후 자석 받기"} onPress={activateMagnet} style={({ pressed }) => [styles.magnetButton, magnetCharges > 0 && styles.magnetButtonReady, compactControls && styles.iconButtonCompact, pressed && styles.pressed]}>
-              <Text style={styles.magnetButtonText}>{magnetCharges > 0 ? `자석 ${magnetCharges}` : "AD 자석"}</Text>
-            </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="새 게임" onPress={requestNewGame} style={({ pressed }) => [styles.newButton, compactControls && styles.newButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="new" size={23} />
             </Pressable>
@@ -1563,6 +1560,9 @@ export default function HomeScreen() {
         <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} onPress={() => undefined} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
+          <Pressable accessibilityRole="button" accessibilityLabel={magnetCharges > 0 ? `자석 자동 정렬 ${magnetCharges}회 남음` : "광고 시청 후 자석 받기"} onPress={activateMagnet} style={({ pressed }) => [styles.bottomButton, styles.magnetBottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, magnetCharges > 0 && styles.magnetButtonReady, pressed && styles.pressed]}>
+            <Text style={styles.magnetButtonText}>{magnetCharges > 0 ? `자석 ${magnetCharges}` : "AD 자석"}</Text>
+          </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
             <View style={styles.bottomButtonContent}><MedievalIcon name="hint" size={20} /><Text style={styles.bottomButtonText}>힌트</Text></View>
           </Pressable>
@@ -1719,7 +1719,7 @@ export default function HomeScreen() {
               <Text style={styles.sheetCopy}>현재 진행 중인 카드와 점수는 새 게임으로 바뀝니다.</Text>
               <View style={styles.confirmActions}>
                 <Pressable onPress={() => { setShowNewGameConfirm(false); setPaused(false); }} style={({ pressed }) => [styles.confirmCancel, pressed && styles.pressed]}><Text style={styles.confirmCancelText}>취소</Text></Pressable>
-                <Pressable onPress={() => startNewGame()} style={({ pressed }) => [styles.confirmStart, pressed && styles.pressed]}><Text style={styles.confirmStartText}>새 게임</Text></Pressable>
+                <Pressable onPress={() => startNewGame(1)} style={({ pressed }) => [styles.confirmStart, pressed && styles.pressed]}><Text style={styles.confirmStartText}>새 게임</Text></Pressable>
               </View>
             </View>
           </View>
@@ -1865,6 +1865,7 @@ const styles = StyleSheet.create({
   bottomControlsPhoneLandscape: { left: 0, flexDirection: "row", alignItems: "stretch", justifyContent: "flex-start", gap: 6 },
   bottomButton: { minWidth: 126, minHeight: 44, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1 },
   bottomButtonPhoneLandscape: { flex: 1, minWidth: 0, minHeight: 44 },
+  magnetBottomButton: { minWidth: 116, backgroundColor: "#395479", borderColor: "#A5E6FC" },
   hintButton: { backgroundColor: "#233958", borderColor: "#3D5A85" },
   undoButton: { backgroundColor: "#2A4268", borderColor: "#5B78A5" },
   undoButtonDisabled: { opacity: 0.38 },
