@@ -34,6 +34,7 @@ import {
   suitNames,
   suitSymbols,
   type Card,
+  type GameState,
   type CardSource,
   type Suit,
   SUITS,
@@ -80,6 +81,17 @@ function playingCardColor(card: Card): string {
 
 function clampVolume(value: number): number {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 1));
+}
+
+function gameStateFingerprint(state: GameState): string {
+  const cards = (pile: Card[]) => pile.map((card) => `${card.id}:${card.faceUp ? 1 : 0}`).join(",");
+  return JSON.stringify({
+    stock: cards(state.stock),
+    waste: cards(state.waste),
+    foundations: SUITS.map((suit) => [suit, cards(state.foundations[suit])]),
+    tableau: state.tableau.map(cards),
+    destroyed: cards(state.destroyedCards ?? []),
+  });
 }
 
 function formatDuration(totalSeconds: number): string {
@@ -602,6 +614,7 @@ export default function HomeScreen() {
   const stagnantMovesRef = useRef(0);
   const lastHintKeyRef = useRef<string | null>(null);
   const hintRepeatCountRef = useRef(0);
+  const recentGameFingerprintsRef = useRef<string[]>([]);
   const autoFinishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoFinishRunningRef = useRef(false);
   const magnetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -707,7 +720,9 @@ export default function HomeScreen() {
         if (activeGameValue[1] && !newGameStarted.current) {
           const saved = JSON.parse(activeGameValue[1]) as { saveVersion?: number; game?: typeof game; elapsedSeconds?: number };
           if (saved.saveVersion === ACTIVE_GAME_SAVE_VERSION && saved.game?.tableau?.length === 7) {
-            setGame({ ...saved.game, level: saved.game.level ?? 1, recycles: saved.game.recycles ?? 0 });
+            const restoredGame = { ...saved.game, level: saved.game.level ?? 1, recycles: saved.game.recycles ?? 0 };
+            recentGameFingerprintsRef.current = [gameStateFingerprint(restoredGame)];
+            setGame(restoredGame);
             if (typeof saved.elapsedSeconds === "number") setElapsedSeconds(saved.elapsedSeconds);
           } else {
             // Older builds could retain the previous fixed tutorial arrangement.
@@ -864,6 +879,7 @@ export default function HomeScreen() {
     bossWarningStageRef.current = null;
     setShowBossWarning(false);
     const freshGame = createPlayableGame(level);
+    recentGameFingerprintsRef.current = [gameStateFingerprint(freshGame)];
     haptic.light();
     setGame(freshGame);
     setSelection(null);
@@ -1055,6 +1071,9 @@ export default function HomeScreen() {
     const nextProgress = nextGame.foundations.clubs.length + nextGame.foundations.diamonds.length + nextGame.foundations.hearts.length + nextGame.foundations.spades.length + nextGame.tableau.flat().filter((card) => card.faceUp).length;
     if (nextProgress > previousProgress || nextGame.stock.length !== game.stock.length || nextGame.waste.length !== game.waste.length) stagnantMovesRef.current = 0;
     else stagnantMovesRef.current += 1;
+    const nextFingerprint = gameStateFingerprint(nextGame);
+    const repeatedBoard = recentGameFingerprintsRef.current.includes(nextFingerprint);
+    recentGameFingerprintsRef.current = [...recentGameFingerprintsRef.current, nextFingerprint].slice(-8);
     const noMovesLeft = findHint(nextGame) === null;
     if (magnetRunningRef.current) {
       setShowTwoTouch(false);
@@ -1063,7 +1082,7 @@ export default function HomeScreen() {
       suppressNextShufflePromptRef.current = false;
       setShowTwoTouch(false);
       setShowNoMovesPopup(false);
-    } else if (noMovesLeft && !isWon(nextGame)) {
+    } else if ((noMovesLeft || repeatedBoard) && !isWon(nextGame)) {
       setShowTwoTouch(true);
       setShowNoMovesPopup(true);
     }
