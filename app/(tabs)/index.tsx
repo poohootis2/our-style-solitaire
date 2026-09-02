@@ -50,6 +50,8 @@ type Records = { wins: number; bestScore: number; bestTimeSeconds: number | null
 
 const CARD_RATIO = 1.42;
 const ROYAL_SPRITE = require("../../assets/images/royal-card-sprite.png");
+const RESET_MODAL_PANEL = { uri: "/manus-storage/solitaire-reset-modal-panel_5afc1a91.png" };
+const RESET_BUTTONS_ART = { uri: "/manus-storage/solitaire-reset-buttons_31124c25.png" };
 const ACTIVE_GAME_KEY = "our-style-solitaire:active-game";
 const ACTIVE_GAME_SAVE_VERSION = 3;
 const RECORDS_KEY = "our-style-solitaire:records";
@@ -1716,12 +1718,21 @@ export default function HomeScreen() {
         <Modal transparent visible={showNewGameConfirm} animationType="fade" onRequestClose={() => { setShowNewGameConfirm(false); setPaused(false); }}>
           <View style={styles.confirmBackdrop}>
             <View style={styles.confirmCard}>
-              <Text style={styles.sheetEyebrow}>NEW GAME</Text>
-              <Text style={styles.sheetTitle}>새 게임을 시작할까요?</Text>
-              <Text style={styles.sheetCopy}>현재 진행 중인 카드와 점수는 새 게임으로 바뀝니다.</Text>
+              <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+                <Image source={RESET_MODAL_PANEL} resizeMode="stretch" style={styles.resetModalPanelArt} />
+              </View>
+              <Text style={styles.sheetEyebrow}>GAME RESET</Text>
+              <Text style={styles.sheetTitle}>게임을 초기화할까요?</Text>
+              <Text style={styles.sheetCopy}>스테이지 1부터 다시 시작됩니다</Text>
               <View style={styles.confirmActions}>
-                <Pressable onPress={() => { setShowNewGameConfirm(false); setPaused(false); }} style={({ pressed }) => [styles.confirmCancel, pressed && styles.pressed]}><Text style={styles.confirmCancelText}>취소</Text></Pressable>
-                <Pressable onPress={() => startNewGame(1)} style={({ pressed }) => [styles.confirmStart, pressed && styles.pressed]}><Text style={styles.confirmStartText}>새 게임</Text></Pressable>
+                <Pressable onPress={() => { setShowNewGameConfirm(false); setPaused(false); }} style={({ pressed }) => [styles.confirmCancel, pressed && styles.pressed]}>
+                  <View pointerEvents="none" style={styles.confirmButtonArtClip}><Image source={RESET_BUTTONS_ART} resizeMode="stretch" style={[styles.confirmButtonArt, { top: 0 }]} /></View>
+                  <Text style={styles.confirmCancelText}>취소</Text>
+                </Pressable>
+                <Pressable onPress={() => startNewGame(1)} style={({ pressed }) => [styles.confirmStart, pressed && styles.pressed]}>
+                  <View pointerEvents="none" style={styles.confirmButtonArtClip}><Image source={RESET_BUTTONS_ART} resizeMode="stretch" style={[styles.confirmButtonArt, { top: "-100%" }]} /></View>
+                  <Text style={styles.confirmStartText}>초기화</Text>
+                </Pressable>
               </View>
             </View>
           </View>
@@ -1981,10 +1992,13 @@ const styles = StyleSheet.create({
   rulesText: { color: "#FFFDF8", fontSize: 15, lineHeight: 23, marginTop: 17 },
   rulesHint: { color: "#77D6C3", fontSize: 13, lineHeight: 20, marginTop: 13 },
   confirmBackdrop: { flex: 1, justifyContent: "center", padding: 24, backgroundColor: "rgba(3, 7, 18, 0.76)" },
-  confirmCard: { borderRadius: 24, borderWidth: 1, borderColor: "#45628E", backgroundColor: "#1E3153", padding: 24 },
+  confirmCard: { position: "relative", overflow: "hidden", borderRadius: 24, borderWidth: 0, backgroundColor: "transparent", padding: 24 },
+  resetModalPanelArt: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, width: "100%", height: "100%" },
+  confirmButtonArtClip: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, overflow: "hidden", borderRadius: 15 },
+  confirmButtonArt: { position: "absolute", left: 0, width: "100%", height: "200%" },
   confirmActions: { flexDirection: "row", gap: 10, marginTop: 20 },
-  confirmCancel: { flex: 1, minHeight: 50, alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: "#2A4268", borderWidth: 1, borderColor: "#45628E" },
+  confirmCancel: { flex: 1, minHeight: 50, alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: "#2A4268", borderWidth: 1, borderColor: "#45628E", overflow: "hidden" },
   confirmCancelText: { color: "#FFFDF8", fontSize: 15, fontWeight: "900" },
-  confirmStart: { flex: 1, minHeight: 50, alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: "#FF7A66" },
+  confirmStart: { flex: 1, minHeight: 50, alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: "#FF7A66", overflow: "hidden" },
   confirmStartText: { color: "#11182C", fontSize: 15, fontWeight: "900" },
 });
