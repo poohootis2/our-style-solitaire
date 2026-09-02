@@ -571,6 +571,7 @@ export default function HomeScreen() {
   const [backgroundMusicVolume, setBackgroundMusicVolume] = useState(0.2);
   const [cardSelectVibrationEnabled, setCardSelectVibrationEnabled] = useState(true);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
+  const [resetMode, setResetMode] = useState<"current" | "full">("full");
   const [flyingCard, setFlyingCard] = useState<Card | null>(null);
   const [showFireworks, setShowFireworks] = useState(false);
   const [hintMessage, setHintMessage] = useState<string | null>(null);
@@ -873,8 +874,8 @@ export default function HomeScreen() {
     return () => clearInterval(timer);
   }, [game, hydrated, paused]);
 
-  const startNewGame = (level = game.level) => {
-    const manualReset = level === game.level;
+  const startNewGame = (level = game.level, resetProgress = false) => {
+    const manualReset = resetProgress;
     newGameStarted.current = true;
     bossWarningStageRef.current = null;
     setShowBossWarning(false);
@@ -912,6 +913,13 @@ export default function HomeScreen() {
   };
 
   const requestNewGame = () => {
+    setResetMode("full");
+    setPaused(true);
+    setShowNewGameConfirm(true);
+  };
+
+  const requestCurrentStageRestart = () => {
+    setResetMode("current");
     setPaused(true);
     setShowNewGameConfirm(true);
   };
@@ -1510,7 +1518,7 @@ export default function HomeScreen() {
             <Pressable accessibilityRole="button" accessibilityLabel="가능한 카드 자동 정리" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, compactControls && styles.autoButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="auto" size={19} />
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="새 게임" onPress={requestNewGame} style={({ pressed }) => [styles.newButton, compactControls && styles.newButtonCompact, pressed && styles.pressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="현재 스테이지 초기화" onPress={requestCurrentStageRestart} style={({ pressed }) => [styles.newButton, compactControls && styles.newButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="new" size={23} />
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={isLandscape ? "세로 모드로 전환" : "가로 모드로 전환"} onPress={toggleOrientation} style={({ pressed }) => [styles.orientationButton, compactControls && styles.iconButtonCompact, pressed && styles.pressed]}>
@@ -1745,15 +1753,15 @@ export default function HomeScreen() {
               <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
                 <Image source={RESET_MODAL_PANEL} resizeMode="stretch" style={styles.resetModalPanelArt} />
               </View>
-              <Text style={styles.sheetEyebrow}>GAME RESET</Text>
-              <Text style={styles.sheetTitle}>게임을 초기화할까요?</Text>
-              <Text style={styles.sheetCopy}>스테이지 1부터 다시 시작됩니다</Text>
+              <Text style={styles.sheetEyebrow}>{resetMode === "current" ? "STAGE RESTART" : "GAME RESET"}</Text>
+              <Text style={styles.sheetTitle}>{resetMode === "current" ? `현재 스테이지 ${game.level}을(를) 다시 시작할까요?` : "게임을 초기화할까요?"}</Text>
+              <Text style={styles.sheetCopy}>{resetMode === "current" ? `스테이지 ${game.level}부터 다시 시작됩니다` : "스테이지 1부터 다시 시작됩니다"}</Text>
               <View style={styles.confirmActions}>
                 <Pressable onPress={() => { setShowNewGameConfirm(false); setPaused(false); }} style={({ pressed }) => [styles.confirmCancel, pressed && styles.pressed]}>
                   <View pointerEvents="none" style={styles.confirmButtonArtClip}><Image source={RESET_BUTTONS_ART} resizeMode="stretch" style={[styles.confirmButtonArt, { top: 0 }]} /></View>
                   <Text style={styles.confirmCancelText}>취소</Text>
                 </Pressable>
-                <Pressable onPress={() => startNewGame(1)} style={({ pressed }) => [styles.confirmStart, pressed && styles.pressed]}>
+                <Pressable onPress={() => startNewGame(resetMode === "current" ? game.level : 1, resetMode === "full")} style={({ pressed }) => [styles.confirmStart, pressed && styles.pressed]}>
                   <View pointerEvents="none" style={styles.confirmButtonArtClip}><Image source={RESET_BUTTONS_ART} resizeMode="stretch" style={[styles.confirmButtonArt, { top: "-100%" }]} /></View>
                   <Text style={styles.confirmStartText}>초기화</Text>
                 </Pressable>
