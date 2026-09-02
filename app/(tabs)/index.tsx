@@ -53,6 +53,7 @@ const ROYAL_SPRITE = require("../../assets/images/royal-card-sprite.png");
 const RESET_MODAL_PANEL = { uri: "/manus-storage/solitaire-reset-modal-panel_5afc1a91.png" };
 const RESET_BUTTONS_ART = { uri: "/manus-storage/solitaire-reset-buttons_31124c25.png" };
 const FLAMING_CARD_ART = { uri: "/manus-storage/flaming-card-attack_5659a273.png" };
+const HAMMER_ICON_ART = { uri: "/manus-storage/hammer-icon-cartoon_aa033705.png" };
 const ACTIVE_GAME_KEY = "our-style-solitaire:active-game";
 const ACTIVE_GAME_SAVE_VERSION = 3;
 const RECORDS_KEY = "our-style-solitaire:records";
@@ -133,7 +134,7 @@ function MedievalBackdrop({ source }: { source: number }) {
   );
 }
 
-function CompanionAnchor({ companion, size, left, bottom, horizontalShift, onPress }: { companion: BattleAsset; size: number; left: number; bottom: number; horizontalShift: Animated.Value; onPress: () => void }) {
+function CompanionAnchor({ companion, size, left, bottom, horizontalShift, comboScale, onPress }: { companion: BattleAsset; size: number; left: number; bottom: number; horizontalShift: Animated.Value; comboScale: Animated.Value; onPress: () => void }) {
   const drift = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const animation = Animated.loop(Animated.sequence([
@@ -147,7 +148,7 @@ function CompanionAnchor({ companion, size, left, bottom, horizontalShift, onPre
   const translateX = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [-5, 0, 5] });
   const translateY = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] });
   const rotate = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-2deg", "0deg", "2deg"] });
-  return <Animated.View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom, transform: [{ translateX: horizontalShift }] }]}> 
+  return <Animated.View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom, transform: [{ translateX: horizontalShift }, { scale: comboScale }] }]}> 
     <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 막힘 도움 보기`} onPress={onPress} style={({ pressed }) => [styles.companionPressTarget, pressed && styles.companionPressed]}>
       <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX }, { translateY }, { rotate }] }]}>
         <Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} />
@@ -589,13 +590,14 @@ export default function HomeScreen() {
   const [rewardedRevealUsed, setRewardedRevealUsed] = useState(0);
   const [rewardedAdError, setRewardedAdError] = useState<string | null>(null);
   const [rewardedRetrySlot, setRewardedRetrySlot] = useState<1 | 2>(1);
-  const [rewardedRetryKind, setRewardedRetryKind] = useState<"shuffle" | "magnet">("shuffle");
+  const [rewardedRetryKind, setRewardedRetryKind] = useState<"hammer" | "magnet">("hammer");
   const [magnetCharges, setMagnetCharges] = useState(0);
   const [showMagnetReward, setShowMagnetReward] = useState(false);
   const [magnetRewardReady, setMagnetRewardReady] = useState(false);
   const [magnetHighlightedCardId, setMagnetHighlightedCardId] = useState<string | null>(null);
   const [showHammerOffer, setShowHammerOffer] = useState(false);
   const [hammerMode, setHammerMode] = useState(false);
+  const [hammerCharges, setHammerCharges] = useState(0);
   const [showBossWarning, setShowBossWarning] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
@@ -609,6 +611,7 @@ export default function HomeScreen() {
   const gameRef = useRef(game);
   const elapsedSecondsRef = useRef(elapsedSeconds);
   const flightProgress = useRef(new Animated.Value(0)).current;
+  const comboCompanionScale = useRef(new Animated.Value(1)).current;
   const layoutTransition = useRef(new Animated.Value(1)).current;
   const bossIntroProgress = useRef(new Animated.Value(0)).current;
   const shuffleMotion = useRef(new Animated.Value(0)).current;
@@ -629,6 +632,19 @@ export default function HomeScreen() {
   const companionAttackPlayer = useAudioPlayer(require("../../assets/sounds/companion-attack.wav"));
   const foundationAttackPlayer = useAudioPlayer(require("../../assets/sounds/foundation-attack.wav"));
   const backgroundPlayer = useAudioPlayer(require("../../assets/sounds/medieval-solitaire-loop.mp3"));
+
+  useEffect(() => {
+    comboCompanionScale.stopAnimation();
+    comboCompanionScale.setValue(comboAttack ? 1 : 1);
+    if (!comboAttack) return;
+    const animation = Animated.sequence([
+      Animated.timing(comboCompanionScale, { toValue: 2, duration: 1150, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+      Animated.delay(260),
+      Animated.timing(comboCompanionScale, { toValue: 1, duration: 520, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]);
+    animation.start();
+    return () => animation.stop();
+  }, [comboAttack, comboCompanionScale]);
 
   const showTimedHint = (message: string) => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -904,6 +920,7 @@ export default function HomeScreen() {
     setShowMagnetReward(false);
     setMagnetRewardReady(false);
     setMagnetHighlightedCardId(null);
+    setHammerCharges(0);
     setShowHammerOffer(false);
     setHammerMode(false);
       setUnlockedPetIds(INITIAL_UNLOCKED_PET_IDS);
@@ -1072,7 +1089,7 @@ export default function HomeScreen() {
     const foundationCard = foundationMove ? (movedCard ?? nextGame.foundations[changedSuit].at(-1)) : undefined;
     if (foundationMove) {
       const damage = (nextFoundationCount - previousFoundationCount) * 5;
-      const isCombo = nextFoundationCount - previousFoundationCount > 1;
+      const isCombo = autoFinishRunningRef.current || nextFoundationCount - previousFoundationCount > 1;
       setLastDamage(damage);
       setAttackKind(changedSuit);
       setComboAttack(isCombo);
@@ -1137,10 +1154,11 @@ export default function HomeScreen() {
     if (slot === 0) {
       if (twoTouchOpensUsed > 0) { showTimedHint("무료 망치는 이미 사용했습니다."); return; }
       setTwoTouchOpensUsed(1);
+      setHammerCharges((charges) => charges + 1);
       setShowTwoTouch(false);
       setShowNoMovesPopup(false);
       beginHammerMode(true);
-      showTimedHint("무료 망치: 열지 않은 카드 1장을 탭하세요.");
+      showTimedHint("원하는 카드를 클릭하세요");
       return;
     }
     const requestedReward = slot - 1;
@@ -1155,16 +1173,17 @@ export default function HomeScreen() {
     showTimedHint("보상형 광고를 불러오는 중입니다.");
     const completed = await showRewardedAd();
     if (!completed) {
-      setRewardedRetryKind("shuffle");
+      setRewardedRetryKind("hammer");
       setRewardedAdError("광고가 준비되지 않았거나 끝까지 시청되지 않았습니다. 다시 시도해 주세요.");
       return;
     }
     const nextRewardedCount = rewardedRevealUsed + 1;
     setRewardedRevealUsed(nextRewardedCount);
+    setHammerCharges((charges) => charges + 1);
     setShowTwoTouch(false);
     setShowNoMovesPopup(false);
     beginHammerMode(true);
-    showTimedHint(`광고 보상 망치 ${nextRewardedCount}/2: 열지 않은 카드 1장을 탭하세요.`);
+    showTimedHint(`원하는 카드를 클릭하세요 (광고 망치 ${nextRewardedCount}/2)`);
   };
 
   const claimMagnetFromAd = async (slot: 1 | 2 = 1) => {
@@ -1243,7 +1262,12 @@ export default function HomeScreen() {
   };
 
   const beginHammerMode = (allowRepeat = false) => {
-    if (!allowRepeat && (game.hammerUses ?? 0) > 0) {
+    if (!allowRepeat && hammerCharges <= 0) {
+      showTimedHint("사용 가능한 망치가 없습니다.");
+      haptic.error();
+      return;
+    }
+    if (!allowRepeat && hammerMode) {
       setShowHammerOffer(false);
       showTimedHint("이번 게임에서 망치는 이미 사용했습니다.");
       return;
@@ -1252,7 +1276,7 @@ export default function HomeScreen() {
     setShowNoMovesPopup(false);
     setHammerMode(true);
     setSelection(null);
-    showTimedHint("망치: 열지 않은 카드 1장을 탭하세요.");
+    showTimedHint("원하는 카드를 클릭하세요");
     haptic.light();
   };
 
@@ -1265,6 +1289,7 @@ export default function HomeScreen() {
       return;
     }
     setHammerMode(false);
+    setHammerCharges((charges) => Math.max(0, charges - 1));
     setShowHammerOffer(false);
     setMagnetHighlightedCardId(target.id);
     playEffect("foundationAttack");
@@ -1589,11 +1614,17 @@ export default function HomeScreen() {
         </Animated.View>
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
-        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} onPress={() => undefined} />
+        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} onPress={() => undefined} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel={magnetCharges > 0 ? `자석 자동 정렬 ${magnetCharges}회 남음` : "광고 시청 후 자석 받기"} onPress={activateMagnet} style={({ pressed }) => [styles.bottomButton, styles.magnetBottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, magnetCharges > 0 && styles.magnetButtonReady, pressed && styles.pressed]}>
             <Text style={styles.magnetButtonText}>{magnetCharges > 0 ? `자석 ${magnetCharges}` : "AD 자석"}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges > 0 ? `망치 ${hammerCharges}회 남음` : "망치 사용 가능 여부 확인"} onPress={() => beginHammerMode()} style={({ pressed }) => [styles.bottomButton, styles.hammerBottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, hammerCharges > 0 && styles.hammerButtonReady, pressed && styles.pressed]}>
+            <View style={styles.hammerButtonContent}>
+              <Image source={HAMMER_ICON_ART} resizeMode="contain" style={styles.hammerIcon} />
+              <Text style={styles.hammerCountText}>{hammerCharges}</Text>
+            </View>
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
             <View style={styles.bottomButtonContent}><MedievalIcon name="hint" size={20} /><Text style={styles.bottomButtonText}>힌트</Text></View>
@@ -1603,7 +1634,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
         {hintMessage ? <View style={[styles.hintToast, isLandscape && styles.hintToastLandscape, phoneLandscape && { left: 8, right: undefined, width: Math.max(160, sideRailWidth - 16), bottom: 160 }]}><Text style={styles.hintToastText}>{hintMessage}</Text></View> : null}
-        {hammerMode ? <View style={[styles.hammerModeHint, phoneLandscape && { left: 8, right: undefined, width: Math.max(160, sideRailWidth - 16) }]}><Text style={styles.hammerModeHintText}>망치 사용: 파괴할 맨 위 앞면 카드 1장을 탭하세요.</Text></View> : null}
+        
 
         <Modal transparent visible={showMagnetReward} animationType="fade" onRequestClose={() => setShowMagnetReward(false)}>
           <View style={styles.modalBackdropCenter}>
@@ -1624,7 +1655,7 @@ export default function HomeScreen() {
               <Text style={styles.hammerOfferTitle}>히든 카드를 열어 길을 만들까요?</Text>
               <Text style={styles.hammerOfferCopy}>망치로 열지 않은 카드 1장을 즉시 공개해 스톡 옆 공개 영역에 놓을 수 있습니다.</Text>
               <View style={styles.noMovesPopupActions}>
-                <Pressable accessibilityRole="button" accessibilityLabel="망치 사용" onPress={() => beginHammerMode()} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>망치 사용</Text></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel="망치 사용" onPress={() => { setHammerCharges((charges) => charges + 1); beginHammerMode(true); }} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>망치 사용</Text></Pressable>
                 <Pressable accessibilityRole="button" accessibilityLabel="새로 시작" onPress={() => { setShowHammerOffer(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>새로 시작</Text></Pressable>
               </View>
             </View>
@@ -1909,6 +1940,11 @@ const styles = StyleSheet.create({
   bottomButton: { minWidth: 126, minHeight: 44, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1 },
   bottomButtonPhoneLandscape: { flex: 1, minWidth: 0, minHeight: 44 },
   magnetBottomButton: { minWidth: 116, backgroundColor: "#395479", borderColor: "#A5E6FC" },
+  hammerBottomButton: { minWidth: 68, paddingHorizontal: 5, backgroundColor: "#6E3D34", borderColor: "#F3A85D" },
+  hammerButtonReady: { backgroundColor: "#9C5734", borderColor: "#FFD86B", shadowColor: "#FFB86B", shadowOpacity: 0.7, shadowRadius: 7, elevation: 8 },
+  hammerButtonContent: { alignItems: "center", justifyContent: "center", minHeight: 42 },
+  hammerIcon: { width: 27, height: 27 },
+  hammerCountText: { color: "#FFF3D1", fontSize: 11, lineHeight: 13, fontWeight: "900", marginTop: -2 },
   hintButton: { backgroundColor: "#233958", borderColor: "#3D5A85" },
   undoButton: { backgroundColor: "#2A4268", borderColor: "#5B78A5" },
   undoButtonDisabled: { opacity: 0.38 },
