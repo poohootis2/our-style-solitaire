@@ -1608,7 +1608,7 @@ export default function HomeScreen() {
           <Animated.View style={[styles.hammerPilesAnimated, { width: cardWidth, height: cardWidth * renderCardRatio }, { opacity: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) : 0.72 }, { transform: [{ translateX: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: [-4, 4] }) }, { rotate: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: ["-5deg", "5deg"] }) }, { scale: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) : 1 }] }]}> 
             <Pressable accessibilityRole="button" accessibilityLabel={`망치 ${hammerCharges}개 남음`} onPress={() => beginHammerMode()} style={({ pressed }) => [styles.hammerPilesButton, { width: cardWidth, height: cardWidth * renderCardRatio }, hammerCharges > 0 && styles.hammerPilesButtonReady, pressed && styles.pressed]}>
               <Image source={HAMMER_ICON_ART} resizeMode="contain" style={[styles.hammerPilesIcon, { width: Math.min(cardWidth * 0.9, 58), height: Math.min(cardWidth * 0.9, 58) }]} />
-              <Text style={[styles.hammerPilesCount, hammerCharges <= 0 && styles.hammerPilesCountEmpty, { fontSize: Math.max(15, Math.round(cardWidth * 0.18) + 5) }]}>{hammerCharges}/3</Text>
+              <Text style={[styles.hammerPilesCount, { fontSize: Math.max(15, Math.round(cardWidth * 0.18) + 5) }]}>{hammerCharges}/3</Text>
             </Pressable>
           </Animated.View>
           <View style={[styles.foundationGroup, { gap: Math.max(3, Math.round(cardWidth * 0.08)) }]}>
@@ -1967,8 +1967,8 @@ const styles = StyleSheet.create({
   hammerPilesButton: { alignItems: "center", justifyContent: "center", borderRadius: 12, borderWidth: 0, borderColor: "transparent", backgroundColor: "transparent", shadowOpacity: 0, elevation: 0 },
   hammerPilesButtonReady: { borderWidth: 0, borderColor: "transparent", backgroundColor: "transparent", shadowOpacity: 0, elevation: 0 },
   hammerPilesIcon: { marginTop: -2 },
-  hammerPilesCount: { color: "#FFF3D1", lineHeight: 18, fontWeight: "900", marginTop: -1, textShadowColor: "#17233C", textShadowRadius: 2 },
-  hammerPilesCountEmpty: { color: "#FF5B67", textShadowColor: "#2B0E18", textShadowRadius: 3 },
+  hammerPilesCount: { color: "#F3C969", lineHeight: 18, fontWeight: "900", marginTop: -1, textShadowColor: "#17233C", textShadowRadius: 2 },
+  hammerPilesCountEmpty: { color: "#F3C969", textShadowColor: "#17233C", textShadowRadius: 2 },
   hintButton: { backgroundColor: "#233958", borderColor: "#3D5A85" },
   undoButton: { backgroundColor: "#2A4268", borderColor: "#5B78A5" },
   undoButtonDisabled: { opacity: 0.38 },
