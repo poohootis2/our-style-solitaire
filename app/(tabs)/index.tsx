@@ -990,13 +990,9 @@ export default function HomeScreen() {
     const hintKey = JSON.stringify({ action: hint.action, source: hint.source, targetColumn: hint.targetColumn });
     hintRepeatCountRef.current = lastHintKeyRef.current === hintKey ? hintRepeatCountRef.current + 1 : 1;
     lastHintKeyRef.current = hintKey;
-    if (hintRepeatCountRef.current >= 2) {
-      setShowTwoTouch(true);
-      setShowNoMovesPopup(true);
-      showTimedHint("같은 이동이 반복되고 있습니다. 셔플 기능을 사용해 보세요.");
-    } else {
-      showTimedHint(hint.message);
-    }
+    // 같은 힌트가 반복되어도 실제 합법 이동이 존재하므로
+    // 이동 불가 팝업을 열지 않고 현재 힌트만 계속 보여줍니다.
+    showTimedHint(hint.message);
     if (hint.source && hint.action !== "flip") {
       const card = cardFromSource(hint.source);
       if (card) setSelection({ ...hint.source, cardId: card.id });
@@ -1074,7 +1070,7 @@ export default function HomeScreen() {
       suppressNextShufflePromptRef.current = false;
       setShowTwoTouch(false);
       setShowNoMovesPopup(false);
-    } else if ((noMovesLeft || stagnantMovesRef.current >= 2) && !isWon(nextGame)) {
+    } else if (noMovesLeft && !isWon(nextGame)) {
       setShowTwoTouch(true);
       setShowNoMovesPopup(true);
     }
