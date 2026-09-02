@@ -53,7 +53,7 @@ const ROYAL_SPRITE = require("../../assets/images/royal-card-sprite.png");
 const RESET_MODAL_PANEL = { uri: "/manus-storage/solitaire-reset-modal-panel_5afc1a91.png" };
 const RESET_BUTTONS_ART = { uri: "/manus-storage/solitaire-reset-buttons_31124c25.png" };
 const FLAMING_CARD_ART = { uri: "/manus-storage/flaming-card-attack_5659a273.png" };
-const HAMMER_ICON_ART = { uri: "/manus-storage/hammer-icon-cartoon_aa033705.png" };
+const HAMMER_ICON_ART = require("../../assets/images/card-breaker-shark-hammer.png");
 const ACTIVE_GAME_KEY = "our-style-solitaire:active-game";
 const ACTIVE_GAME_SAVE_VERSION = 3;
 const RECORDS_KEY = "our-style-solitaire:records";
@@ -1582,6 +1582,10 @@ export default function HomeScreen() {
               <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label="" />
             )}
           </View>
+          <Pressable accessibilityRole="button" accessibilityLabel={`망치 ${hammerCharges}개 남음`} onPress={() => beginHammerMode()} style={({ pressed }) => [styles.hammerPilesButton, { width: cardWidth, height: cardWidth * renderCardRatio }, hammerCharges > 0 && styles.hammerPilesButtonReady, pressed && styles.pressed]}>
+            <Image source={HAMMER_ICON_ART} resizeMode="contain" style={[styles.hammerPilesIcon, { width: Math.min(cardWidth * 0.9, 58), height: Math.min(cardWidth * 0.9, 58) }]} />
+            <Text style={[styles.hammerPilesCount, { fontSize: Math.max(10, Math.round(cardWidth * 0.18)) }]}>{hammerCharges}/3</Text>
+          </Pressable>
           <View style={[styles.foundationGroup, { gap: Math.max(3, Math.round(cardWidth * 0.08)) }]}>
             {SUITS.map((suit) => {
               const card = game.foundations[suit].at(-1);
@@ -1619,12 +1623,6 @@ export default function HomeScreen() {
 
           <Pressable accessibilityRole="button" accessibilityLabel={magnetCharges > 0 ? `자석 자동 정렬 ${magnetCharges}회 남음` : "광고 시청 후 자석 받기"} onPress={activateMagnet} style={({ pressed }) => [styles.bottomButton, styles.magnetBottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, magnetCharges > 0 && styles.magnetButtonReady, pressed && styles.pressed]}>
             <Text style={styles.magnetButtonText}>{magnetCharges > 0 ? `자석 ${magnetCharges}` : "AD 자석"}</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges > 0 ? `망치 ${hammerCharges}회 남음` : "망치 사용 가능 여부 확인"} onPress={() => beginHammerMode()} style={({ pressed }) => [styles.bottomButton, styles.hammerBottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, hammerCharges > 0 && styles.hammerButtonReady, pressed && styles.pressed]}>
-            <View style={styles.hammerButtonContent}>
-              <Image source={HAMMER_ICON_ART} resizeMode="contain" style={styles.hammerIcon} />
-              <Text style={styles.hammerCountText}>{hammerCharges}</Text>
-            </View>
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
             <View style={styles.bottomButtonContent}><MedievalIcon name="hint" size={20} /><Text style={styles.bottomButtonText}>힌트</Text></View>
@@ -1940,11 +1938,10 @@ const styles = StyleSheet.create({
   bottomButton: { minWidth: 126, minHeight: 44, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1 },
   bottomButtonPhoneLandscape: { flex: 1, minWidth: 0, minHeight: 44 },
   magnetBottomButton: { minWidth: 116, backgroundColor: "#395479", borderColor: "#A5E6FC" },
-  hammerBottomButton: { minWidth: 68, paddingHorizontal: 5, backgroundColor: "#6E3D34", borderColor: "#F3A85D" },
-  hammerButtonReady: { backgroundColor: "#9C5734", borderColor: "#FFD86B", shadowColor: "#FFB86B", shadowOpacity: 0.7, shadowRadius: 7, elevation: 8 },
-  hammerButtonContent: { alignItems: "center", justifyContent: "center", minHeight: 42 },
-  hammerIcon: { width: 27, height: 27 },
-  hammerCountText: { color: "#FFF3D1", fontSize: 11, lineHeight: 13, fontWeight: "900", marginTop: -2 },
+  hammerPilesButton: { alignItems: "center", justifyContent: "center", marginHorizontal: 4, borderRadius: 12, borderWidth: 1.5, borderColor: "#8E6A58", backgroundColor: "rgba(32, 46, 72, 0.82)" },
+  hammerPilesButtonReady: { borderColor: "#FFD86B", backgroundColor: "rgba(111, 61, 43, 0.92)", shadowColor: "#FFB86B", shadowOpacity: 0.75, shadowRadius: 8, elevation: 9 },
+  hammerPilesIcon: { marginTop: -2 },
+  hammerPilesCount: { color: "#FFF3D1", lineHeight: 16, fontWeight: "900", marginTop: -1, textShadowColor: "#17233C", textShadowRadius: 2 },
   hintButton: { backgroundColor: "#233958", borderColor: "#3D5A85" },
   undoButton: { backgroundColor: "#2A4268", borderColor: "#5B78A5" },
   undoButtonDisabled: { opacity: 0.38 },
