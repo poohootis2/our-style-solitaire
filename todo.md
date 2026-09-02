@@ -304,3 +304,7 @@
 - [x] 광고 앱 ID·배너·보상형 광고 단위 ID와 개발 테스트 모드 코드 점검
 - [x] Android 매니페스트·Expo 설정의 AdMob 출시 전 구성 검증
 - [x] 운영 수칙과 출시 점검 결과를 문서로 정리
+- [x] 업로드 AAB에 AD_ID 권한이 누락되는 실제 반영 경로 점검
+- [x] Windows AndroidManifest와 Expo 설정의 AD_ID 권한 반영 절차 보정
+- [x] 재빌드 AAB의 AD_ID 권한을 업로드 전 검증하는 명령 정리
+- [x] Play Console 재업로드 단계와 재발 방지 안내 정리
