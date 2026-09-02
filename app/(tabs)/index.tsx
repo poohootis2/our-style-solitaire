@@ -327,26 +327,17 @@ function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0
   const color = playingCardColor(card);
   const glow: Record<Suit, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
   const cardHeight = width * cardRatio;
-  const distance = Math.max(48, Math.sqrt(travelX * travelX + travelY * travelY));
   const glowColor = flightColor ?? glow[card.suit];
-  const angle = `${Math.atan2(travelY, travelX) * (180 / Math.PI)}deg`;
   const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelX] });
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY] });
   const scale = progress.interpolate({ inputRange: [0, 0.62, 1], outputRange: [1, 1.08, 0.5] });
   const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
   const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "720deg"] });
-  const trailTranslateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelX * 0.22] });
-  const trailTranslateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY * 0.22] });
-  const trailScale = progress.interpolate({ inputRange: [0, 0.22, 1], outputRange: [0.2, 1, 0.42] });
-  const trailOpacity = progress.interpolate({ inputRange: [0, 0.18, 0.72, 1], outputRange: [0, 0.9, 0.55, 0] });
   return (
-    <>
-      <Animated.View pointerEvents="none" style={[styles.flyingTrail, { left: startLeft + width * 0.5 - distance * 0.5, bottom: startBottom + cardHeight * 0.5 - 2, width: distance, backgroundColor: glowColor, opacity: trailOpacity, transform: [{ translateX: trailTranslateX }, { translateY: trailTranslateY }, { rotate: angle }, { scaleX: trailScale }] }]} />
-      <Animated.View pointerEvents="none" style={[styles.flyingCard, { left: startLeft, bottom: startBottom, width, height: cardHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}> 
-        <Text style={[styles.flyingRank, { color }]}>{rankLabels[card.rank]}</Text>
-        <Text style={[styles.flyingSuit, { color }]}>{suitSymbols[card.suit]}</Text>
-      </Animated.View>
-    </>
+    <Animated.View pointerEvents="none" style={[styles.flyingCard, { left: startLeft, bottom: startBottom, width, height: cardHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}> 
+      <Text style={[styles.flyingRank, { color }]}>{rankLabels[card.rank]}</Text>
+      <Text style={[styles.flyingSuit, { color }]}>{suitSymbols[card.suit]}</Text>
+    </Animated.View>
   );
 }
 
@@ -1903,7 +1894,6 @@ const styles = StyleSheet.create({
   hintToastText: { color: "#BCEAE2", fontSize: 12, fontWeight: "700", textAlign: "center" },
   hammerModeHint: { position: "absolute", left: 18, right: 18, top: "44%", zIndex: 62, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 13, backgroundColor: "rgba(90, 41, 26, 0.96)", borderWidth: 2, borderColor: "#F3A85D", shadowColor: "#FFB86B", shadowOpacity: 0.75, shadowRadius: 11, elevation: 16 },
   hammerModeHintText: { color: "#FFF3D1", fontSize: 12, fontWeight: "900", textAlign: "center" },
-  flyingTrail: { position: "absolute", height: 4, borderRadius: 2, zIndex: 29, shadowOpacity: 0.85, shadowRadius: 8, elevation: 8 },
   flyingCard: { position: "absolute", left: 16, bottom: 44, zIndex: 30, overflow: "hidden", borderRadius: 8, backgroundColor: "#FFFDF8", borderWidth: 2, borderColor: "#FF7A66", shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 9, elevation: 12 },
   flyingRank: { position: "absolute", top: 6, left: 7, fontSize: 16, fontWeight: "900" },
   flyingSuit: { position: "absolute", top: "31%", width: "100%", textAlign: "center", fontSize: 30, fontWeight: "900" },
