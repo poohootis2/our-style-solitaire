@@ -1434,10 +1434,19 @@ export default function HomeScreen() {
           const uniqueCandidates = Array.from(new Set(candidates));
           const bestLeft = uniqueCandidates
             .map((left) => {
+              // 펫과 카드가 실제로 세로로 겹치는 경우에만 회피 점수에 반영합니다.
+              // 카드 한 장을 뒤집어 열 높이가 바뀌어도 보드와 펫은 보통 서로 다른
+              // 세로 영역에 있으므로, 그 이유만으로 펫이 좌우 이동하지 않습니다.
+              const companionTop = rootHeight - companionBottom - companionSize;
+              const companionBottomEdge = companionTop + companionSize;
               const collision = frames.reduce((total, frame) => {
                 const cardLeft = frame.x - rootX - clearance;
                 const cardRight = frame.x - rootX + frame.width + clearance;
-                return total + Math.max(0, Math.min(left + companionSize, cardRight) - Math.max(left, cardLeft));
+                const cardTop = frame.y - rootY;
+                const cardBottom = cardTop + frame.height;
+                const horizontalOverlap = Math.max(0, Math.min(left + companionSize, cardRight) - Math.max(left, cardLeft));
+                const verticalOverlap = Math.max(0, Math.min(companionBottomEdge, cardBottom) - Math.max(companionTop, cardTop));
+                return total + horizontalOverlap * verticalOverlap;
               }, 0);
               return { left, collision, distance: Math.abs(left - companionBaseLeft) };
             })
