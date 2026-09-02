@@ -1571,7 +1571,6 @@ export default function HomeScreen() {
         </View>
         </View>
         </Animated.View>
-        {attackToken ? <CardAttackEffect key={attackToken} kind={attackKind} combo={comboAttack} effectColor={companionAttackColor} startLeft={flightStartLeft} startBottom={flightStartBottom} travelX={flightTravelX} travelY={flightTravelY} /> : null}
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
         <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} onPress={() => undefined} />
