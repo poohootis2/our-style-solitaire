@@ -18,9 +18,8 @@ import {
   isLateGameAutoFinishReady,
   createPlayableGame,
   drawFromStock,
-  destroyCardWithHammer,
+  revealHiddenCardWithHammer,
   flipTableauCard,
-  shuffleAvailableCards,
   findHint,
   getDifficulty,
   getChapterForStage,
@@ -149,7 +148,7 @@ function CompanionAnchor({ companion, size, left, bottom, horizontalShift, onPre
   const translateY = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] });
   const rotate = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-2deg", "0deg", "2deg"] });
   return <Animated.View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom, transform: [{ translateX: horizontalShift }] }]}> 
-    <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 셔플 도움 보기`} onPress={onPress} style={({ pressed }) => [styles.companionPressTarget, pressed && styles.companionPressed]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 막힘 도움 보기`} onPress={onPress} style={({ pressed }) => [styles.companionPressTarget, pressed && styles.companionPressed]}>
       <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX }, { translateY }, { rotate }] }]}>
         <Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} />
       </Animated.View>
@@ -1004,7 +1003,7 @@ export default function HomeScreen() {
     if (!hint) {
       setShowTwoTouch(true);
       setShowNoMovesPopup(true);
-      showTimedHint("더 이상 이동할 카드가 없습니다. 펫을 두 번 터치해 셔플하거나 새 게임을 시작하세요.");
+      showTimedHint("더 이상 이동할 카드가 없습니다. 팝업의 망치 기능을 사용하거나 새 게임을 시작하세요.");
       haptic.error();
       return;
     }
@@ -1136,24 +1135,19 @@ export default function HomeScreen() {
   const useShuffleBonus = async (slot: 0 | 1 | 2) => {
     if (!showTwoTouch) return;
     if (slot === 0) {
-      if (twoTouchOpensUsed > 0) { showTimedHint("기본 셔플은 이미 사용했습니다."); return; }
-      const shuffledGame = shuffleAvailableCards(game);
-      if (!shuffledGame) { showTimedHint("현재 섞을 카드가 없습니다."); setShowTwoTouch(false); return; }
+      if (twoTouchOpensUsed > 0) { showTimedHint("무료 망치는 이미 사용했습니다."); return; }
       setTwoTouchOpensUsed(1);
       setShowTwoTouch(false);
       setShowNoMovesPopup(false);
-      playEffect("shuffle");
-      playShuffleAnimation();
-      suppressNextShufflePromptRef.current = true;
-      applyGame(shuffledGame, false, undefined);
-      showTimedHint("2Touch 셔플을 사용했습니다. AD +1 또는 AD +2를 이용할 수 있습니다.");
+      beginHammerMode(true);
+      showTimedHint("무료 망치: 열지 않은 카드 1장을 탭하세요.");
       return;
     }
     const requestedReward = slot - 1;
     setRewardedRetrySlot(slot === 1 ? 1 : 2);
-    if (twoTouchOpensUsed === 0) { showTimedHint("먼저 2Touch 셔플을 사용해 주세요."); return; }
+    if (twoTouchOpensUsed === 0) { showTimedHint("먼저 무료 망치를 사용해 주세요."); return; }
     if (rewardedRevealUsed !== requestedReward) {
-      if (rewardedRevealUsed > requestedReward) showTimedHint(`${slot === 1 ? "AD +1" : "AD +2"} 셔플은 이미 사용했습니다.`);
+      if (rewardedRevealUsed > requestedReward) showTimedHint(`${slot === 1 ? "AD +1" : "AD +2"} 망치는 이미 사용했습니다.`);
       else showTimedHint("AD +1을 먼저 사용해 주세요.");
       return;
     }
@@ -1165,17 +1159,12 @@ export default function HomeScreen() {
       setRewardedAdError("광고가 준비되지 않았거나 끝까지 시청되지 않았습니다. 다시 시도해 주세요.");
       return;
     }
-    const shuffledGame = shuffleAvailableCards(game);
-    if (!shuffledGame) { showTimedHint("현재 섞을 카드가 없습니다."); setShowTwoTouch(false); return; }
     const nextRewardedCount = rewardedRevealUsed + 1;
     setRewardedRevealUsed(nextRewardedCount);
     setShowTwoTouch(false);
     setShowNoMovesPopup(false);
-    playEffect("shuffle");
-    playShuffleAnimation();
-    suppressNextShufflePromptRef.current = true;
-    applyGame(shuffledGame, false, undefined);
-    showTimedHint(`광고 보상 셔플을 사용했습니다. (${nextRewardedCount}/2)`);
+    beginHammerMode(true);
+    showTimedHint(`광고 보상 망치 ${nextRewardedCount}/2: 열지 않은 카드 1장을 탭하세요.`);
   };
 
   const claimMagnetFromAd = async (slot: 1 | 2 = 1) => {
@@ -1184,7 +1173,7 @@ export default function HomeScreen() {
       return;
     }
     if (rewardedRevealUsed !== slot - 1) {
-      showTimedHint(slot === 2 ? "첫 번째 광고 자석을 먼저 사용해 주세요." : "이번 광고 자석은 이미 받았습니다.");
+      showTimedHint(slot === 2 ? "첫 번째 광고 망치를 먼저 사용해 주세요." : "이번 광고 망치는 이미 받았습니다.");
       return;
     }
     setRewardedRetrySlot(slot);
@@ -1209,7 +1198,7 @@ export default function HomeScreen() {
     if (magnetCharges <= 0) {
       const nextSlot = rewardedRevealUsed + 1;
       if (nextSlot > 2) {
-        showTimedHint("사용 가능한 광고 자석을 모두 받았습니다. 새 게임을 시작해 주세요.");
+        showTimedHint("사용 가능한 광고 망치를 모두 받았습니다. 새 게임을 시작해 주세요.");
         return;
       }
       void claimMagnetFromAd(nextSlot as 1 | 2);
@@ -1253,8 +1242,8 @@ export default function HomeScreen() {
     step();
   };
 
-  const beginHammerMode = () => {
-    if ((game.hammerUses ?? 0) > 0) {
+  const beginHammerMode = (allowRepeat = false) => {
+    if (!allowRepeat && (game.hammerUses ?? 0) > 0) {
       setShowHammerOffer(false);
       showTimedHint("이번 게임에서 망치는 이미 사용했습니다.");
       return;
@@ -1263,15 +1252,15 @@ export default function HomeScreen() {
     setShowNoMovesPopup(false);
     setHammerMode(true);
     setSelection(null);
-    showTimedHint("망치: 웨이스트 또는 열의 맨 위 앞면 카드 1장을 탭하세요.");
+    showTimedHint("망치: 열지 않은 카드 1장을 탭하세요.");
     haptic.light();
   };
 
   const useHammerOnCard = (source: CardSource) => {
     const target = cardFromSource(source);
-    const destroyedGame = destroyCardWithHammer(game, source);
-    if (!destroyedGame || !target) {
-      showTimedHint("웨이스트 또는 열의 맨 위 앞면 카드만 파괴할 수 있습니다.");
+    const revealedGame = revealHiddenCardWithHammer(game, source);
+    if (!revealedGame || !target) {
+      showTimedHint("망치 사용 중에는 열지 않은 타블로 카드만 탭할 수 있습니다.");
       haptic.error();
       return;
     }
@@ -1280,9 +1269,9 @@ export default function HomeScreen() {
     setMagnetHighlightedCardId(target.id);
     playEffect("foundationAttack");
     haptic.success();
-    applyGame(destroyedGame, false, target);
+    applyGame(revealedGame, false, target);
     setTimeout(() => setMagnetHighlightedCardId(null), 620);
-    showTimedHint(`${cardLabel(target)} 카드를 파괴했습니다.`);
+    showTimedHint(`${cardLabel(target)} 카드를 공개해 웨이스트에 놓았습니다.`);
   };
 
   const selectCard = (nextSelection: Selection) => {
@@ -1407,11 +1396,11 @@ export default function HomeScreen() {
   const companionBottom = bottomControlsBottom + 52 + (!isLandscape ? 1 : 0);
   const renderCardRatio = !isLandscape ? Math.max(0.8, cardRatio - 1 / Math.max(1, cardWidth)) : cardRatio;
   const activeShuffleStep: 0 | 1 | 2 = twoTouchOpensUsed === 0 ? 0 : rewardedRevealUsed === 0 ? 1 : 2;
-  const shuffleHelpTitle = activeShuffleStep === 0 ? "무료 셔플" : `광고 보상 셔플 +${activeShuffleStep}`;
+  const shuffleHelpTitle = activeShuffleStep === 0 ? "무료 망치" : `광고 보상 망치 +${activeShuffleStep}`;
   const shuffleHelpCopy = activeShuffleStep === 0
-    ? "현재 막힌 카드 흐름을 한 번 섞어 새로운 수를 만들어 드립니다."
-    : "짧은 광고를 끝까지 시청하면 셔플 1회를 추가로 이용할 수 있습니다.";
-  const shuffleHelpButton = activeShuffleStep === 0 ? "무료로 카드 섞기" : "광고 시청 후 셔플 +1";
+    ? "열지 않은 카드 한 장을 공개해 스톡 옆 공개 영역에 놓습니다."
+    : "짧은 광고를 끝까지 시청하면 히든 카드 공개 망치 1회를 추가로 이용할 수 있습니다.";
+  const shuffleHelpButton = activeShuffleStep === 0 ? "무료 망치 사용" : "광고 시청 후 망치 +1";
   const companionCenterLeft = companionBaseLeft + companionAvoidanceTarget + companionSize * 0.5 - cardWidth * 0.5;
   const companionCenterBottom = companionBottom + companionSize * 0.5 - cardWidth * renderCardRatio * 0.5;
   const flightStartLeft = companionCenterLeft;
@@ -1632,10 +1621,10 @@ export default function HomeScreen() {
           <View style={styles.modalBackdropCenter}>
             <View style={styles.hammerOfferCard}>
               <Pressable accessibilityRole="button" accessibilityLabel="망치 안내 닫기" onPress={() => setShowHammerOffer(false)} style={({ pressed }) => [styles.noMovesPopupClose, pressed && styles.pressed]}><Text style={styles.noMovesPopupCloseText}>×</Text></Pressable>
-              <Text style={styles.hammerOfferTitle}>자석으로 정렬할 카드가 없습니다</Text>
-              <Text style={styles.hammerOfferCopy}>망치로 웨이스트 또는 열의 맨 위 앞면 카드 1장을 파괴해 길을 열 수 있습니다.</Text>
+              <Text style={styles.hammerOfferTitle}>히든 카드를 열어 길을 만들까요?</Text>
+              <Text style={styles.hammerOfferCopy}>망치로 열지 않은 카드 1장을 즉시 공개해 스톡 옆 공개 영역에 놓을 수 있습니다.</Text>
               <View style={styles.noMovesPopupActions}>
-                <Pressable accessibilityRole="button" accessibilityLabel="망치 사용" onPress={beginHammerMode} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>망치 사용</Text></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel="망치 사용" onPress={() => beginHammerMode()} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>망치 사용</Text></Pressable>
                 <Pressable accessibilityRole="button" accessibilityLabel="새로 시작" onPress={() => { setShowHammerOffer(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>새로 시작</Text></Pressable>
               </View>
             </View>
@@ -1647,9 +1636,9 @@ export default function HomeScreen() {
             <View style={styles.noMovesPopupCard}>
               <Pressable accessibilityRole="button" accessibilityLabel="이동 불가 안내 닫기" onPress={() => setShowNoMovesPopup(false)} style={({ pressed }) => [styles.noMovesPopupClose, pressed && styles.pressed]}><Text style={styles.noMovesPopupCloseText}>×</Text></Pressable>
               <Text style={styles.noMovesPopupTitle}>더 이상 이동할 수 없습니다.</Text>
-              {activeShuffleStep === 0 ? <Text style={styles.noMovesPopupCopy}>무료 셔플기능 1번 사용 가능</Text> : magnetCharges > 0 ? <Text style={styles.noMovesPopupCopy}>보유한 자석정렬 1번 사용 가능</Text> : activeShuffleStep < 2 ? <Text style={styles.noMovesPopupCopy}>광고시청후 자석정렬 1번 사용 가능</Text> : <Text style={styles.noMovesPopupCopy}>게임을 새로시작하세요.</Text>}
+              {activeShuffleStep === 0 ? <Text style={styles.noMovesPopupCopy}>무료 망치 1번 사용 가능</Text> : magnetCharges > 0 ? <Text style={styles.noMovesPopupCopy}>보유한 자석정렬 1번 사용 가능</Text> : activeShuffleStep < 2 ? <Text style={styles.noMovesPopupCopy}>광고시청후 망치 1번 사용 가능</Text> : <Text style={styles.noMovesPopupCopy}>게임을 새로시작하세요.</Text>}
               <View style={styles.noMovesPopupActions}>
-                {activeShuffleStep === 0 ? <Pressable accessibilityRole="button" accessibilityLabel="무료 셔플" onPress={() => { setShowNoMovesPopup(false); void useShuffleBonus(0); }} style={({ pressed }) => [styles.noMovesPopupPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>무료 셔플</Text></Pressable> : magnetCharges > 0 ? <Pressable accessibilityRole="button" accessibilityLabel="자석 정렬" onPress={() => { setShowNoMovesPopup(false); activateMagnet(); }} style={({ pressed }) => [styles.noMovesPopupPrimary, styles.magnetButtonReady, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>자석 정렬</Text></Pressable> : activeShuffleStep < 2 ? <Pressable accessibilityRole="button" accessibilityLabel="광고 시청 후 자석 정렬" onPress={() => { setShowNoMovesPopup(false); void claimMagnetFromAd(activeShuffleStep); }} style={({ pressed }) => [styles.noMovesPopupPrimary, styles.noMovesPopupAd, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>광고 자석</Text></Pressable> : null}
+                {activeShuffleStep === 0 ? <Pressable accessibilityRole="button" accessibilityLabel="무료 망치" onPress={() => { setShowNoMovesPopup(false); void useShuffleBonus(0); }} style={({ pressed }) => [styles.noMovesPopupPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>무료 망치</Text></Pressable> : magnetCharges > 0 ? <Pressable accessibilityRole="button" accessibilityLabel="자석 정렬" onPress={() => { setShowNoMovesPopup(false); activateMagnet(); }} style={({ pressed }) => [styles.noMovesPopupPrimary, styles.magnetButtonReady, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>자석 정렬</Text></Pressable> : activeShuffleStep < 2 ? <Pressable accessibilityRole="button" accessibilityLabel="광고 시청 후 망치 사용" onPress={() => { setShowNoMovesPopup(false); void useShuffleBonus(activeShuffleStep as 1 | 2); }} style={({ pressed }) => [styles.noMovesPopupPrimary, styles.noMovesPopupAd, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>광고 망치</Text></Pressable> : null}
                 <Pressable accessibilityRole="button" accessibilityLabel="새로 시작" onPress={() => { setShowNoMovesPopup(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>새로 시작</Text></Pressable>
               </View>
             </View>

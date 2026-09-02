@@ -5,6 +5,7 @@ import {
   canPlaceOnTableau,
   createNewGame,
   destroyCardWithHammer,
+  revealHiddenCardWithHammer,
   drawFromStock,
   shuffleAvailableCards,
   findHint,
@@ -62,6 +63,16 @@ describe("클론다이크 규칙", () => {
     expect(destroyed?.tableau[0]).toHaveLength(1);
     expect(destroyed?.tableau[0][0].faceUp).toBe(true);
     expect(destroyed?.hammerUses).toBe(1);
+  });
+
+  it("망치는 선택한 히든 카드를 공개해 웨이스트에 놓고 원래 슬롯에서 제거한다", () => {
+    const game = foundationGame([card(4, "hearts")]);
+    game.tableau[2] = [{ ...card(12, "spades"), faceUp: false }, card(6, "clubs")];
+    const revealed = revealHiddenCardWithHammer(game, { kind: "tableau", column: 2, index: 0 });
+    expect(revealed?.tableau[2]).toEqual([expect.objectContaining({ id: "clubs-6", faceUp: true })]);
+    expect(revealed?.waste.at(-1)).toMatchObject({ id: "spades-12", faceUp: true });
+    expect(revealed?.hammerUses).toBe(1);
+    expect(revealed?.moves).toBe(1);
   });
 
   it("망치로 파괴된 순서는 파운데이션 정렬에서 건너뛴다", () => {

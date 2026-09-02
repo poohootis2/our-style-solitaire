@@ -223,6 +223,23 @@ export function shuffleAvailableCards(game: GameState): GameState | null {
  * The destroyed rank is treated as cleared by the foundation order so a hammer
  * never makes the stage impossible to finish.
  */
+export function revealHiddenCardWithHammer(game: GameState, source: CardSource): GameState | null {
+  if (source.kind !== "tableau") return null;
+  const next = cloneGame(game);
+  const pile = next.tableau[source.column];
+  const selected = pile?.[source.index];
+  if (!selected || selected.faceUp) return null;
+
+  pile.splice(source.index, 1);
+  next.waste = [...next.waste, { ...selected, faceUp: true }];
+  next.hammerUses = (next.hammerUses ?? 0) + 1;
+  return withMove(next);
+}
+
+/**
+ * Legacy destructive hammer behavior retained for compatibility with saved games.
+ * New reward flow uses revealHiddenCardWithHammer so hidden cards are opened into waste.
+ */
 export function destroyCardWithHammer(game: GameState, source: CardSource): GameState | null {
   if (source.kind === "foundation") return null;
   const next = cloneGame(game);
