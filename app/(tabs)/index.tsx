@@ -53,6 +53,7 @@ const CARD_RATIO = 1.42;
 const ROYAL_SPRITE = require("../../assets/images/royal-card-sprite.png");
 const RESET_MODAL_PANEL = { uri: "/manus-storage/solitaire-reset-modal-panel_5afc1a91.png" };
 const RESET_BUTTONS_ART = { uri: "/manus-storage/solitaire-reset-buttons_31124c25.png" };
+const FLAMING_CARD_ART = { uri: "/manus-storage/flaming-card-attack_5659a273.png" };
 const ACTIVE_GAME_KEY = "our-style-solitaire:active-game";
 const ACTIVE_GAME_SAVE_VERSION = 3;
 const RECORDS_KEY = "our-style-solitaire:records";
@@ -335,7 +336,7 @@ function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress }: { width: nu
   );
 }
 
-function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, travelY = -180, startLeft = 16, startBottom = 44, flightColor }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; travelY?: number; startLeft?: number; startBottom?: number; flightColor?: string }) {
+function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, travelY = -180, startLeft = 16, startBottom = 44, flightColor, flaming = false }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; travelY?: number; startLeft?: number; startBottom?: number; flightColor?: string; flaming?: boolean }) {
   const color = playingCardColor(card);
   const glow: Record<Suit, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
   const cardHeight = width * cardRatio;
@@ -347,6 +348,7 @@ function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0
   const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "720deg"] });
   return (
     <Animated.View pointerEvents="none" style={[styles.flyingCard, { left: startLeft, bottom: startBottom, width, height: cardHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}> 
+      {flaming ? <Image source={FLAMING_CARD_ART} resizeMode="stretch" style={styles.flamingCardArt} /> : null}
       <Text style={[styles.flyingRank, { color }]}>{rankLabels[card.rank]}</Text>
       <Text style={[styles.flyingSuit, { color }]}>{suitSymbols[card.suit]}</Text>
     </Animated.View>
@@ -573,6 +575,7 @@ export default function HomeScreen() {
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
   const [resetMode, setResetMode] = useState<"current" | "full">("full");
   const [flyingCard, setFlyingCard] = useState<Card | null>(null);
+  const [flyingCardVariant, setFlyingCardVariant] = useState<"normal" | "flaming">("normal");
   const [showFireworks, setShowFireworks] = useState(false);
   const [hintMessage, setHintMessage] = useState<string | null>(null);
   const [attackKind, setAttackKind] = useState<AttackKind>("clubs");
@@ -983,8 +986,9 @@ export default function HomeScreen() {
     }
   };
 
-  const animateFlight = (card: Card) => {
+  const animateFlight = (card: Card, flaming = false) => {
     setFlyingCard(card);
+    setFlyingCardVariant(flaming ? "flaming" : "normal");
     flightProgress.setValue(0);
     Animated.timing(flightProgress, { toValue: 1, duration: FLYING_CARD_DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setFlyingCard(null));
   };
@@ -1064,8 +1068,10 @@ export default function HomeScreen() {
     }
     const previousFoundationCount = SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0);
     const nextFoundationCount = SUITS.reduce((total, suit) => total + nextGame.foundations[suit].length, 0);
-    if (nextFoundationCount > previousFoundationCount) {
-      const changedSuit = movedCard?.suit ?? SUITS.find((suit) => nextGame.foundations[suit].length > game.foundations[suit].length) ?? "clubs";
+    const foundationMove = nextFoundationCount > previousFoundationCount;
+    const changedSuit = movedCard?.suit ?? SUITS.find((suit) => nextGame.foundations[suit].length > game.foundations[suit].length) ?? "clubs";
+    const foundationCard = foundationMove ? (movedCard ?? nextGame.foundations[changedSuit].at(-1)) : undefined;
+    if (foundationMove) {
       const damage = (nextFoundationCount - previousFoundationCount) * 5;
       const isCombo = nextFoundationCount - previousFoundationCount > 1;
       setLastDamage(damage);
@@ -1103,9 +1109,12 @@ export default function HomeScreen() {
     setSelection(null);
     playEffect("move");
     if (!isWon(nextGame)) queueLateGameAutoFinish(nextGame);
-    if (movedCard) {
-      playEffect("companionAttack");
-      animateFlight(movedCard);
+    if (foundationCard || movedCard) {
+      const attackCard = foundationCard ?? movedCard;
+      if (attackCard) {
+        playEffect("companionAttack");
+        animateFlight(attackCard, Boolean(foundationCard));
+      }
     }
     if (success) {
       haptic.success();
@@ -1503,7 +1512,7 @@ export default function HomeScreen() {
       <Animated.View ref={rootRef} style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: [{ translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }] }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
         <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
-        {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={renderCardRatio} progress={flightProgress} travelX={flightTravelX} travelY={flightTravelY} startLeft={flightStartLeft} startBottom={flightStartBottom} flightColor={companionAttackColor} /> : null}
+        {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={renderCardRatio} progress={flightProgress} travelX={flightTravelX} travelY={flightTravelY} startLeft={flightStartLeft} startBottom={flightStartBottom} flightColor={companionAttackColor} flaming={flyingCardVariant === "flaming"} /> : null}
         <VictoryFireworks visible={showFireworks} />
         <View style={[styles.header, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact, phoneLandscape && styles.headerPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
           <View style={phoneLandscape && styles.headerTitlePhoneLandscape}>
@@ -1922,6 +1931,7 @@ const styles = StyleSheet.create({
   hammerModeHint: { position: "absolute", left: 18, right: 18, top: "44%", zIndex: 62, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 13, backgroundColor: "rgba(90, 41, 26, 0.96)", borderWidth: 2, borderColor: "#F3A85D", shadowColor: "#FFB86B", shadowOpacity: 0.75, shadowRadius: 11, elevation: 16 },
   hammerModeHintText: { color: "#FFF3D1", fontSize: 12, fontWeight: "900", textAlign: "center" },
   flyingCard: { position: "absolute", left: 16, bottom: 44, zIndex: 30, overflow: "hidden", borderRadius: 8, backgroundColor: "#FFFDF8", borderWidth: 2, borderColor: "#FF7A66", shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 9, elevation: 12 },
+  flamingCardArt: { position: "absolute", top: "-18%", left: "-18%", width: "136%", height: "136%", zIndex: 0 },
   flyingRank: { position: "absolute", top: 6, left: 7, fontSize: 16, fontWeight: "900" },
   flyingSuit: { position: "absolute", top: "31%", width: "100%", textAlign: "center", fontSize: 30, fontWeight: "900" },
   fireworkLayer: { ...StyleSheet.absoluteFillObject, zIndex: 50, alignItems: "center", justifyContent: "center" },
