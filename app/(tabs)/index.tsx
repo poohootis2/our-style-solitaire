@@ -1395,6 +1395,12 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let cancelled = false;
+    // 카드가 펫에서 몬스터로 날아가는 동안에는 카드 열 재측정으로 인한
+    // 회피 이동을 잠가 펫이 제자리에서 공격하는 모습이 유지되게 합니다.
+    if (flyingCard) {
+      companionAvoidanceShift.stopAnimation();
+      return () => { cancelled = true; };
+    }
     const animateCompanionTo = (nextShift: number) => {
       if (Math.abs(nextShift - companionAvoidanceTargetRef.current) < 2) return;
       companionAvoidanceTargetRef.current = nextShift;
@@ -1441,7 +1447,7 @@ export default function HomeScreen() {
       });
     }, 90);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [cardWidth, companionAvoidanceShift, companionBaseLeft, companionBottom, companionSize, game.tableau, isLandscape, safeScreenHeight, safeScreenWidth]);
+  }, [cardWidth, companionAvoidanceShift, companionBaseLeft, companionBottom, companionSize, flyingCard, game.tableau, isLandscape, safeScreenHeight, safeScreenWidth]);
 
   useEffect(() => {
     if (!hydrated || !battleContent.isBoss || bossWarningStageRef.current === battleContent.stage) return;
