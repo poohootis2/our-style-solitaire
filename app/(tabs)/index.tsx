@@ -1640,8 +1640,10 @@ export default function HomeScreen() {
                     <Pressable onPress={() => { haptic.light(); setSheet("records"); }} style={({ pressed }) => [styles.sheetSecondaryButton, pressed && styles.pressed]}><Text style={styles.sheetSecondaryText}>기록</Text></Pressable>
                     <Pressable onPress={() => { haptic.light(); setSheet("rules"); }} style={({ pressed }) => [styles.sheetSecondaryButton, pressed && styles.pressed]}><Text style={styles.sheetSecondaryText}>규칙</Text></Pressable>
                   </View>
-                  <Pressable onPress={() => { haptic.light(); setSheet("companions"); }} style={({ pressed }) => [styles.sheetLinkButton, pressed && styles.pressed]}><Text style={styles.sheetLinkText}>펫 도감</Text></Pressable>
-                  <Pressable onPress={requestNewGame} style={({ pressed }) => [styles.sheetLinkButton, pressed && styles.pressed]}><Text style={styles.sheetLinkText}>새 게임 시작</Text></Pressable>
+                  <View style={styles.sheetRow}>
+                    <Pressable accessibilityRole="button" accessibilityLabel="펫 도감 열기" onPress={() => { haptic.light(); setSheet("companions"); }} style={({ pressed }) => [styles.sheetSecondaryButton, pressed && styles.pressed]}><Text style={styles.sheetSecondaryText}>펫 도감</Text></Pressable>
+                    <Pressable accessibilityRole="button" accessibilityLabel="게임 초기화" onPress={requestNewGame} style={({ pressed }) => [styles.sheetSecondaryButton, styles.resetButton, pressed && styles.pressed]}><Text style={styles.sheetSecondaryText}>게임 초기화</Text></Pressable>
+                  </View>
                 </>
               ) : null}
               {sheet === "sound" ? (
@@ -1958,6 +1960,7 @@ const styles = StyleSheet.create({
   sheetPrimaryText: { color: "#11182C", fontSize: 15, fontWeight: "900" },
   sheetRow: { flexDirection: "row", gap: 10, marginTop: 10 },
   sheetSecondaryButton: { flex: 1, minHeight: 46, justifyContent: "center", alignItems: "center", borderRadius: 14, backgroundColor: "#2A4268", borderWidth: 1, borderColor: "#45628E" },
+  resetButton: { backgroundColor: "#3A355C", borderColor: "#8D7CC2" },
   sheetSecondaryText: { color: "#FFFDF8", fontSize: 14, fontWeight: "800" },
   sheetLinkButton: { alignSelf: "center", paddingVertical: 14, marginTop: 7 },
   sheetLinkText: { color: "#FF9E91", fontSize: 13, fontWeight: "800" },
