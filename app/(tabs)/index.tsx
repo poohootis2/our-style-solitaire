@@ -612,6 +612,8 @@ export default function HomeScreen() {
   const elapsedSecondsRef = useRef(elapsedSeconds);
   const flightProgress = useRef(new Animated.Value(0)).current;
   const comboCompanionScale = useRef(new Animated.Value(1)).current;
+  const hammerShine = useRef(new Animated.Value(0)).current;
+  const hammerImpact = useRef(new Animated.Value(0)).current;
   const layoutTransition = useRef(new Animated.Value(1)).current;
   const bossIntroProgress = useRef(new Animated.Value(0)).current;
   const shuffleMotion = useRef(new Animated.Value(0)).current;
@@ -632,6 +634,19 @@ export default function HomeScreen() {
   const companionAttackPlayer = useAudioPlayer(require("../../assets/sounds/companion-attack.wav"));
   const foundationAttackPlayer = useAudioPlayer(require("../../assets/sounds/foundation-attack.wav"));
   const backgroundPlayer = useAudioPlayer(require("../../assets/sounds/medieval-solitaire-loop.mp3"));
+
+  useEffect(() => {
+    hammerShine.stopAnimation();
+    hammerShine.setValue(0);
+    if (hammerCharges <= 0) return;
+    const shineLoop = Animated.loop(Animated.sequence([
+      Animated.timing(hammerShine, { toValue: 1, duration: 520, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      Animated.timing(hammerShine, { toValue: 0, duration: 520, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      Animated.delay(420),
+    ]));
+    shineLoop.start();
+    return () => shineLoop.stop();
+  }, [hammerCharges, hammerShine]);
 
   useEffect(() => {
     comboCompanionScale.stopAnimation();
@@ -1274,6 +1289,14 @@ export default function HomeScreen() {
     }
     setShowHammerOffer(false);
     setShowNoMovesPopup(false);
+    hammerImpact.stopAnimation();
+    hammerImpact.setValue(0);
+    Animated.sequence([
+      Animated.timing(hammerImpact, { toValue: 1, duration: 70, useNativeDriver: true }),
+      Animated.timing(hammerImpact, { toValue: -1, duration: 70, useNativeDriver: true }),
+      Animated.timing(hammerImpact, { toValue: 0.7, duration: 60, useNativeDriver: true }),
+      Animated.timing(hammerImpact, { toValue: 0, duration: 90, useNativeDriver: true }),
+    ]).start();
     setHammerMode(true);
     setSelection(null);
     showTimedHint("원하는 카드를 클릭하세요");
@@ -1582,10 +1605,12 @@ export default function HomeScreen() {
               <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label="" />
             )}
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel={`망치 ${hammerCharges}개 남음`} onPress={() => beginHammerMode()} style={({ pressed }) => [styles.hammerPilesButton, { width: cardWidth, height: cardWidth * renderCardRatio }, hammerCharges > 0 && styles.hammerPilesButtonReady, pressed && styles.pressed]}>
-            <Image source={HAMMER_ICON_ART} resizeMode="contain" style={[styles.hammerPilesIcon, { width: Math.min(cardWidth * 0.9, 58), height: Math.min(cardWidth * 0.9, 58) }]} />
-            <Text style={[styles.hammerPilesCount, { fontSize: Math.max(10, Math.round(cardWidth * 0.18)) }]}>{hammerCharges}/3</Text>
-          </Pressable>
+          <Animated.View style={[styles.hammerPilesAnimated, { width: cardWidth, height: cardWidth * renderCardRatio }, { opacity: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) : 0.72 }, { transform: [{ translateX: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: [-4, 4] }) }, { rotate: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: ["-5deg", "5deg"] }) }, { scale: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) : 1 }] }]}> 
+            <Pressable accessibilityRole="button" accessibilityLabel={`망치 ${hammerCharges}개 남음`} onPress={() => beginHammerMode()} style={({ pressed }) => [styles.hammerPilesButton, { width: cardWidth, height: cardWidth * renderCardRatio }, hammerCharges > 0 && styles.hammerPilesButtonReady, pressed && styles.pressed]}>
+              <Image source={HAMMER_ICON_ART} resizeMode="contain" style={[styles.hammerPilesIcon, { width: Math.min(cardWidth * 0.9, 58), height: Math.min(cardWidth * 0.9, 58) }]} />
+              <Text style={[styles.hammerPilesCount, hammerCharges <= 0 && styles.hammerPilesCountEmpty, { fontSize: Math.max(12, Math.round(cardWidth * 0.18) + 2) }]}>{hammerCharges}/3</Text>
+            </Pressable>
+          </Animated.View>
           <View style={[styles.foundationGroup, { gap: Math.max(3, Math.round(cardWidth * 0.08)) }]}>
             {SUITS.map((suit) => {
               const card = game.foundations[suit].at(-1);
@@ -1938,10 +1963,12 @@ const styles = StyleSheet.create({
   bottomButton: { minWidth: 126, minHeight: 44, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1 },
   bottomButtonPhoneLandscape: { flex: 1, minWidth: 0, minHeight: 44 },
   magnetBottomButton: { minWidth: 116, backgroundColor: "#395479", borderColor: "#A5E6FC" },
-  hammerPilesButton: { alignItems: "center", justifyContent: "center", marginHorizontal: 4, borderRadius: 12, borderWidth: 1.5, borderColor: "#8E6A58", backgroundColor: "rgba(32, 46, 72, 0.82)" },
-  hammerPilesButtonReady: { borderColor: "#FFD86B", backgroundColor: "rgba(111, 61, 43, 0.92)", shadowColor: "#FFB86B", shadowOpacity: 0.75, shadowRadius: 8, elevation: 9 },
+  hammerPilesAnimated: { alignItems: "center", justifyContent: "center", marginHorizontal: 4 },
+  hammerPilesButton: { alignItems: "center", justifyContent: "center", borderRadius: 12, borderWidth: 0, borderColor: "transparent", backgroundColor: "transparent", shadowOpacity: 0, elevation: 0 },
+  hammerPilesButtonReady: { borderWidth: 0, borderColor: "transparent", backgroundColor: "transparent", shadowOpacity: 0, elevation: 0 },
   hammerPilesIcon: { marginTop: -2 },
-  hammerPilesCount: { color: "#FFF3D1", lineHeight: 16, fontWeight: "900", marginTop: -1, textShadowColor: "#17233C", textShadowRadius: 2 },
+  hammerPilesCount: { color: "#FFF3D1", lineHeight: 18, fontWeight: "900", marginTop: -1, textShadowColor: "#17233C", textShadowRadius: 2 },
+  hammerPilesCountEmpty: { color: "#FF5B67", textShadowColor: "#2B0E18", textShadowRadius: 3 },
   hintButton: { backgroundColor: "#233958", borderColor: "#3D5A85" },
   undoButton: { backgroundColor: "#2A4268", borderColor: "#5B78A5" },
   undoButtonDisabled: { opacity: 0.38 },
