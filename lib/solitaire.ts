@@ -198,10 +198,22 @@ export function canPlaceOnFoundation(card: Card, foundation: Card[], destroyedCa
 }
 
 export function shuffleAvailableCards(game: GameState): GameState | null {
-  const available = [...game.stock, ...game.waste];
+  // Keep the Klondike structure intact: only face-up tableau cards join the
+  // stock/waste pool. Face-down tableau cards remain in their exact slots.
+  const faceUpTableau = game.tableau.flatMap((pile) => pile.filter((card) => card.faceUp));
+  const stockAndWaste = [...game.stock, ...game.waste];
+  const available = [...faceUpTableau, ...stockAndWaste];
   if (available.length < 2) return null;
+
   const next = cloneGame(game);
-  next.stock = shuffle(available).map((card) => ({ ...card, faceUp: false }));
+  const shuffled = shuffle(available);
+  let cursor = 0;
+  next.tableau = next.tableau.map((pile) => pile.map((card) => {
+    if (!card.faceUp) return card;
+    const replacement = shuffled[cursor++];
+    return { ...replacement, faceUp: true };
+  }));
+  next.stock = shuffled.slice(cursor).map((card) => ({ ...card, faceUp: false }));
   next.waste = [];
   return withMove(next);
 }

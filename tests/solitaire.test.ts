@@ -39,14 +39,18 @@ const foundationGame = (waste: Card[], clubs: Card[] = []): GameState => ({
 });
 
 describe("클론다이크 규칙", () => {
-  it("보너스 셔플은 스톡과 웨이스트를 섞고 웨이스트를 비운다", () => {
-    const game = foundationGame([card(3, "hearts"), card(7, "clubs")]);
+  it("보너스 셔플은 공개 타블로·스톡·웨이스트를 섞고 히든·파운데이션을 보존한다", () => {
+    const game = foundationGame([card(3, "hearts"), card(7, "clubs")], [card(1, "clubs")]);
     game.stock = [card(9, "spades"), card(2, "diamonds")];
+    game.tableau[0] = [{ ...card(13, "spades"), faceUp: false }, card(5, "clubs")];
     const shuffled = shuffleAvailableCards(game);
     expect(shuffled).not.toBeNull();
     expect(shuffled?.waste).toEqual([]);
     expect(shuffled?.stock).toHaveLength(4);
     expect(shuffled?.stock.every((item) => !item.faceUp)).toBe(true);
+    expect(shuffled?.tableau[0][0]).toMatchObject({ id: "spades-13", faceUp: false });
+    expect(shuffled?.tableau[0].filter((item) => item.faceUp)).toHaveLength(1);
+    expect(shuffled?.foundations.clubs.map((item) => item.id)).toEqual(["clubs-1"]);
     expect(shuffled?.moves).toBe(1);
   });
 
