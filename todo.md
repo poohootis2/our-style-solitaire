@@ -308,3 +308,31 @@
 - [x] Windows AndroidManifest와 Expo 설정의 AD_ID 권한 반영 절차 보정
 - [x] 재빌드 AAB의 AD_ID 권한을 업로드 전 검증하는 명령 정리
 - [x] Play Console 재업로드 단계와 재발 방지 안내 정리
+- [x] Windows AndroidManifest에서 AD_ID 권한 확인
+- [x] release APK 권한 검증 후 새 AAB 빌드
+- [ ] Play Console의 활성 테스트·프로덕션 아티팩트에서 AD_ID 오류 대상 확인
+- [ ] 확인 결과에 따른 재업로드 안내 완료
+- [ ] 버전 코드 26 AAB와 현재 Windows 프로젝트 경로·빌드 시점 일치 확인
+- [x] AAB 내부 AndroidManifest의 AD_ID 권한 직접 검증
+- [ ] 권한 누락·Play Console 활성 아티팩트·처리 지연 원인별 대응 정리
+- [x] 구형 bundletool 매니페스트 검사 오류 우회
+- [x] versionCode 26 AAB에서 universal APK 생성 후 AD_ID 권한 직접 검증
+- [ ] AAB 권한 결과에 따른 Play Console 오류 대응 확정
+- [x] 구형 bundletool과 PowerShell 프롬프트 혼입 오류 해결
+- [x] 최신 공식 bundletool로 versionCode 26 AAB의 AD_ID 권한 재검증
+- [ ] AAB 검사 결과에 따라 Play Console 재업로드 또는 활성 아티팩트 정리 결정
+- [ ] Windows 프로젝트의 실제 `android/app/src/main/AndroidManifest.xml`에 AD_ID 권한 명시
+- [ ] Windows 프로젝트의 Expo 설정과 Android 매니페스트 경로 일치 확인
+- [ ] 소스 매니페스트 수정 후 versionCode 증가 release AAB 재빌드·권한 검증
+- [ ] Google Play 요구 SHA1 `BA:3E:1F:46:2A:60:2F:4C:D2:D0:1C:87:5A:51:84:17:8C:B7:CA:BF` keystore 확인
+- [ ] Gradle release signing이 올바른 upload-keystore와 alias를 사용하는지 확인
+- [ ] 올바른 업로드 키로 versionCode 증가 AAB 재빌드·SHA1 검증
+- [ ] 복사한 `our-style-solitaire4/android/app/upload-keystore.jks`의 BA SHA1 재확인
+- [ ] `our-style-solitaire4/android/app/build.gradle` release signing이 복사한 키를 가리키는지 확인
+- [ ] release AAB의 인증서 SHA1과 AD_ID 권한을 함께 검증
+- [ ] `buildTypes.release.signingConfig`를 `signingConfigs.release`로 교체
+- [ ] signing 비밀번호를 안전한 `gradle.properties` 참조 방식으로 정리
+- [ ] 노출된 keystore 비밀번호의 교체 필요성 검토
+- [x] Windows 서명키·BA 인증서·버전 업데이트·APK/AAB 주의사항 문서 작성
+- [x] 문서에 실제 프로젝트 경로·올바른 SHA1·release signing 주의사항 반영
+- [x] 문서에 AD_ID·AAB/APK 검증과 Play Console 업로드 전 점검 절차 반영
