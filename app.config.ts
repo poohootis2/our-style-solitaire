@@ -42,7 +42,7 @@ const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
   version: "1.6.8",
-  orientation: "default",
+  orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: env.scheme,
   userInterfaceStyle: "automatic",
@@ -96,12 +96,6 @@ const config: ExpoConfig = {
       "react-native-google-mobile-ads",
       {
         androidAppId: "ca-app-pub-1567553177387474~9687767806",
-      },
-    ],
-    [
-      "expo-screen-orientation",
-      {
-        initialOrientation: "DEFAULT",
       },
     ],
     [

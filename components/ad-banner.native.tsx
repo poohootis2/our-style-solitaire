@@ -24,6 +24,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(8, 15, 28, 0.92)",
   },
   containerCompact: {
+    minHeight: 50,
     marginBottom: 2,
   },
   containerInline: {

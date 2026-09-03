@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, AppState, Easing, Image, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
-import * as ScreenOrientation from "expo-screen-orientation";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -532,9 +531,8 @@ function EmptySlot({ width, cardRatio = CARD_RATIO, label, onPress }: { width: n
 export default function HomeScreen() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const [deviceOrientation, setDeviceOrientation] = useState<ScreenOrientation.Orientation | null>(null);
-  const nativeLandscape = deviceOrientation === ScreenOrientation.Orientation.LANDSCAPE_LEFT || deviceOrientation === ScreenOrientation.Orientation.LANDSCAPE_RIGHT || screenWidth > screenHeight;
-  const isLandscape = nativeLandscape;
+  // The game is intentionally portrait-only for consistent card sizing and safe touch targets.
+  const isLandscape = false;
   const isTablet = Math.min(screenWidth, screenHeight) >= 600;
   const phoneLandscape = isLandscape && !isTablet;
   const safeScreenWidth = Math.max(260, screenWidth - insets.left - insets.right);
@@ -547,7 +545,7 @@ export default function HomeScreen() {
   const rootBottomPadding = isLandscape ? systemBottomInset + 8 : PHYSICAL_EDGE_INSET + 62;
   // Reserve the additional header spacing used by the inline landscape banner.
   // This keeps the banner, title, and action buttons on separate visual lanes.
-  const layoutExtraReservedHeight = isLandscape ? (phoneLandscape ? 0 : 18) : 58;
+  const layoutExtraReservedHeight = isLandscape ? (phoneLandscape ? 16 : 18) : 58;
   const bottomControlsBottom = isLandscape ? systemBottomInset + 4 : Math.max(58, systemBottomInset + 16);
   // In portrait, keep the banner below the action buttons while reserving the
   // system navigation inset so it never sits under the home indicator.
@@ -893,15 +891,6 @@ export default function HomeScreen() {
   }, [isLandscape, isTablet, layoutTransition, phoneLandscape, screenHeight, screenWidth]);
 
   useEffect(() => {
-    if (Platform.OS === "web") return;
-    const subscription = ScreenOrientation.addOrientationChangeListener((event) => {
-      setDeviceOrientation(event.orientationInfo.orientation);
-    });
-    ScreenOrientation.getOrientationAsync().then(setDeviceOrientation).catch(() => undefined);
-    return () => ScreenOrientation.removeOrientationChangeListener(subscription);
-  }, []);
-
-  useEffect(() => {
     if (paused || !hydrated || isWon(game)) return;
     const timer = setInterval(() => setElapsedSeconds((seconds) => seconds + 1), 1000);
     return () => clearInterval(timer);
@@ -956,24 +945,6 @@ export default function HomeScreen() {
     setResetMode("current");
     setPaused(true);
     setShowNewGameConfirm(true);
-  };
-
-  const toggleOrientation = async () => {
-    const nextMode = isLandscape ? "portrait" : "landscape";
-    haptic.light();
-    try {
-      if (Platform.OS === "web") {
-        await ScreenOrientation.lockPlatformAsync({ screenOrientationLockWeb: nextMode === "landscape" ? ScreenOrientation.WebOrientationLock.LANDSCAPE : ScreenOrientation.WebOrientationLock.PORTRAIT });
-      } else {
-        const target = nextMode === "landscape" ? ScreenOrientation.OrientationLock.LANDSCAPE_LEFT : ScreenOrientation.OrientationLock.PORTRAIT_UP;
-        const supported = await ScreenOrientation.supportsOrientationLockAsync(target);
-        if (!supported) throw new Error("unsupported orientation lock");
-        await ScreenOrientation.lockAsync(target);
-        setDeviceOrientation(await ScreenOrientation.getOrientationAsync());
-      }
-    } catch {
-      Alert.alert("화면 전환", "이 기기에서는 화면 방향을 전환할 수 없습니다.");
-    }
   };
 
   const unlockRandomPets = (count: number) => {
@@ -1566,9 +1537,6 @@ export default function HomeScreen() {
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="현재 스테이지 초기화" onPress={requestCurrentStageRestart} style={({ pressed }) => [styles.newButton, compactControls && styles.newButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="new" size={23} />
-            </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={isLandscape ? "세로 모드로 전환" : "가로 모드로 전환"} onPress={toggleOrientation} style={({ pressed }) => [styles.orientationButton, compactControls && styles.iconButtonCompact, pressed && styles.pressed]}>
-              <MedievalIcon name="orientation" size={19} />
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="사운드 설정" onPress={() => { haptic.light(); setPaused(true); setSheet("sound"); }} style={({ pressed }) => [styles.soundButton, compactControls && styles.iconButtonCompact, !soundEffectsEnabled && !backgroundMusicEnabled && styles.soundButtonOff, pressed && styles.pressed]}>
               <MedievalIcon name={soundEffectsEnabled || backgroundMusicEnabled ? "sound" : "soundOff"} size={19} />

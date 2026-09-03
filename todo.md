@@ -409,3 +409,44 @@
 - [x] 상어 망치 이미지의 흰색 배경을 완전히 제거하고 선명도 40% 강화
 - [x] 망치 아래 횟수 글자를 항상 어두운 노란색으로 고정
 - [x] 투명 배경·선명도·횟수 색상 회귀 테스트
+- [ ] `react-native-google-mobile-ads` Android App ID 설정과 Config Plugin 상태 확인
+- [ ] 필요 시 `android_app_id` 설정을 명시적으로 보강
+- [ ] 생성 Android 설정과 최종 AAB에서 App ID·AD_ID 권한 검증
+- [ ] App ID 보강 후 안전한 release 재빌드 절차 정리
+- [ ] Windows 소스 AndroidManifest의 `<application>` 내부에 AdMob App ID 메타데이터 추가
+- [ ] Expo prebuild 후 병합 release 매니페스트에 App ID 메타데이터 확인
+- [ ] App ID·AD_ID 권한·BA 서명을 최종 AAB에서 함께 검증
+- [ ] Windows AndroidManifest의 중복 AD_ID 선언을 하나로 정리
+- [ ] CMake codegen으로 인한 clean 실패를 피하는 release 빌드 절차 확인
+- [ ] versionCode 28 AAB의 App ID·AD_ID·BA 서명 최종 검증
+- [ ] `jarsigner`로 새 AAB의 실제 서명 인증서 SHA1 확인
+- [ ] 새 AAB에서 AD_ID 권한과 AdMob App ID 재검증
+- [ ] 검증 결과에 따라 Play Console 업로드 가능 여부 확정
+- [ ] 업로드 전 AAB 내부 versionCode 직접 확인
+- [ ] versionCode 23 이전 산출물과 28 최신 AAB 경로 구분
+- [ ] Play Console에 최신 미사용 versionCode AAB만 업로드하도록 안내
+- [ ] 04:39 빌드 시각과 AAB 파일 수정 시각 불일치 원인 확인
+- [ ] 실제 최신 AAB 경로·versionCode·생성 시간을 직접 검증
+- [ ] 이전 04:17 AAB 업로드 방지 및 필요 시 새 AAB 재생성
+- [ ] Windows android 폴더에 bundletool JAR가 없는 원인 확인
+- [ ] 최신 bundletool 다운로드 또는 대체 검사 명령 안내
+- [ ] 최신 AAB의 수정 시각·versionCode·서명 최종 확인
+- [ ] versionCode 23 AAB를 업로드 대상에서 제외
+- [ ] `android/app/build.gradle`와 생성 산출물의 versionCode 28 일치 확인
+- [ ] 이전 AAB를 분리하고 최신 versionCode 28 AAB 재생성
+- [ ] 새 AAB 내부 versionCode·App ID·AD_ID·BA 서명 재검증
+- [ ] AD_ID 오류가 남은 Play Console 활성 아티팩트 확인
+- [ ] 광고 ID 선언 상태와 최신 AAB 매니페스트 대조
+- [ ] 권한 없이 출시하지 않고 광고 수익을 유지하는 출시 절차 정리
+- [ ] `app.config.ts`를 version 1.7.4·versionCode 29로 변경
+- [ ] `android/app/build.gradle`의 versionName·versionCode를 1.7.4·29로 일치
+- [ ] clean 없이 release AAB 재빌드 및 최신 파일 확인
+- [ ] versionCode 29·AD_ID·App ID·BA 서명 검증
+- [ ] 가로모드 광고·옵션·상태 HUD를 안전영역에 맞게 재배치
+- [ ] 가로모드 카드 영역을 광고와 하단 조작부 사이에 재계산
+- [ ] 가로모드 하단 조작부와 시스템 홈바 겹침 방지
+- [ ] 세로모드 보존 및 가로모드 반응형 회귀 테스트
+
+- [x] 게임 화면 방향을 세로모드 전용으로 고정
+- [x] 가로모드 전환 버튼과 가로모드 전용 분기 제거
+- [x] 세로모드 레이아웃과 게임 기능 회귀 검사
