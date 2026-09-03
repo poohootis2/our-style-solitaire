@@ -596,6 +596,7 @@ export default function HomeScreen() {
   const [showHammerOffer, setShowHammerOffer] = useState(false);
   const [hammerMode, setHammerMode] = useState(false);
   const [hammerCharges, setHammerCharges] = useState(0);
+  const [hammerStrikeTarget, setHammerStrikeTarget] = useState<{ dx: number; dy: number } | null>(null);
   const [showBossWarning, setShowBossWarning] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
@@ -611,7 +612,9 @@ export default function HomeScreen() {
   const flightProgress = useRef(new Animated.Value(0)).current;
   const comboCompanionScale = useRef(new Animated.Value(1)).current;
   const hammerShine = useRef(new Animated.Value(0)).current;
+  const hammerIdleMotion = useRef(new Animated.Value(0)).current;
   const hammerImpact = useRef(new Animated.Value(0)).current;
+  const hammerStrike = useRef(new Animated.Value(0)).current;
   const layoutTransition = useRef(new Animated.Value(1)).current;
   const bossIntroProgress = useRef(new Animated.Value(0)).current;
   const shuffleMotion = useRef(new Animated.Value(0)).current;
@@ -645,6 +648,19 @@ export default function HomeScreen() {
     shineLoop.start();
     return () => shineLoop.stop();
   }, [hammerCharges, hammerShine]);
+
+  useEffect(() => {
+    hammerIdleMotion.stopAnimation();
+    hammerIdleMotion.setValue(0);
+    if (hammerCharges <= 0 || hammerStrikeTarget) return;
+    const idleLoop = Animated.loop(Animated.sequence([
+      Animated.timing(hammerIdleMotion, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(hammerIdleMotion, { toValue: -1, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(hammerIdleMotion, { toValue: 0, duration: 900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]));
+    idleLoop.start();
+    return () => idleLoop.stop();
+  }, [hammerCharges, hammerIdleMotion, hammerStrikeTarget]);
 
   useEffect(() => {
     comboCompanionScale.stopAnimation();
@@ -1274,7 +1290,7 @@ export default function HomeScreen() {
     haptic.light();
   };
 
-  const useHammerOnCard = (source: CardSource) => {
+  const useHammerOnCard = (source: CardSource, targetPosition?: { dx: number; dy: number }) => {
     const target = cardFromSource(source);
     const revealedGame = revealHiddenCardWithHammer(game, source);
     if (!revealedGame || !target) {
@@ -1288,6 +1304,19 @@ export default function HomeScreen() {
     setMagnetHighlightedCardId(target.id);
     playEffect("foundationAttack");
     haptic.success();
+    if (targetPosition) {
+      hammerStrike.stopAnimation();
+      hammerStrike.setValue(0);
+      setHammerStrikeTarget(targetPosition);
+      Animated.timing(hammerStrike, { toValue: 1, duration: 1700, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
+        if (!finished) return;
+        setHammerStrikeTarget(null);
+        applyGame(revealedGame, false, target);
+        setTimeout(() => setMagnetHighlightedCardId(null), 620);
+        showTimedHint(`${cardLabel(target)} 카드를 공개해 웨이스트에 놓았습니다.`);
+      });
+      return;
+    }
     applyGame(revealedGame, false, target);
     setTimeout(() => setMagnetHighlightedCardId(null), 620);
     showTimedHint(`${cardLabel(target)} 카드를 공개해 웨이스트에 놓았습니다.`);
@@ -1348,7 +1377,11 @@ export default function HomeScreen() {
   const onTableauPress = (column: number, index: number, card: Card) => {
     const pile = game.tableau[column];
     if (hammerMode) {
-      useHammerOnCard({ kind: "tableau", column, index });
+      const boardLeft = Math.max(0, (safeScreenWidth - boardWidth) * 0.5);
+      const hammerLeft = boardLeft + cardWidth * 2.25;
+      const targetLeft = boardLeft + column * (cardWidth + tableauGap);
+      const targetTop = rootTopPadding + 220 + index * stackOffset;
+      useHammerOnCard({ kind: "tableau", column, index }, { dx: targetLeft - hammerLeft, dy: targetTop - (rootTopPadding + 132) });
       return;
     }
     if (!card.faceUp) {
@@ -1427,6 +1460,12 @@ export default function HomeScreen() {
   const flightTravelX = phoneLandscape ? 0 : isLandscape ? Math.round(safeScreenWidth * 0.04) : Math.round(safeScreenWidth * 0.05);
   const monsterTargetTop = rootTopPadding + (isLandscape ? (phoneLandscape ? 116 : 82) : 152);
   const flightTravelY = getAttackTravelY(safeScreenHeight, flightStartBottom, cardWidth * cardRatio, monsterTargetTop, 1.2);
+  const hammerStartLeft = Math.max(0, (safeScreenWidth - boardWidth) * 0.5) + cardWidth * 2.25;
+  const hammerStartTop = rootTopPadding + 132;
+  const hammerStrikeTranslateX = hammerStrike.interpolate({ inputRange: [0, 0.86, 1], outputRange: [0, hammerStrikeTarget?.dx ?? 0, hammerStrikeTarget?.dx ?? 0] });
+  const hammerStrikeTranslateY = hammerStrike.interpolate({ inputRange: [0, 0.86, 1], outputRange: [0, hammerStrikeTarget?.dy ?? 0, (hammerStrikeTarget?.dy ?? 0) + 8] });
+  const hammerStrikeScale = hammerStrike.interpolate({ inputRange: [0, 0.76, 0.9, 1], outputRange: [1, 2.25, 3, 2.45] });
+  const hammerStrikeRotate = hammerStrike.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "720deg"] });
 
   useEffect(() => {
     let cancelled = false;
@@ -1521,6 +1560,9 @@ export default function HomeScreen() {
         <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
         {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={renderCardRatio} progress={flightProgress} travelX={flightTravelX} travelY={flightTravelY} startLeft={flightStartLeft} startBottom={flightStartBottom} flightColor={companionAttackColor} flaming={flyingCardVariant === "flaming"} /> : null}
+        {hammerStrikeTarget ? <Animated.View pointerEvents="none" style={[styles.hammerStrike, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.08, height: cardWidth * 1.08, transform: [{ translateX: hammerStrikeTranslateX }, { translateY: hammerStrikeTranslateY }, { scale: hammerStrikeScale }, { rotate: hammerStrikeRotate }] }]}> 
+          <Image source={HAMMER_ICON_ART} resizeMode="contain" style={styles.hammerStrikeImage} />
+        </Animated.View> : null}
         <VictoryFireworks visible={showFireworks} />
         <View style={[styles.header, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact, phoneLandscape && styles.headerPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
           <View style={phoneLandscape && styles.headerTitlePhoneLandscape}>
@@ -1575,7 +1617,7 @@ export default function HomeScreen() {
           </View>
           <Animated.View style={[styles.hammerPilesAnimated, { width: cardWidth, height: cardWidth * renderCardRatio }, { opacity: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) : 0.72 }, { transform: [{ translateX: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: [-4, 4] }) }, { rotate: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: ["-5deg", "5deg"] }) }, { scale: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) : 1 }] }]}> 
             <Pressable accessibilityRole="button" accessibilityLabel={`망치 ${hammerCharges}개 남음`} onPress={() => beginHammerMode()} style={({ pressed }) => [styles.hammerPilesButton, { width: cardWidth, height: cardWidth * renderCardRatio }, hammerCharges > 0 && styles.hammerPilesButtonReady, pressed && styles.pressed]}>
-              <Image source={HAMMER_ICON_ART} resizeMode="contain" style={[styles.hammerPilesIcon, { width: Math.min(cardWidth * 0.9, 58), height: Math.min(cardWidth * 0.9, 58) }]} />
+              <Image source={HAMMER_ICON_ART} resizeMode="contain" style={[styles.hammerPilesIcon, { width: Math.min(cardWidth * 1.08, 70), height: Math.min(cardWidth * 1.08, 70) }, { transform: [{ translateY: hammerIdleMotion.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] }) }] }]} />
               <Text style={[styles.hammerPilesCount, { fontSize: Math.max(15, Math.round(cardWidth * 0.18) + 5) }]}>{hammerCharges}/3</Text>
             </Pressable>
           </Animated.View>
@@ -1935,6 +1977,8 @@ const styles = StyleSheet.create({
   hammerPilesButton: { alignItems: "center", justifyContent: "center", borderRadius: 12, borderWidth: 0, borderColor: "transparent", backgroundColor: "transparent", shadowOpacity: 0, elevation: 0 },
   hammerPilesButtonReady: { borderWidth: 0, borderColor: "transparent", backgroundColor: "transparent", shadowOpacity: 0, elevation: 0 },
   hammerPilesIcon: { marginTop: -2 },
+  hammerStrike: { position: "absolute", zIndex: 80, alignItems: "center", justifyContent: "center" },
+  hammerStrikeImage: { width: "100%", height: "100%" },
   hammerPilesCount: { color: "#F3C969", lineHeight: 18, fontWeight: "900", marginTop: -1, textShadowColor: "#17233C", textShadowRadius: 2 },
   hammerPilesCountEmpty: { color: "#F3C969", textShadowColor: "#17233C", textShadowRadius: 2 },
   hintButton: { backgroundColor: "#233958", borderColor: "#3D5A85" },
