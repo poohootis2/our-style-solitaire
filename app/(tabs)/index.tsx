@@ -450,12 +450,12 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
     attackProgress.setValue(0);
     damageProgress.setValue(0);
     comboImpactProgress.setValue(0);
-    setImpactVariant(Math.floor(Math.random() * COMBO_IMPACT_ARTS.length));
+    setImpactVariant(combo ? (attackToken - 1) % COMBO_IMPACT_ARTS.length : (attackToken - 1) % COMBO_IMPACT_ARTS.length);
     hpFlash.setValue(0);
     Animated.parallel([
-      Animated.timing(attackProgress, { toValue: 1, duration: combo ? 1040 : 360, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      Animated.timing(damageProgress, { toValue: 1, duration: combo ? 1560 : 780, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      Animated.timing(comboImpactProgress, { toValue: 1, duration: combo ? 1040 : 780, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(attackProgress, { toValue: 1, duration: combo ? 578 : 360, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(damageProgress, { toValue: 1, duration: combo ? 867 : 780, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(comboImpactProgress, { toValue: 1, duration: combo ? 578 : 780, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
     ]).start(() => { setAttackVisible(false); setDamageVisible(false); });
   }, [attackToken, attackProgress, combo, comboImpactProgress, damageProgress, hpFlash]);
 
@@ -695,9 +695,9 @@ export default function HomeScreen() {
     comboCompanionScale.setValue(comboAttack ? 1 : 1);
     if (!comboAttack) return;
     const animation = Animated.sequence([
-      Animated.timing(comboCompanionScale, { toValue: 2, duration: 2300, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
-      Animated.delay(520),
-      Animated.timing(comboCompanionScale, { toValue: 1, duration: 1040, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(comboCompanionScale, { toValue: 2, duration: 1278, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+      Animated.delay(289),
+      Animated.timing(comboCompanionScale, { toValue: 1, duration: 578, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
     ]);
     animation.start();
     return () => animation.stop();
@@ -1081,9 +1081,9 @@ export default function HomeScreen() {
       }
       cursor = next;
       applyGame(next, false, move.card);
-      autoFinishTimerRef.current = setTimeout(step, 580);
+      autoFinishTimerRef.current = setTimeout(step, 322);
     };
-    autoFinishTimerRef.current = setTimeout(step, 440);
+    autoFinishTimerRef.current = setTimeout(step, 244);
   };
 
   const applyGame = (nextGame: typeof game | null, success = false, movedCard?: Card) => {
@@ -1105,7 +1105,7 @@ export default function HomeScreen() {
       setComboAttack(isCombo);
       setAttackToken((token) => token + 1);
       playEffect("foundationAttack");
-      if (isCombo) setTimeout(() => setComboAttack(false), 1800);
+      if (isCombo) setTimeout(() => setComboAttack(false), 1000);
     }
     const previousProgress = game.foundations.clubs.length + game.foundations.diamonds.length + game.foundations.hearts.length + game.foundations.spades.length + game.tableau.flat().filter((card) => card.faceUp).length;
     const nextProgress = nextGame.foundations.clubs.length + nextGame.foundations.diamonds.length + nextGame.foundations.hearts.length + nextGame.foundations.spades.length + nextGame.tableau.flat().filter((card) => card.faceUp).length;
