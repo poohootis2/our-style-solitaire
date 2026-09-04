@@ -53,9 +53,9 @@ const RESET_MODAL_PANEL = { uri: "/manus-storage/solitaire-reset-modal-panel_5af
 const RESET_BUTTONS_ART = { uri: "/manus-storage/solitaire-reset-buttons_31124c25.png" };
 const FLAMING_CARD_ART = require("../../assets/images/flaming-card-attack.png");
 const HAMMER_ICON_ART = require("../../assets/images/card-breaker-shark-hammer.png");
-const HINT_BUTTON_ART = require("../../assets/images/hint-cartoon-button.png");
-const UNDO_BUTTON_ART = require("../../assets/images/undo-cartoon-button.png");
-const HAMMER_PLUS_ONE_BUTTON_ART = require("../../assets/images/hammer-plus-one-cartoon-button.png");
+const HINT_BUTTON_ART = require("../../assets/images/hint-cartoon-button.webp");
+const UNDO_BUTTON_ART = require("../../assets/images/undo-cartoon-button.webp");
+const HAMMER_PLUS_ONE_BUTTON_ART = require("../../assets/images/hammer-plus-one-cartoon-button.webp");
 const HAMMER_IMPACT_ART = { uri: "/manus-storage/hammer-impact-burst_f5d30cb2.png" };
 const COMBO_IMPACT_ARTS = [
   { uri: "/manus-storage/combo-impact-burst-1_48b789ea.png" },
@@ -1864,11 +1864,11 @@ const styles = StyleSheet.create({
   bottomControlsLandscapeCompact: { gap: 8 },
   bottomControlsPhoneLandscape: { left: 0, flexDirection: "row", alignItems: "stretch", justifyContent: "flex-start", gap: 6 },
   bottomButton: { minWidth: 126, minHeight: 44, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1 },
-  cartoonActionButton: { width: 94, height: 38, justifyContent: "center", alignItems: "center", borderRadius: 0, overflow: "visible", zIndex: 41, elevation: 0, borderWidth: 0, backgroundColor: "transparent", shadowOpacity: 0 },
+  cartoonActionButton: { width: 94, height: 52, justifyContent: "center", alignItems: "center", borderRadius: 0, overflow: "visible", zIndex: 41, elevation: 0, borderWidth: 0, backgroundColor: "transparent", shadowOpacity: 0 },
   cartoonHammerButton: { backgroundColor: "transparent", borderColor: "transparent" },
   cartoonHintButton: { backgroundColor: "transparent", borderColor: "transparent" },
   cartoonUndoButton: { backgroundColor: "transparent", borderColor: "transparent" },
-  cartoonActionImage: { position: "absolute", left: 0, top: 0, width: 94, height: 38 },
+  cartoonActionImage: { position: "absolute", left: 0, top: 0, width: 94, height: 52 },
     cartoonActionButtonDisabled: { opacity: 0.45 },
   bottomButtonPhoneLandscape: { flex: 1, minWidth: 0, minHeight: 44 },
   hammerPilesAnimated: { alignItems: "center", justifyContent: "center", marginHorizontal: 4 },
