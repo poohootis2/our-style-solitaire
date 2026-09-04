@@ -53,6 +53,9 @@ const RESET_MODAL_PANEL = { uri: "/manus-storage/solitaire-reset-modal-panel_5af
 const RESET_BUTTONS_ART = { uri: "/manus-storage/solitaire-reset-buttons_31124c25.png" };
 const FLAMING_CARD_ART = { uri: "/manus-storage/flaming-card-attack_5659a273.png" };
 const HAMMER_ICON_ART = require("../../assets/images/card-breaker-shark-hammer.png");
+const HINT_BUTTON_ART = { uri: "/manus-storage/hint-cartoon-button_44269b61.png" };
+const UNDO_BUTTON_ART = { uri: "/manus-storage/undo-cartoon-button_caeac722.png" };
+const HAMMER_PLUS_ONE_BUTTON_ART = { uri: "/manus-storage/hammer-plus-one-cartoon-button_474c6c70.png" };
 const HAMMER_IMPACT_ART = { uri: "/manus-storage/hammer-impact-burst_f5d30cb2.png" };
 const COMBO_IMPACT_ARTS = [
   { uri: "/manus-storage/combo-impact-burst-1_48b789ea.png" },
@@ -1117,7 +1120,7 @@ export default function HomeScreen() {
     if (slot === 0) {
       if (twoTouchOpensUsed > 0) { showTimedHint("무료 망치는 이미 사용했습니다."); return; }
       setTwoTouchOpensUsed(1);
-      setHammerCharges((charges) => Math.min(5, charges + 1));
+      setHammerCharges((charges) => Math.min(10, charges + 1));
       setShowTwoTouch(false);
       setShowNoMovesPopup(false);
       beginHammerMode(true);
@@ -1126,8 +1129,8 @@ export default function HomeScreen() {
     }
       setRewardedRetrySlot(1);
     if (twoTouchOpensUsed === 0) { showTimedHint("먼저 무료 망치를 사용해 주세요."); return; }
-    if (rewardedRevealUsed >= 5) {
-      showTimedHint("광고 망치는 최대 5개까지 사용할 수 있습니다.");
+    if (rewardedRevealUsed >= 10) {
+      showTimedHint("광고 망치는 최대 10개까지 사용할 수 있습니다.");
       return;
     }
     setRewardedAdError(null);
@@ -1139,11 +1142,27 @@ export default function HomeScreen() {
     }
     const nextRewardedCount = rewardedRevealUsed + 1;
     setRewardedRevealUsed(nextRewardedCount);
-    setHammerCharges((charges) => Math.min(5, charges + 1));
+    setHammerCharges((charges) => Math.min(10, charges + 1));
     setShowTwoTouch(false);
     setShowNoMovesPopup(false);
     beginHammerMode(true);
-    showTimedHint(`원하는 카드를 클릭하세요 (광고 망치 ${nextRewardedCount}/5)`);
+    showTimedHint(`원하는 카드를 클릭하세요 (광고 망치 ${nextRewardedCount}/10)`);
+  };
+
+  const claimHammerAdReward = async () => {
+    if (hammerCharges >= 10) {
+      showTimedHint("망치가 가득 찼습니다. 현재 최대 10개입니다.");
+      return;
+    }
+    setRewardedAdError(null);
+    showTimedHint("보상형 광고를 불러오는 중입니다.");
+    const completed = await showRewardedAd();
+    if (!completed) {
+      setRewardedAdError("광고가 준비되지 않았거나 끝까지 시청되지 않았습니다. 다시 시도해 주세요.");
+      return;
+    }
+    setHammerCharges((charges) => Math.min(10, charges + 1));
+    showTimedHint(`망치 +1 충전 완료 (${Math.min(10, hammerCharges + 1)}/10)`);
   };
 
   const beginHammerMode = (allowRepeat = false) => {
@@ -1330,7 +1349,7 @@ export default function HomeScreen() {
   const companionBaseLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
   const companionBottom = bottomControlsBottom + 52 + (!isLandscape ? 1 : 0);
   const renderCardRatio = !isLandscape ? Math.max(0.8, cardRatio - 1 / Math.max(1, cardWidth)) : cardRatio;
-  const activeShuffleStep: 0 | 1 | 2 = twoTouchOpensUsed === 0 ? 0 : rewardedRevealUsed < 5 ? 1 : 2;
+  const activeShuffleStep: 0 | 1 | 2 = twoTouchOpensUsed === 0 ? 0 : rewardedRevealUsed < 10 ? 1 : 2;
   const shuffleHelpTitle = activeShuffleStep === 0 ? "무료 망치" : `광고 보상 망치 +${activeShuffleStep}`;
   const shuffleHelpCopy = activeShuffleStep === 0
     ? "열지 않은 카드 한 장을 공개해 스톡 옆 공개 영역에 놓습니다."
@@ -1502,7 +1521,7 @@ export default function HomeScreen() {
           <Animated.View style={[styles.hammerPilesAnimated, { width: cardWidth, height: cardWidth * renderCardRatio }, { opacity: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) : 0.72 }, { transform: [{ translateX: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: [-4, 4] }) }, { rotate: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: ["-5deg", "5deg"] }) }, { scale: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) : 1 }] }]}> 
             <Pressable accessibilityRole="button" accessibilityLabel={`망치 ${hammerCharges}개 남음`} onPress={() => beginHammerMode()} style={({ pressed }) => [styles.hammerPilesButton, { width: cardWidth, height: cardWidth * renderCardRatio }, hammerCharges > 0 && styles.hammerPilesButtonReady, pressed && styles.pressed]}>
               <Image source={HAMMER_ICON_ART} resizeMode="contain" style={[styles.hammerPilesIcon, { width: Math.min(cardWidth * 1.3, 84), height: Math.min(cardWidth * 1.3, 84) }, { transform: [{ translateY: hammerIdleMotion.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] }) }] }]} />
-              <Text style={[styles.hammerPilesCount, { fontSize: Math.max(15, Math.round(cardWidth * 0.18) + 5) }]}>{hammerCharges}/5</Text>
+              <Text style={[styles.hammerPilesCount, { fontSize: Math.max(15, Math.round(cardWidth * 0.18) + 5) }]}>{hammerCharges}/10</Text>
             </Pressable>
           </Animated.View>
           <View style={[styles.foundationGroup, { gap: Math.max(3, Math.round(cardWidth * 0.08)) }]}>
@@ -1540,11 +1559,14 @@ export default function HomeScreen() {
         <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} onPress={() => undefined} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
-          <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.hintButton, pressed && styles.pressed]}>
-            <View style={styles.bottomButtonContent}><MedievalIcon name="hint" size={20} /><Text style={styles.bottomButtonText}>힌트</Text></View>
+          <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges >= 10 ? "망치가 가득 참" : "광고 시청 후 망치 하나 받기"} disabled={hammerCharges >= 10} onPress={() => { haptic.light(); void claimHammerAdReward(); }} style={({ pressed }) => [styles.cartoonActionButton, phoneLandscape && styles.bottomButtonPhoneLandscape, hammerCharges >= 10 && styles.cartoonActionButtonDisabled, pressed && styles.pressed]}>
+            <Image source={HAMMER_PLUS_ONE_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={`실행 취소, ${undoStack.length}회 남음`} disabled={undoStack.length === 0} onPress={undoLastMove} style={({ pressed }) => [styles.bottomButton, phoneLandscape && styles.bottomButtonPhoneLandscape, styles.undoButton, undoStack.length === 0 && styles.undoButtonDisabled, pressed && styles.pressed]}>
-            <View style={styles.bottomButtonContent}><MedievalIcon name="undo" size={20} /><Text style={styles.bottomButtonText}>실행 취소 ({undoStack.length})</Text></View>
+          <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.cartoonActionButton, phoneLandscape && styles.bottomButtonPhoneLandscape, pressed && styles.pressed]}>
+            <Image source={HINT_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={`실행 취소, ${undoStack.length}회 남음`} disabled={undoStack.length === 0} onPress={undoLastMove} style={({ pressed }) => [styles.cartoonActionButton, phoneLandscape && styles.bottomButtonPhoneLandscape, undoStack.length === 0 && styles.undoButtonDisabled, pressed && styles.pressed]}>
+            <Image source={UNDO_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
           </Pressable>
         </View>
         {hintMessage ? <View style={[styles.hintToast, isLandscape && styles.hintToastLandscape, phoneLandscape && { left: 8, right: undefined, width: Math.max(160, sideRailWidth - 16), bottom: 160 }]}><Text style={styles.hintToastText}>{hintMessage}</Text></View> : null}
@@ -1558,7 +1580,7 @@ export default function HomeScreen() {
               <Text style={styles.hammerOfferTitle}>히든 카드를 열어 길을 만들까요?</Text>
               <Text style={styles.hammerOfferCopy}>망치로 열지 않은 카드 1장을 즉시 공개해 스톡 옆 공개 영역에 놓을 수 있습니다.</Text>
               <View style={styles.noMovesPopupActions}>
-                <Pressable accessibilityRole="button" accessibilityLabel="망치 사용" onPress={() => { setHammerCharges((charges) => charges + 1); beginHammerMode(true); }} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>망치 사용</Text></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel="망치 사용" onPress={() => { setHammerCharges((charges) => Math.min(10, charges + 1)); beginHammerMode(true); }} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>망치 사용</Text></Pressable>
                 <Pressable accessibilityRole="button" accessibilityLabel="새로 시작" onPress={() => { setShowHammerOffer(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>새로 시작</Text></Pressable>
               </View>
             </View>
@@ -1837,6 +1859,9 @@ const styles = StyleSheet.create({
   bottomControlsLandscapeCompact: { gap: 8 },
   bottomControlsPhoneLandscape: { left: 0, flexDirection: "row", alignItems: "stretch", justifyContent: "flex-start", gap: 6 },
   bottomButton: { minWidth: 126, minHeight: 44, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1 },
+  cartoonActionButton: { width: 78, height: 58, justifyContent: "center", alignItems: "center", borderRadius: 14, overflow: "hidden" },
+  cartoonActionImage: { width: "100%", height: "100%" },
+  cartoonActionButtonDisabled: { opacity: 0.45 },
   bottomButtonPhoneLandscape: { flex: 1, minWidth: 0, minHeight: 44 },
   hammerPilesAnimated: { alignItems: "center", justifyContent: "center", marginHorizontal: 4 },
   hammerPilesButton: { alignItems: "center", justifyContent: "center", borderRadius: 12, borderWidth: 0, borderColor: "transparent", backgroundColor: "transparent", shadowOpacity: 0, elevation: 0 },
