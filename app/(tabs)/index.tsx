@@ -51,7 +51,7 @@ const CARD_RATIO = 1.42;
 const ROYAL_SPRITE = require("../../assets/images/royal-card-sprite.png");
 const RESET_MODAL_PANEL = { uri: "/manus-storage/solitaire-reset-modal-panel_5afc1a91.png" };
 const RESET_BUTTONS_ART = { uri: "/manus-storage/solitaire-reset-buttons_31124c25.png" };
-const FLAMING_CARD_ART = { uri: "/manus-storage/flaming-card-attack_5659a273.png" };
+const FLAMING_CARD_ART = require("../../assets/images/flaming-card-attack.png");
 const HAMMER_ICON_ART = require("../../assets/images/card-breaker-shark-hammer.png");
 const HINT_BUTTON_ART = require("../../assets/images/hint-cartoon-button.png");
 const UNDO_BUTTON_ART = require("../../assets/images/undo-cartoon-button.png");
@@ -418,6 +418,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
   const [attackVisible, setAttackVisible] = useState(false);
   const [damageVisible, setDamageVisible] = useState(false);
   const [defeatVisible, setDefeatVisible] = useState(false);
+  const [impactVariant, setImpactVariant] = useState(0);
   const damageProgress = useRef(new Animated.Value(0)).current;
   const comboImpactProgress = useRef(new Animated.Value(0)).current;
   const hpFlash = useRef(new Animated.Value(0)).current;
@@ -449,18 +450,12 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
     attackProgress.setValue(0);
     damageProgress.setValue(0);
     comboImpactProgress.setValue(0);
+    setImpactVariant(Math.floor(Math.random() * COMBO_IMPACT_ARTS.length));
     hpFlash.setValue(0);
-    const flashSequence = Animated.sequence([
-      Animated.timing(hpFlash, { toValue: 1, duration: 90, useNativeDriver: true }),
-      Animated.timing(hpFlash, { toValue: 0, duration: 90, useNativeDriver: true }),
-      Animated.timing(hpFlash, { toValue: 1, duration: 90, useNativeDriver: true }),
-      Animated.timing(hpFlash, { toValue: 0, duration: 180, useNativeDriver: true }),
-    ]);
     Animated.parallel([
       Animated.timing(attackProgress, { toValue: 1, duration: combo ? 1040 : 360, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       Animated.timing(damageProgress, { toValue: 1, duration: combo ? 1560 : 780, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      combo ? Animated.timing(comboImpactProgress, { toValue: 1, duration: 1040, easing: Easing.out(Easing.cubic), useNativeDriver: true }) : Animated.delay(0),
-      flashSequence,
+      Animated.timing(comboImpactProgress, { toValue: 1, duration: combo ? 1040 : 780, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
     ]).start(() => { setAttackVisible(false); setDamageVisible(false); });
   }, [attackToken, attackProgress, combo, comboImpactProgress, damageProgress, hpFlash]);
 
@@ -507,8 +502,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
       <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, transform: [{ translateX: monsterTranslate }, { translateY: bossEntranceTranslateY }, { scale: bossEntranceScale }] }]}>
         <Animated.View style={[styles.monsterImageLayer, { width: spriteSize, height: spriteSize, transform: [{ scale: monsterScale }, { scaleX: facingLeft ? -1 : 1 }] }]}>
           <Image source={monster.image} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, defeatVisible && styles.monsterDefeated]} accessibilityLabel={monster.name} />
-          <Animated.View pointerEvents="none" style={[styles.monsterRedFlash, { opacity: hpFlashOpacity }]} />
-          {combo && attackVisible ? <Animated.View pointerEvents="none" style={[styles.comboImpactOverlay, { width: spriteSize * 0.9, height: spriteSize * 0.9, left: spriteSize * 0.05, top: spriteSize * 0.05, opacity: comboImpactOpacity, transform: [{ scale: comboImpactScale }, { rotate: comboImpactRotate }] }]}><Image source={COMBO_IMPACT_ARTS[attackToken % COMBO_IMPACT_ARTS.length]} resizeMode="contain" style={styles.comboImpactImage} /></Animated.View> : null}
+          {attackVisible ? <Animated.View pointerEvents="none" style={[styles.comboImpactOverlay, { width: spriteSize * 0.9, height: spriteSize * 0.9, left: spriteSize * 0.05, top: spriteSize * 0.05, opacity: comboImpactOpacity, transform: [{ scale: comboImpactScale }, { rotate: comboImpactRotate }] }]}><Image source={COMBO_IMPACT_ARTS[impactVariant]} resizeMode="contain" style={styles.comboImpactImage} /></Animated.View> : null}
         </Animated.View>
         {attackVisible ? <Animated.Text style={[styles.monsterProjectile, { color: attackColors[attackKind], transform: [{ translateX: projectileTranslate }, { scale: projectileScale }] }]}>{attackSymbols[attackKind]}</Animated.Text> : null}
         {damageVisible ? <Animated.Text style={[styles.damageText, { opacity: damageOpacity, transform: [{ translateY: damageTranslateY }] }]}>−{damage}</Animated.Text> : null}
