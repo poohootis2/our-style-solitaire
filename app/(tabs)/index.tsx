@@ -336,11 +336,21 @@ function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0
   const scale = progress.interpolate({ inputRange: [0, 0.62, 1], outputRange: [1, 1.08, 0.5] });
   const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
   const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "720deg"] });
+  const tailOpacity = progress.interpolate({ inputRange: [0, 0.72, 1], outputRange: [0.95, 0.85, 0] });
+  const tailScale = progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.7, 1.05, 0.35] });
+  const tailTranslateY = progress.interpolate({ inputRange: [0, 1], outputRange: [18, -12] });
+  const flameParticles = ["✦", "•", "✧", "•", "✦", "•"];
   return (
-    <Animated.View pointerEvents="none" style={[styles.flyingCard, { left: startLeft, bottom: startBottom, width, height: cardHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}> 
-      {flaming ? <Image source={FLAMING_CARD_ART} resizeMode="stretch" style={styles.flamingCardArt} /> : null}
-      <Text style={[styles.flyingRank, { color }]}>{rankLabels[card.rank]}</Text>
-      <Text style={[styles.flyingSuit, { color }]}>{suitSymbols[card.suit]}</Text>
+    <Animated.View pointerEvents="none" style={[flaming ? styles.flamingFlyingCard : styles.flyingCard, { left: startLeft, bottom: startBottom, width, height: flaming ? cardHeight * 1.14 : cardHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}> 
+      {flaming ? <>
+        <Animated.View pointerEvents="none" style={[styles.flamingTailLayer, { opacity: tailOpacity, transform: [{ translateY: tailTranslateY }, { scale: tailScale }] }]}>
+          {flameParticles.map((particle, index) => <Text key={`${particle}-${index}`} style={[styles.flamingTailParticle, { left: `${12 + index * 14}%`, top: `${18 + (index % 3) * 24}%`, color: index % 2 ? "#FF7A18" : "#FFD45C", fontSize: 10 + (index % 3) * 5 }]}>{particle}</Text>)}
+        </Animated.View>
+        <Image source={FLAMING_CARD_ART} resizeMode="contain" style={styles.flamingCardArt} />
+      </> : <>
+        <Text style={[styles.flyingRank, { color }]}>{rankLabels[card.rank]}</Text>
+        <Text style={[styles.flyingSuit, { color }]}>{suitSymbols[card.suit]}</Text>
+      </>}
     </Animated.View>
   );
 }
@@ -1888,7 +1898,10 @@ const styles = StyleSheet.create({
   hammerModeHint: { position: "absolute", left: 18, right: 18, top: "44%", zIndex: 62, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 13, backgroundColor: "rgba(90, 41, 26, 0.96)", borderWidth: 2, borderColor: "#F3A85D", shadowColor: "#FFB86B", shadowOpacity: 0.75, shadowRadius: 11, elevation: 16 },
   hammerModeHintText: { color: "#FFF3D1", fontSize: 12, fontWeight: "900", textAlign: "center" },
   flyingCard: { position: "absolute", left: 16, bottom: 44, zIndex: 30, overflow: "hidden", borderRadius: 8, backgroundColor: "#FFFDF8", borderWidth: 2, borderColor: "#FF7A66", shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 9, elevation: 12 },
-  flamingCardArt: { position: "absolute", top: "-18%", left: "-18%", width: "136%", height: "136%", zIndex: 0 },
+  flamingFlyingCard: { position: "absolute", zIndex: 31, overflow: "visible", backgroundColor: "transparent", borderWidth: 0, shadowOpacity: 0, elevation: 0, alignItems: "center", justifyContent: "center" },
+  flamingCardArt: { position: "absolute", top: "-8%", left: "-8%", width: "116%", height: "116%", zIndex: 2 },
+  flamingTailLayer: { ...StyleSheet.absoluteFillObject, zIndex: 1, overflow: "visible" },
+  flamingTailParticle: { position: "absolute", fontWeight: "900", textShadowColor: "#FF4B12", textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8 },
   flyingRank: { position: "absolute", top: 6, left: 7, fontSize: 16, fontWeight: "900" },
   flyingSuit: { position: "absolute", top: "31%", width: "100%", textAlign: "center", fontSize: 30, fontWeight: "900" },
   fireworkLayer: { ...StyleSheet.absoluteFillObject, zIndex: 50, alignItems: "center", justifyContent: "center" },
