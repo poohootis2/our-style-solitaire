@@ -54,6 +54,11 @@ const RESET_BUTTONS_ART = { uri: "/manus-storage/solitaire-reset-buttons_31124c2
 const FLAMING_CARD_ART = { uri: "/manus-storage/flaming-card-attack_5659a273.png" };
 const HAMMER_ICON_ART = require("../../assets/images/card-breaker-shark-hammer.png");
 const HAMMER_IMPACT_ART = { uri: "/manus-storage/hammer-impact-burst_f5d30cb2.png" };
+const COMBO_IMPACT_ARTS = [
+  { uri: "/manus-storage/combo-impact-burst-1_48b789ea.png" },
+  { uri: "/manus-storage/combo-impact-burst-2_3dab5748.png" },
+  { uri: "/manus-storage/combo-impact-burst-3_c70f5265.png" },
+];
 const ACTIVE_GAME_KEY = "our-style-solitaire:active-game";
 const ACTIVE_GAME_SAVE_VERSION = 3;
 const RECORDS_KEY = "our-style-solitaire:records";
@@ -400,6 +405,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
   const [damageVisible, setDamageVisible] = useState(false);
   const [defeatVisible, setDefeatVisible] = useState(false);
   const damageProgress = useRef(new Animated.Value(0)).current;
+  const comboImpactProgress = useRef(new Animated.Value(0)).current;
   const hpFlash = useRef(new Animated.Value(0)).current;
   const defeatProgress = useRef(new Animated.Value(0)).current;
   const bossEntrance = useRef(new Animated.Value(isBoss ? 0 : 1)).current;
@@ -428,6 +434,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
     setDamageVisible(true);
     attackProgress.setValue(0);
     damageProgress.setValue(0);
+    comboImpactProgress.setValue(0);
     hpFlash.setValue(0);
     const flashSequence = Animated.sequence([
       Animated.timing(hpFlash, { toValue: 1, duration: 90, useNativeDriver: true }),
@@ -436,11 +443,12 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
       Animated.timing(hpFlash, { toValue: 0, duration: 180, useNativeDriver: true }),
     ]);
     Animated.parallel([
-      Animated.timing(attackProgress, { toValue: 1, duration: combo ? 520 : 360, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      Animated.timing(damageProgress, { toValue: 1, duration: 780, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(attackProgress, { toValue: 1, duration: combo ? 1040 : 360, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(damageProgress, { toValue: 1, duration: combo ? 1560 : 780, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      combo ? Animated.timing(comboImpactProgress, { toValue: 1, duration: 1040, easing: Easing.out(Easing.cubic), useNativeDriver: true }) : Animated.delay(0),
       flashSequence,
     ]).start(() => { setAttackVisible(false); setDamageVisible(false); });
-  }, [attackToken, attackProgress, damageProgress, hpFlash, combo]);
+  }, [attackToken, attackProgress, combo, comboImpactProgress, damageProgress, hpFlash]);
 
   useEffect(() => {
     bossEntrance.setValue(isBoss ? 0 : 1);
@@ -465,6 +473,9 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
   const projectileScale = attackProgress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.5, 1.15, 0.2] });
   const damageTranslateY = damageProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
   const damageOpacity = damageProgress.interpolate({ inputRange: [0, 0.65, 1], outputRange: [0, 1, 0] });
+  const comboImpactOpacity = comboImpactProgress.interpolate({ inputRange: [0, 0.12, 0.75, 1], outputRange: [0, 1, 0.92, 0] });
+  const comboImpactScale = comboImpactProgress.interpolate({ inputRange: [0, 0.2, 0.72, 1], outputRange: [0.45, 1, 1.12, 0.72] });
+  const comboImpactRotate = comboImpactProgress.interpolate({ inputRange: [0, 1], outputRange: ["-12deg", "16deg"] });
   const hpFlashOpacity = hpFlash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.92] });
   const bossEntranceScale = bossEntrance.interpolate({ inputRange: [0, 0.45, 1], outputRange: [2.6, 1.25, 1] });
   const bossEntranceTranslateY = bossEntrance.interpolate({ inputRange: [0, 1], outputRange: [-86, 0] });
@@ -483,6 +494,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
         <Animated.View style={[styles.monsterImageLayer, { width: spriteSize, height: spriteSize, transform: [{ scale: monsterScale }, { scaleX: facingLeft ? -1 : 1 }] }]}>
           <Image source={monster.image} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, defeatVisible && styles.monsterDefeated]} accessibilityLabel={monster.name} />
           <Animated.View pointerEvents="none" style={[styles.monsterRedFlash, { opacity: hpFlashOpacity }]} />
+          {combo && attackVisible ? <Animated.View pointerEvents="none" style={[styles.comboImpactOverlay, { width: spriteSize * 0.9, height: spriteSize * 0.9, left: spriteSize * 0.05, top: spriteSize * 0.05, opacity: comboImpactOpacity, transform: [{ scale: comboImpactScale }, { rotate: comboImpactRotate }] }]}><Image source={COMBO_IMPACT_ARTS[attackToken % COMBO_IMPACT_ARTS.length]} resizeMode="contain" style={styles.comboImpactImage} /></Animated.View> : null}
         </Animated.View>
         {attackVisible ? <Animated.Text style={[styles.monsterProjectile, { color: attackColors[attackKind], transform: [{ translateX: projectileTranslate }, { scale: projectileScale }] }]}>{attackSymbols[attackKind]}</Animated.Text> : null}
         {damageVisible ? <Animated.Text style={[styles.damageText, { opacity: damageOpacity, transform: [{ translateY: damageTranslateY }] }]}>−{damage}</Animated.Text> : null}
@@ -643,9 +655,9 @@ export default function HomeScreen() {
     comboCompanionScale.setValue(comboAttack ? 1 : 1);
     if (!comboAttack) return;
     const animation = Animated.sequence([
-      Animated.timing(comboCompanionScale, { toValue: 2, duration: 1150, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
-      Animated.delay(260),
-      Animated.timing(comboCompanionScale, { toValue: 1, duration: 520, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(comboCompanionScale, { toValue: 2, duration: 2300, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+      Animated.delay(520),
+      Animated.timing(comboCompanionScale, { toValue: 1, duration: 1040, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
     ]);
     animation.start();
     return () => animation.stop();
@@ -1026,9 +1038,9 @@ export default function HomeScreen() {
       }
       cursor = next;
       applyGame(next, false, move.card);
-      autoFinishTimerRef.current = setTimeout(step, 290);
+      autoFinishTimerRef.current = setTimeout(step, 580);
     };
-    autoFinishTimerRef.current = setTimeout(step, 220);
+    autoFinishTimerRef.current = setTimeout(step, 440);
   };
 
   const applyGame = (nextGame: typeof game | null, success = false, movedCard?: Card) => {
@@ -1049,7 +1061,7 @@ export default function HomeScreen() {
       setComboAttack(isCombo);
       setAttackToken((token) => token + 1);
       playEffect("foundationAttack");
-      if (isCombo) setTimeout(() => setComboAttack(false), 900);
+      if (isCombo) setTimeout(() => setComboAttack(false), 1800);
     }
     const previousProgress = game.foundations.clubs.length + game.foundations.diamonds.length + game.foundations.hearts.length + game.foundations.spades.length + game.tableau.flat().filter((card) => card.faceUp).length;
     const nextProgress = nextGame.foundations.clubs.length + nextGame.foundations.diamonds.length + nextGame.foundations.hearts.length + nextGame.foundations.spades.length + nextGame.tableau.flat().filter((card) => card.faceUp).length;
@@ -1105,19 +1117,17 @@ export default function HomeScreen() {
     if (slot === 0) {
       if (twoTouchOpensUsed > 0) { showTimedHint("무료 망치는 이미 사용했습니다."); return; }
       setTwoTouchOpensUsed(1);
-      setHammerCharges((charges) => charges + 1);
+      setHammerCharges((charges) => Math.min(5, charges + 1));
       setShowTwoTouch(false);
       setShowNoMovesPopup(false);
       beginHammerMode(true);
       showTimedHint("원하는 카드를 클릭하세요");
       return;
     }
-    const requestedReward = slot - 1;
-    setRewardedRetrySlot(slot === 1 ? 1 : 2);
+      setRewardedRetrySlot(1);
     if (twoTouchOpensUsed === 0) { showTimedHint("먼저 무료 망치를 사용해 주세요."); return; }
-    if (rewardedRevealUsed !== requestedReward) {
-      if (rewardedRevealUsed > requestedReward) showTimedHint(`${slot === 1 ? "AD +1" : "AD +2"} 망치는 이미 사용했습니다.`);
-      else showTimedHint("AD +1을 먼저 사용해 주세요.");
+    if (rewardedRevealUsed >= 5) {
+      showTimedHint("광고 망치는 최대 5개까지 사용할 수 있습니다.");
       return;
     }
     setRewardedAdError(null);
@@ -1129,11 +1139,11 @@ export default function HomeScreen() {
     }
     const nextRewardedCount = rewardedRevealUsed + 1;
     setRewardedRevealUsed(nextRewardedCount);
-    setHammerCharges((charges) => charges + 1);
+    setHammerCharges((charges) => Math.min(5, charges + 1));
     setShowTwoTouch(false);
     setShowNoMovesPopup(false);
     beginHammerMode(true);
-    showTimedHint(`원하는 카드를 클릭하세요 (광고 망치 ${nextRewardedCount}/2)`);
+    showTimedHint(`원하는 카드를 클릭하세요 (광고 망치 ${nextRewardedCount}/5)`);
   };
 
   const beginHammerMode = (allowRepeat = false) => {
@@ -1320,7 +1330,7 @@ export default function HomeScreen() {
   const companionBaseLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
   const companionBottom = bottomControlsBottom + 52 + (!isLandscape ? 1 : 0);
   const renderCardRatio = !isLandscape ? Math.max(0.8, cardRatio - 1 / Math.max(1, cardWidth)) : cardRatio;
-  const activeShuffleStep: 0 | 1 | 2 = twoTouchOpensUsed === 0 ? 0 : rewardedRevealUsed === 0 ? 1 : 2;
+  const activeShuffleStep: 0 | 1 | 2 = twoTouchOpensUsed === 0 ? 0 : rewardedRevealUsed < 5 ? 1 : 2;
   const shuffleHelpTitle = activeShuffleStep === 0 ? "무료 망치" : `광고 보상 망치 +${activeShuffleStep}`;
   const shuffleHelpCopy = activeShuffleStep === 0
     ? "열지 않은 카드 한 장을 공개해 스톡 옆 공개 영역에 놓습니다."
@@ -1492,7 +1502,7 @@ export default function HomeScreen() {
           <Animated.View style={[styles.hammerPilesAnimated, { width: cardWidth, height: cardWidth * renderCardRatio }, { opacity: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) : 0.72 }, { transform: [{ translateX: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: [-4, 4] }) }, { rotate: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: ["-5deg", "5deg"] }) }, { scale: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) : 1 }] }]}> 
             <Pressable accessibilityRole="button" accessibilityLabel={`망치 ${hammerCharges}개 남음`} onPress={() => beginHammerMode()} style={({ pressed }) => [styles.hammerPilesButton, { width: cardWidth, height: cardWidth * renderCardRatio }, hammerCharges > 0 && styles.hammerPilesButtonReady, pressed && styles.pressed]}>
               <Image source={HAMMER_ICON_ART} resizeMode="contain" style={[styles.hammerPilesIcon, { width: Math.min(cardWidth * 1.3, 84), height: Math.min(cardWidth * 1.3, 84) }, { transform: [{ translateY: hammerIdleMotion.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] }) }] }]} />
-              <Text style={[styles.hammerPilesCount, { fontSize: Math.max(15, Math.round(cardWidth * 0.18) + 5) }]}>{hammerCharges}/3</Text>
+              <Text style={[styles.hammerPilesCount, { fontSize: Math.max(15, Math.round(cardWidth * 0.18) + 5) }]}>{hammerCharges}/5</Text>
             </Pressable>
           </Animated.View>
           <View style={[styles.foundationGroup, { gap: Math.max(3, Math.round(cardWidth * 0.08)) }]}>
@@ -1772,6 +1782,8 @@ const styles = StyleSheet.create({
   monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
   monsterHpFlash: { position: "absolute", left: 0, top: 0, right: 0, bottom: 0, borderRadius: 3, backgroundColor: "#FF1F3D" },
   monsterRedFlash: { position: "absolute", left: "8%", top: "8%", width: "84%", height: "84%", borderRadius: 999, backgroundColor: "#FF1F3D" },
+  comboImpactOverlay: { position: "absolute", zIndex: 8, alignItems: "center", justifyContent: "center" },
+  comboImpactImage: { width: "100%", height: "100%" },
   monsterHp: { color: "#BCEAE2", fontSize: 11, fontWeight: "800", marginTop: 2 },
   monsterProjectile: { position: "absolute", left: 8, top: 12, fontSize: 24, fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 7 },
   companionAnchor: { position: "absolute", zIndex: 22, alignItems: "center", justifyContent: "center" },
