@@ -614,6 +614,9 @@ export default function HomeScreen() {
   const hammerImpact = useRef(new Animated.Value(0)).current;
   const hammerStrike = useRef(new Animated.Value(0)).current;
   const hammerImpactBurst = useRef(new Animated.Value(0)).current;
+  const hintAttention = useRef(new Animated.Value(0)).current;
+  const hintAttentionLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+  const hintIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const layoutTransition = useRef(new Animated.Value(1)).current;
   const bossIntroProgress = useRef(new Animated.Value(0)).current;
   const shuffleMotion = useRef(new Animated.Value(0)).current;
@@ -631,6 +634,35 @@ export default function HomeScreen() {
   const companionAttackPlayer = useAudioPlayer(require("../../assets/sounds/companion-attack.wav"));
   const foundationAttackPlayer = useAudioPlayer(require("../../assets/sounds/foundation-attack.wav"));
   const backgroundPlayer = useAudioPlayer(require("../../assets/sounds/medieval-solitaire-loop.mp3"));
+
+  const stopHintAttention = () => {
+    if (hintIdleTimerRef.current) {
+      clearTimeout(hintIdleTimerRef.current);
+      hintIdleTimerRef.current = null;
+    }
+    hintAttentionLoopRef.current?.stop();
+    hintAttentionLoopRef.current = null;
+    hintAttention.stopAnimation();
+    hintAttention.setValue(0);
+  };
+
+  const resetHintAttention = () => {
+    stopHintAttention();
+    hintIdleTimerRef.current = setTimeout(() => {
+      const loop = Animated.loop(Animated.sequence([
+        Animated.timing(hintAttention, { toValue: 1, duration: 620, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(hintAttention, { toValue: 0, duration: 620, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.delay(900),
+      ]));
+      hintAttentionLoopRef.current = loop;
+      loop.start();
+    }, 12000);
+  };
+
+  useEffect(() => {
+    resetHintAttention();
+    return () => stopHintAttention();
+  }, []);
 
   useEffect(() => {
     hammerShine.stopAnimation();
@@ -736,6 +768,7 @@ export default function HomeScreen() {
   useEffect(() => () => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     if (autoFinishTimerRef.current) clearTimeout(autoFinishTimerRef.current);
+    stopHintAttention();
     autoFinishRunningRef.current = false;
   }, []);
 
@@ -889,6 +922,7 @@ export default function HomeScreen() {
   }, [game, hydrated, paused]);
 
   const startNewGame = (level = game.level, resetProgress = false) => {
+    resetHintAttention();
     const manualReset = resetProgress;
     newGameStarted.current = true;
     bossWarningStageRef.current = null;
@@ -990,6 +1024,7 @@ export default function HomeScreen() {
   };
 
   const showHint = () => {
+    resetHintAttention();
     const hint = findHint(game);
     if (!hint) {
       setShowTwoTouch(true);
@@ -1056,6 +1091,7 @@ export default function HomeScreen() {
       haptic.error();
       return;
     }
+    resetHintAttention();
     const previousFoundationCount = SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0);
     const nextFoundationCount = SUITS.reduce((total, suit) => total + nextGame.foundations[suit].length, 0);
     const foundationMove = nextFoundationCount > previousFoundationCount;
@@ -1567,9 +1603,11 @@ export default function HomeScreen() {
           <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges >= 10 ? "망치가 가득 참" : "광고 시청 후 망치 하나 받기"} disabled={hammerCharges >= 10} onPress={() => { haptic.light(); void claimHammerAdReward(); }} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHammerButton, phoneLandscape && styles.bottomButtonPhoneLandscape, hammerCharges >= 10 && styles.cartoonActionButtonDisabled, pressed && styles.pressed]}>
             <Image source={HAMMER_PLUS_ONE_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHintButton, phoneLandscape && styles.bottomButtonPhoneLandscape, pressed && styles.pressed]}>
-            <Image source={HINT_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
-          </Pressable>
+          <Animated.View style={[styles.hintAttentionWrap, { opacity: hintAttention.interpolate({ inputRange: [0, 1], outputRange: [1, 0.62] }), transform: [{ scale: hintAttention.interpolate({ inputRange: [0, 1], outputRange: [1, 1.035] }) }, { rotate: hintAttention.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "-2deg"] }) }] }]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHintButton, phoneLandscape && styles.bottomButtonPhoneLandscape, pressed && styles.pressed]}>
+              <Image source={HINT_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
+            </Pressable>
+          </Animated.View>
           <Pressable accessibilityRole="button" accessibilityLabel={`실행 취소, ${undoStack.length}회 남음`} disabled={undoStack.length === 0} onPress={undoLastMove} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonUndoButton, phoneLandscape && styles.bottomButtonPhoneLandscape, undoStack.length === 0 && styles.undoButtonDisabled, pressed && styles.pressed]}>
             <Image source={UNDO_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
           </Pressable>
@@ -1865,6 +1903,7 @@ const styles = StyleSheet.create({
   bottomControlsPhoneLandscape: { left: 0, flexDirection: "row", alignItems: "stretch", justifyContent: "flex-start", gap: 6 },
   bottomButton: { minWidth: 126, minHeight: 44, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1 },
   cartoonActionButton: { width: 94, height: 52, justifyContent: "center", alignItems: "center", borderRadius: 0, overflow: "visible", zIndex: 41, elevation: 0, borderWidth: 0, backgroundColor: "transparent", shadowOpacity: 0 },
+  hintAttentionWrap: { width: 94, height: 52, justifyContent: "center", alignItems: "center", zIndex: 42 },
   cartoonHammerButton: { backgroundColor: "transparent", borderColor: "transparent" },
   cartoonHintButton: { backgroundColor: "transparent", borderColor: "transparent" },
   cartoonUndoButton: { backgroundColor: "transparent", borderColor: "transparent" },
