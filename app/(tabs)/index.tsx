@@ -543,10 +543,10 @@ export default function HomeScreen() {
   // Reserve the additional header spacing used by the inline landscape banner.
   // This keeps the banner, title, and action buttons on separate visual lanes.
   const layoutExtraReservedHeight = isLandscape ? (phoneLandscape ? 16 : 18) : 58;
-  const bottomControlsBottom = isLandscape ? systemBottomInset + 4 : Math.max(58, systemBottomInset + 16);
+  const bottomControlsBottom = isLandscape ? systemBottomInset + 4 : Math.max(92, systemBottomInset + 28);
   // In portrait, keep the banner below the action buttons while reserving the
   // system navigation inset so it never sits under the home indicator.
-  const portraitBannerBottom = Math.max(4, bottomControlsBottom - 52);
+  const portraitBannerBottom = Math.max(4, bottomControlsBottom - 64);
   const { boardWidth, cardWidth, cardRatio, compact, stackOffset, tableauGap, uiScale, sideRailWidth } = getGameLayout(
     safeScreenWidth,
     safeScreenHeight,
@@ -1348,7 +1348,7 @@ export default function HomeScreen() {
   const companionSize = Math.max(61, Math.round(cardWidth * 1.64 * 0.9));
   const companionBaseLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
   const companionBottom = bottomControlsBottom + 52 + (!isLandscape ? 1 : 0);
-  const renderCardRatio = !isLandscape ? Math.max(0.8, cardRatio - 1 / Math.max(1, cardWidth)) : cardRatio;
+  const renderCardRatio = !isLandscape ? Math.max(0.76, cardRatio * 0.95) : cardRatio;
   const activeShuffleStep: 0 | 1 | 2 = twoTouchOpensUsed === 0 ? 0 : rewardedRevealUsed < 10 ? 1 : 2;
   const shuffleHelpTitle = activeShuffleStep === 0 ? "무료 망치" : `광고 보상 망치 +${activeShuffleStep}`;
   const shuffleHelpCopy = activeShuffleStep === 0
@@ -1559,14 +1559,17 @@ export default function HomeScreen() {
         <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} onPress={() => undefined} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
-          <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges >= 10 ? "망치가 가득 참" : "광고 시청 후 망치 하나 받기"} disabled={hammerCharges >= 10} onPress={() => { haptic.light(); void claimHammerAdReward(); }} style={({ pressed }) => [styles.cartoonActionButton, phoneLandscape && styles.bottomButtonPhoneLandscape, hammerCharges >= 10 && styles.cartoonActionButtonDisabled, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges >= 10 ? "망치가 가득 참" : "광고 시청 후 망치 하나 받기"} disabled={hammerCharges >= 10} onPress={() => { haptic.light(); void claimHammerAdReward(); }} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHammerButton, phoneLandscape && styles.bottomButtonPhoneLandscape, hammerCharges >= 10 && styles.cartoonActionButtonDisabled, pressed && styles.pressed]}>
             <Image source={HAMMER_PLUS_ONE_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
+            <Text style={styles.cartoonActionLabel}>망치 +1</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.cartoonActionButton, phoneLandscape && styles.bottomButtonPhoneLandscape, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHintButton, phoneLandscape && styles.bottomButtonPhoneLandscape, pressed && styles.pressed]}>
             <Image source={HINT_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
+            <Text style={styles.cartoonActionLabel}>힌트</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={`실행 취소, ${undoStack.length}회 남음`} disabled={undoStack.length === 0} onPress={undoLastMove} style={({ pressed }) => [styles.cartoonActionButton, phoneLandscape && styles.bottomButtonPhoneLandscape, undoStack.length === 0 && styles.undoButtonDisabled, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`실행 취소, ${undoStack.length}회 남음`} disabled={undoStack.length === 0} onPress={undoLastMove} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonUndoButton, phoneLandscape && styles.bottomButtonPhoneLandscape, undoStack.length === 0 && styles.undoButtonDisabled, pressed && styles.pressed]}>
             <Image source={UNDO_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
+            <Text style={styles.cartoonActionLabel}>실행 취소</Text>
           </Pressable>
         </View>
         {hintMessage ? <View style={[styles.hintToast, isLandscape && styles.hintToastLandscape, phoneLandscape && { left: 8, right: undefined, width: Math.max(160, sideRailWidth - 16), bottom: 160 }]}><Text style={styles.hintToastText}>{hintMessage}</Text></View> : null}
@@ -1854,13 +1857,17 @@ const styles = StyleSheet.create({
   tableauLandscape: { flexGrow: 0 },
   tableauColumn: { position: "relative" },
   portraitAdBanner: { position: "absolute", left: 0, right: 0, zIndex: 9, alignItems: "center" },
-  bottomControls: { position: "absolute", left: 0, right: 0, bottom: 58, zIndex: 10, flexDirection: "row", alignSelf: "center", justifyContent: "center", gap: 10 },
+  bottomControls: { position: "absolute", left: 0, right: 0, bottom: 58, zIndex: 40, elevation: 20, flexDirection: "row", alignSelf: "center", justifyContent: "center", gap: 8 },
   bottomControlsLandscape: { bottom: 4 },
   bottomControlsLandscapeCompact: { gap: 8 },
   bottomControlsPhoneLandscape: { left: 0, flexDirection: "row", alignItems: "stretch", justifyContent: "flex-start", gap: 6 },
   bottomButton: { minWidth: 126, minHeight: 44, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1 },
-  cartoonActionButton: { width: 78, height: 58, justifyContent: "center", alignItems: "center", borderRadius: 14, overflow: "hidden" },
-  cartoonActionImage: { width: "100%", height: "100%" },
+  cartoonActionButton: { width: 76, height: 58, justifyContent: "center", alignItems: "center", borderRadius: 14, overflow: "hidden", zIndex: 41, elevation: 21, borderWidth: 2 },
+  cartoonHammerButton: { backgroundColor: "#80502B", borderColor: "#FFD86B" },
+  cartoonHintButton: { backgroundColor: "#205F68", borderColor: "#9BE4D5" },
+  cartoonUndoButton: { backgroundColor: "#5B3C68", borderColor: "#D7A8FF" },
+  cartoonActionImage: { ...StyleSheet.absoluteFillObject },
+  cartoonActionLabel: { color: "#FFFDF8", fontSize: 11, lineHeight: 14, fontWeight: "900", textAlign: "center", textShadowColor: "#17233C", textShadowRadius: 3, zIndex: 2 },
   cartoonActionButtonDisabled: { opacity: 0.45 },
   bottomButtonPhoneLandscape: { flex: 1, minWidth: 0, minHeight: 44 },
   hammerPilesAnimated: { alignItems: "center", justifyContent: "center", marginHorizontal: 4 },
