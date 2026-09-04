@@ -86,13 +86,31 @@ export function isChapterBossStage(stage: number): boolean {
 }
 
 export function getDifficulty(level: number): Difficulty {
-  if (level <= 3) return { drawCount: 1, maxRecycles: Number.POSITIVE_INFINITY, label: level === 1 ? "입문" : "도전" };
-  if (level <= 5) return { drawCount: 2, maxRecycles: Math.max(1, 6 - level), label: "전문가" };
-  return {
-    drawCount: 3,
-    maxRecycles: Math.max(0, 6 - Math.min(level, 6)),
-    label: "마스터",
-  };
+  // Casual mobile pacing: stages 1–5 stay on Turn 1 so new players can learn
+  // the rules, while chapter-boss stages add Turn 3 as a special challenge.
+  if (isChapterBossStage(level)) return { drawCount: 3, maxRecycles: 3, label: "보스 도전" };
+  if (level <= 5) return { drawCount: 1, maxRecycles: Number.POSITIVE_INFINITY, label: level <= 2 ? "입문" : "초반 도전" };
+  // Mix Turn 1 and Turn 3 during the mid-game instead of increasing difficulty
+  // monotonically. Every third stage gives a short challenge spike.
+  if (level <= 15) return { drawCount: level % 3 === 0 ? 3 : 1, maxRecycles: level % 3 === 0 ? 2 : 3, label: level % 3 === 0 ? "중반 도전" : "중반" };
+  return { drawCount: 3, maxRecycles: Math.max(1, 6 - Math.min(level - 15, 5)), label: "마스터" };
+}
+
+function minimumInitialMoves(level: number): number {
+  if (level <= 2) return 3;
+  if (level <= 5) return 2;
+  if (level <= 15) return 1;
+  return 0;
+}
+
+function countInitialMoves(tableau: Card[][]): number {
+  const visible = tableau.map((pile) => pile.at(-1)).filter((card): card is Card => Boolean(card));
+  const aceMoves = visible.filter((card) => card.rank === 1).length;
+  const tableauMoves = visible.reduce((count, card, sourceIndex) => count + visible.reduce((inner, destination, destinationIndex) => {
+    if (sourceIndex === destinationIndex) return inner;
+    return inner + (canPlaceOnTableau(card, destination) ? 1 : 0);
+  }, 0), 0);
+  return aceMoves + tableauMoves;
 }
 
 function makeDeck(): Card[] {
@@ -148,20 +166,26 @@ function withMove(game: GameState, scoreDelta = 0): GameState {
 }
 
 export function createNewGame(level = 1): GameState {
-  // Every level starts from a fresh Fisher–Yates shuffle. Difficulty changes
-  // only the stock draw rule, never the card order, so low levels do not reveal
-  // predictable A-2-3-4 sequences.
-  const deck = shuffle(makeDeck());
-  const tableau: Card[][] = [];
+  // Re-deal until the opening tableau has the requested number of legal moves.
+  // This preserves the classic layout and randomness while preventing an
+  // unnecessarily dead opening in the tutorial and early stages.
+  let deck = shuffle(makeDeck());
+  let tableau: Card[][] = [];
   let deckIndex = 0;
-
-  for (let column = 0; column < 7; column += 1) {
-    const pile = deck.slice(deckIndex, deckIndex + column + 1).map((card, index) => ({
-      ...card,
-      faceUp: index === column,
-    }));
-    tableau.push(pile);
-    deckIndex += column + 1;
+  const requiredMoves = minimumInitialMoves(level);
+  for (let attempt = 0; attempt < 500; attempt += 1) {
+    tableau = [];
+    deckIndex = 0;
+    for (let column = 0; column < 7; column += 1) {
+      const pile = deck.slice(deckIndex, deckIndex + column + 1).map((card, index) => ({
+        ...card,
+        faceUp: index === column,
+      }));
+      tableau.push(pile);
+      deckIndex += column + 1;
+    }
+    if (countInitialMoves(tableau) >= requiredMoves) break;
+    deck = shuffle(makeDeck());
   }
 
   return {

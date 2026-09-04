@@ -53,9 +53,9 @@ const RESET_MODAL_PANEL = { uri: "/manus-storage/solitaire-reset-modal-panel_5af
 const RESET_BUTTONS_ART = { uri: "/manus-storage/solitaire-reset-buttons_31124c25.png" };
 const FLAMING_CARD_ART = { uri: "/manus-storage/flaming-card-attack_5659a273.png" };
 const HAMMER_ICON_ART = require("../../assets/images/card-breaker-shark-hammer.png");
-const HINT_BUTTON_ART = { uri: "/manus-storage/hint-cartoon-button_44269b61.png" };
-const UNDO_BUTTON_ART = { uri: "/manus-storage/undo-cartoon-button_caeac722.png" };
-const HAMMER_PLUS_ONE_BUTTON_ART = { uri: "/manus-storage/hammer-plus-one-cartoon-button_474c6c70.png" };
+const HINT_BUTTON_ART = require("../../assets/images/hint-cartoon-button.png");
+const UNDO_BUTTON_ART = require("../../assets/images/undo-cartoon-button.png");
+const HAMMER_PLUS_ONE_BUTTON_ART = require("../../assets/images/hammer-plus-one-cartoon-button.png");
 const HAMMER_IMPACT_ART = { uri: "/manus-storage/hammer-impact-burst_f5d30cb2.png" };
 const COMBO_IMPACT_ARTS = [
   { uri: "/manus-storage/combo-impact-burst-1_48b789ea.png" },
@@ -1561,15 +1561,12 @@ export default function HomeScreen() {
 
           <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges >= 10 ? "망치가 가득 참" : "광고 시청 후 망치 하나 받기"} disabled={hammerCharges >= 10} onPress={() => { haptic.light(); void claimHammerAdReward(); }} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHammerButton, phoneLandscape && styles.bottomButtonPhoneLandscape, hammerCharges >= 10 && styles.cartoonActionButtonDisabled, pressed && styles.pressed]}>
             <Image source={HAMMER_PLUS_ONE_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
-            <Text style={styles.cartoonActionLabel}>망치 +1</Text>
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="힌트 보기" onPress={showHint} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHintButton, phoneLandscape && styles.bottomButtonPhoneLandscape, pressed && styles.pressed]}>
             <Image source={HINT_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
-            <Text style={styles.cartoonActionLabel}>힌트</Text>
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel={`실행 취소, ${undoStack.length}회 남음`} disabled={undoStack.length === 0} onPress={undoLastMove} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonUndoButton, phoneLandscape && styles.bottomButtonPhoneLandscape, undoStack.length === 0 && styles.undoButtonDisabled, pressed && styles.pressed]}>
             <Image source={UNDO_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
-            <Text style={styles.cartoonActionLabel}>실행 취소</Text>
           </Pressable>
         </View>
         {hintMessage ? <View style={[styles.hintToast, isLandscape && styles.hintToastLandscape, phoneLandscape && { left: 8, right: undefined, width: Math.max(160, sideRailWidth - 16), bottom: 160 }]}><Text style={styles.hintToastText}>{hintMessage}</Text></View> : null}
@@ -1862,13 +1859,12 @@ const styles = StyleSheet.create({
   bottomControlsLandscapeCompact: { gap: 8 },
   bottomControlsPhoneLandscape: { left: 0, flexDirection: "row", alignItems: "stretch", justifyContent: "flex-start", gap: 6 },
   bottomButton: { minWidth: 126, minHeight: 44, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1 },
-  cartoonActionButton: { width: 76, height: 58, justifyContent: "center", alignItems: "center", borderRadius: 14, overflow: "hidden", zIndex: 41, elevation: 21, borderWidth: 2 },
+  cartoonActionButton: { width: 76, height: 47, justifyContent: "center", alignItems: "center", borderRadius: 14, overflow: "hidden", zIndex: 41, elevation: 21, borderWidth: 2 },
   cartoonHammerButton: { backgroundColor: "#80502B", borderColor: "#FFD86B" },
   cartoonHintButton: { backgroundColor: "#205F68", borderColor: "#9BE4D5" },
   cartoonUndoButton: { backgroundColor: "#5B3C68", borderColor: "#D7A8FF" },
   cartoonActionImage: { ...StyleSheet.absoluteFillObject },
-  cartoonActionLabel: { color: "#FFFDF8", fontSize: 11, lineHeight: 14, fontWeight: "900", textAlign: "center", textShadowColor: "#17233C", textShadowRadius: 3, zIndex: 2 },
-  cartoonActionButtonDisabled: { opacity: 0.45 },
+    cartoonActionButtonDisabled: { opacity: 0.45 },
   bottomButtonPhoneLandscape: { flex: 1, minWidth: 0, minHeight: 44 },
   hammerPilesAnimated: { alignItems: "center", justifyContent: "center", marginHorizontal: 4 },
   hammerPilesButton: { alignItems: "center", justifyContent: "center", borderRadius: 12, borderWidth: 0, borderColor: "transparent", backgroundColor: "transparent", shadowOpacity: 0, elevation: 0 },
