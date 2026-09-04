@@ -76,6 +76,7 @@ const INITIAL_UNLOCKED_PET_IDS = ["cloud-tiger", "gumiho-tail", "mochi-rabbit"];
 const PHYSICAL_EDGE_INSET = 52;
 const MAX_UNDO_STEPS = 3;
 const CARD_ATTACK_FLIGHT_DURATION = 1500;
+const FLAMING_CARD_FLIGHT_DURATION = CARD_ATTACK_FLIGHT_DURATION * 2;
 const FLYING_CARD_DURATION = CARD_ATTACK_FLIGHT_DURATION;
 const emptyRecords: Records = { wins: 0, bestScore: 0, bestTimeSeconds: null };
 
@@ -975,7 +976,7 @@ export default function HomeScreen() {
     setFlyingCard(card);
     setFlyingCardVariant(flaming ? "flaming" : "normal");
     flightProgress.setValue(0);
-    Animated.timing(flightProgress, { toValue: 1, duration: FLYING_CARD_DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setFlyingCard(null));
+    Animated.timing(flightProgress, { toValue: 1, duration: flaming ? FLAMING_CARD_FLIGHT_DURATION : FLYING_CARD_DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setFlyingCard(null));
   };
 
   const cardFromSource = (source: CardSource): Card | undefined => {
