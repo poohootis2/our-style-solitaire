@@ -68,6 +68,7 @@ const HAMMER_ICON_ART = require("../../assets/images/card-breaker-shark-hammer.p
 const HINT_BUTTON_ART = require("../../assets/images/hint-cartoon-button.webp");
 const UNDO_BUTTON_ART = require("../../assets/images/undo-cartoon-button.webp");
 const HAMMER_PLUS_ONE_BUTTON_ART = require("../../assets/images/hammer-plus-one-cartoon-button.webp");
+const DAILY_CHECKIN_ART = { uri: "/manus-storage/daily-checkin-cartoon-button_1de4a333.png" };
 const HAMMER_IMPACT_ART = { uri: "/manus-storage/hammer-impact-burst_f5d30cb2.png" };
 const COMBO_IMPACT_ARTS = [
   { uri: "/manus-storage/combo-impact-burst-1_48b789ea.png" },
@@ -84,6 +85,7 @@ const BACKGROUND_MUSIC_VOLUME_KEY = "our-style-solitaire:background-music-volume
 const CARD_SELECT_VIBRATION_KEY = "our-style-solitaire:card-select-vibration";
 const SELECTED_COMPANION_KEY = "our-style-solitaire:selected-companion";
 const UNLOCKED_PETS_KEY = "our-style-solitaire:unlocked-pets";
+const ATTENDANCE_KEY = "our-style-solitaire:attendance";
 const INITIAL_UNLOCKED_PET_IDS = ["cloud-tiger", "gumiho-tail", "mochi-rabbit"];
 const PHYSICAL_EDGE_INSET = 52;
 const MAX_UNDO_STEPS = 3;
@@ -113,6 +115,13 @@ function gameStateFingerprint(state: GameState): string {
     tableau: state.tableau.map(cards),
     destroyed: cards(state.destroyedCards ?? []),
   });
+}
+
+function localDateKey(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function formatDuration(totalSeconds: number): string {
@@ -577,6 +586,10 @@ export default function HomeScreen() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [paused, setPaused] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
+  const [rulesTab, setRulesTab] = useState<"basic" | "cards" | "items">("basic");
+  const [attendanceDay, setAttendanceDay] = useState(0);
+  const [lastAttendanceDate, setLastAttendanceDate] = useState<string | null>(null);
+  const [showAttendanceClaim, setShowAttendanceClaim] = useState(false);
   const [records, setRecords] = useState<Records>(emptyRecords);
   const [hydrated, setHydrated] = useState(false);
   const [soundEffectsEnabled, setSoundEffectsEnabled] = useState(true);
@@ -795,7 +808,7 @@ export default function HomeScreen() {
     let mounted = true;
     const loadLocalGame = async () => {
       try {
-        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, cardSelectVibrationValue, selectedCompanionValue, unlockedPetsValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, CARD_SELECT_VIBRATION_KEY, SELECTED_COMPANION_KEY, UNLOCKED_PETS_KEY]);
+        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, cardSelectVibrationValue, selectedCompanionValue, unlockedPetsValue, attendanceValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, CARD_SELECT_VIBRATION_KEY, SELECTED_COMPANION_KEY, UNLOCKED_PETS_KEY, ATTENDANCE_KEY]);
         if (!mounted) return;
         if (activeGameValue[1] && !newGameStarted.current) {
           const saved = JSON.parse(activeGameValue[1]) as { saveVersion?: number; game?: typeof game; elapsedSeconds?: number };
@@ -819,7 +832,18 @@ export default function HomeScreen() {
         if (selectedCompanionValue[1]) setSelectedCompanionId(selectedCompanionValue[1]);
         if (unlockedPetsValue[1]) {
           const savedUnlocked = JSON.parse(unlockedPetsValue[1]);
-          if (Array.isArray(savedUnlocked)) setUnlockedPetIds(Array.from(new Set([...INITIAL_UNLOCKED_PET_IDS, ...savedUnlocked.filter((id): id is string => typeof id === "string")])));
+          if (Array.isArray(savedUnlocked)) {
+            const restoredPets = Array.from(new Set([
+              ...INITIAL_UNLOCKED_PET_IDS,
+              ...savedUnlocked.filter((id): id is string => typeof id === "string"),
+            ]));
+            setUnlockedPetIds(restoredPets);
+          }
+        }
+        if (attendanceValue[1]) {
+          const savedAttendance = JSON.parse(attendanceValue[1]) as { day?: number; lastDate?: string | null };
+          setAttendanceDay(typeof savedAttendance.day === "number" ? Math.max(0, savedAttendance.day) : 0);
+          setLastAttendanceDate(typeof savedAttendance.lastDate === "string" ? savedAttendance.lastDate : null);
         }
       } catch {
         // A fresh local game is retained when storage is unavailable or malformed.
@@ -886,6 +910,17 @@ export default function HomeScreen() {
     AsyncStorage.setItem(UNLOCKED_PETS_KEY, JSON.stringify(unlockedPetIds)).catch(() => undefined);
   }, [hydrated, unlockedPetIds]);
 
+  useEffect(() => {
+    if (!hydrated) return;
+    AsyncStorage.setItem(ATTENDANCE_KEY, JSON.stringify({ day: attendanceDay, lastDate: lastAttendanceDate })).catch(() => undefined);
+  }, [attendanceDay, hydrated, lastAttendanceDate]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    setRulesTab("basic");
+    setPaused(true);
+    setSheet("rules");
+  }, [hydrated]);
 
   useEffect(() => {
     for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer]) {
@@ -1187,6 +1222,23 @@ export default function HomeScreen() {
       showTimedHint(nextChapter !== battleContent.chapter ? `챕터 ${nextChapter} 보스가 등장합니다. 스테이지 ${nextStage} 시작!` : `스테이지 ${nextStage}로 이동합니다.`);
       setTimeout(() => startNewGame(nextStage), 2350);
     }
+  };
+
+  const claimAttendance = () => {
+    const today = localDateKey();
+    if (lastAttendanceDate === today) {
+      showTimedHint("오늘 출석은 이미 완료했습니다.");
+      setShowAttendanceClaim(false);
+      return;
+    }
+    const nextDay = attendanceDay + 1;
+    const reward = nextDay === 10 || nextDay === 20 || nextDay === 30 ? 5 : 2;
+    setAttendanceDay(nextDay);
+    setLastAttendanceDate(today);
+    setHammerCharges((charges) => Math.min(10, charges + reward));
+    setShowAttendanceClaim(false);
+    showTimedHint(`${nextDay}일차 출석 완료 · 망치 +${reward}`);
+    haptic.success();
   };
 
   const useShuffleBonus = async (slot: 0 | 1 | 2) => {
@@ -1596,6 +1648,9 @@ export default function HomeScreen() {
           </View>
           {isLandscape ? <View style={[styles.landscapeHeaderBanner, phoneLandscape && styles.landscapeHeaderBannerPhone]}><AdBanner compact inline /></View> : null}
           <View style={[styles.headerActions, compactControls && styles.headerActionsCompact, phoneLandscape && styles.headerActionsPhoneLandscape]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="출석체크" onPress={() => { haptic.light(); setShowAttendanceClaim(true); }} style={({ pressed }) => [styles.attendanceHeaderButton, compactControls && styles.iconButtonCompact, pressed && styles.pressed]}>
+              <Image source={DAILY_CHECKIN_ART} resizeMode="contain" style={styles.attendanceHeaderImage} />
+            </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="가능한 카드 자동 정리" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, compactControls && styles.autoButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="auto" size={19} />
             </Pressable>
@@ -1740,6 +1795,19 @@ export default function HomeScreen() {
           </View>
         </Modal>
 
+        <Modal transparent visible={showAttendanceClaim} animationType="fade" onRequestClose={() => setShowAttendanceClaim(false)}>
+          <View style={styles.modalBackdropCenter}>
+            <View style={styles.attendanceCard}>
+              <Pressable accessibilityRole="button" accessibilityLabel="출석체크 닫기" onPress={() => setShowAttendanceClaim(false)} style={({ pressed }) => [styles.noMovesPopupClose, pressed && styles.pressed]}><Text style={styles.noMovesPopupCloseText}>×</Text></Pressable>
+              <Image source={DAILY_CHECKIN_ART} resizeMode="contain" style={styles.attendanceModalImage} />
+              <Text style={styles.attendanceTitle}>출석체크</Text>
+              <Text style={styles.attendanceCopy}>{lastAttendanceDate === localDateKey() ? `오늘 출석 완료 · ${attendanceDay}일차` : `다음 출석 보상 · ${attendanceDay + 1}일차`}</Text>
+              <Text style={styles.attendanceReward}>{lastAttendanceDate === localDateKey() ? "오늘 보상은 이미 받았습니다." : `망치 +${attendanceDay + 1 === 10 || attendanceDay + 1 === 20 || attendanceDay + 1 === 30 ? 5 : 2} · 최대 10개 보유`}</Text>
+              <Pressable disabled={lastAttendanceDate === localDateKey()} onPress={claimAttendance} style={({ pressed }) => [styles.attendanceClaimButton, lastAttendanceDate === localDateKey() && styles.attendanceClaimButtonDisabled, pressed && styles.pressed]}><Text style={styles.attendanceClaimText}>{lastAttendanceDate === localDateKey() ? "오늘 출석 완료" : "오늘 출석 받기"}</Text></Pressable>
+            </View>
+          </View>
+        </Modal>
+
 
         <Modal transparent visible={sheet !== null} animationType="fade" onRequestClose={() => { setPaused(false); setSheet(null); }}>
           <View style={styles.modalBackdrop}>
@@ -1817,11 +1885,16 @@ export default function HomeScreen() {
               ) : null}
               {sheet === "rules" ? (
                 <>
+                  <Pressable accessibilityRole="button" accessibilityLabel="게임 룰 닫기" onPress={() => { setPaused(false); setSheet(null); }} style={({ pressed }) => [styles.rulesClose, pressed && styles.pressed]}><Text style={styles.rulesCloseText}>×</Text></Pressable>
                   <Text style={styles.sheetEyebrow}>HOW TO PLAY</Text>
-                  <Text style={styles.sheetTitle}>클론다이크 규칙</Text>
-                  <Text style={styles.rulesText}>카드는 색을 번갈아 놓으면서 숫자가 하나씩 낮아지게 쌓습니다. 빈 열에는 K만 놓을 수 있습니다. A부터 같은 무늬 순서로 위쪽 파운데이션을 모두 완성하면 승리합니다.</Text>
-                  <Text style={styles.rulesHint}>카드를 탭한 뒤 이동할 곳을 탭하세요. 스톡을 탭하면 새 카드가 한 장 나옵니다.</Text>
-                  <Pressable onPress={() => setSheet("menu")} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>알겠습니다</Text></Pressable>
+                  <Text style={styles.sheetTitle}>게임 룰</Text>
+                  <View style={styles.rulesTabs}>
+                    {([["basic", "기본 규칙"], ["cards", "카드 이동"], ["items", "공격·아이템"]] as const).map(([tab, label]) => <Pressable key={tab} onPress={() => setRulesTab(tab)} style={({ pressed }) => [styles.rulesTab, rulesTab === tab && styles.rulesTabActive, pressed && styles.pressed]}><Text style={[styles.rulesTabText, rulesTab === tab && styles.rulesTabTextActive]}>{label}</Text></Pressable>)}
+                  </View>
+                  {rulesTab === "basic" ? <Text style={styles.rulesText}>A부터 같은 무늬 순서로 위쪽 파운데이션을 완성하면 승리합니다. 카드는 색을 번갈아 놓고 숫자가 하나씩 낮아지게 쌓습니다.</Text> : null}
+                  {rulesTab === "cards" ? <Text style={styles.rulesText}>카드를 탭한 뒤 이동할 곳을 탭하세요. 빈 열에는 K만 놓을 수 있습니다. 스톡을 탭하면 새 카드가 나오며, 힌트와 실행 취소로 진행을 도울 수 있습니다.</Text> : null}
+                  {rulesTab === "items" ? <Text style={styles.rulesText}>카드가 몬스터에게 날아가며 파운데이션 카드와 콤보 공격은 피해를 줍니다. 망치는 히든 카드 공개에 사용하고, 출석과 보상형 광고로 최대 10개까지 충전할 수 있습니다.</Text> : null}
+                  <Pressable onPress={() => { setPaused(false); setSheet(null); }} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>게임 시작하기</Text></Pressable>
                 </>
               ) : null}
             </View>
@@ -2112,6 +2185,23 @@ const styles = StyleSheet.create({
   recordCard: { flex: 1, minHeight: 83, justifyContent: "center", alignItems: "center", borderRadius: 15, backgroundColor: "#152542", borderWidth: 1, borderColor: "#36527A", paddingHorizontal: 4 },
   recordValue: { color: "#FFFDF8", fontSize: 18, fontWeight: "900", fontVariant: ["tabular-nums"] },
   recordLabel: { color: "#A6B4CE", fontSize: 10, fontWeight: "700", marginTop: 5 },
+  rulesClose: { position: "absolute", top: 14, right: 16, width: 34, height: 34, alignItems: "center", justifyContent: "center", zIndex: 3, borderRadius: 17, backgroundColor: "#152542" },
+  rulesCloseText: { color: "#FFF3D1", fontSize: 24, lineHeight: 27, fontWeight: "900" },
+  rulesTabs: { flexDirection: "row", gap: 7, marginTop: 18, marginBottom: 4 },
+  rulesTab: { flex: 1, minHeight: 40, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "#152542", borderWidth: 1, borderColor: "#36527A" },
+  rulesTabActive: { backgroundColor: "#2B6B72", borderColor: "#77D6C3" },
+  rulesTabText: { color: "#A6B4CE", fontSize: 11, fontWeight: "800" },
+  rulesTabTextActive: { color: "#FFFDF8" },
+  attendanceHeaderButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 13, overflow: "hidden" },
+  attendanceHeaderImage: { width: 40, height: 40 },
+  attendanceCard: { position: "relative", width: "88%", maxWidth: 330, alignItems: "center", padding: 22, paddingTop: 26, borderRadius: 24, borderWidth: 2, borderColor: "#F3C969", backgroundColor: "#1E3153", shadowColor: "#000000", shadowOpacity: 0.46, shadowRadius: 20, elevation: 20 },
+  attendanceModalImage: { width: 96, height: 54, marginBottom: 5 },
+  attendanceTitle: { color: "#FFF3D1", fontSize: 22, fontWeight: "900", textAlign: "center" },
+  attendanceCopy: { color: "#D4E2F7", fontSize: 14, fontWeight: "800", textAlign: "center", marginTop: 9 },
+  attendanceReward: { color: "#77D6C3", fontSize: 13, fontWeight: "800", textAlign: "center", marginTop: 7 },
+  attendanceClaimButton: { minWidth: 170, minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: "#F3C969", marginTop: 18, paddingHorizontal: 18 },
+  attendanceClaimButtonDisabled: { backgroundColor: "#465A7F", opacity: 0.75 },
+  attendanceClaimText: { color: "#17233C", fontSize: 14, fontWeight: "900" },
   rulesText: { color: "#FFFDF8", fontSize: 15, lineHeight: 23, marginTop: 17 },
   rulesHint: { color: "#77D6C3", fontSize: 13, lineHeight: 20, marginTop: 13 },
   confirmBackdrop: { flex: 1, justifyContent: "center", padding: 24, backgroundColor: "rgba(3, 7, 18, 0.76)" },
