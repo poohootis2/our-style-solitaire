@@ -358,7 +358,10 @@ function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY] });
   const scale = progress.interpolate({ inputRange: [0, 0.62, 1], outputRange: [1, 1.08, 0.5] });
   const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
-  const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "720deg"] });
+  // 카드의 세로축이 실제 비행 벡터를 바라보도록 기본 방향을 계산합니다.
+  // 캐릭터가 몬스터의 왼쪽에 있으면 양의 각도, 오른쪽에 있으면 음의 각도가 됩니다.
+  const directionAngle = Math.atan2(travelX, -travelY) * (180 / Math.PI);
+  const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: [`${directionAngle.toFixed(2)}deg`, `${(directionAngle + 720).toFixed(2)}deg`] });
   const tailOpacity = progress.interpolate({ inputRange: [0, 0.72, 1], outputRange: [0.95, 0.85, 0] });
   const tailScale = progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.7, 1.05, 0.35] });
   const tailTranslateY = progress.interpolate({ inputRange: [0, 1], outputRange: [18, -12] });
@@ -1564,7 +1567,12 @@ export default function HomeScreen() {
   const companionCenterBottom = companionBottom + companionSize * 0.5 - cardWidth * renderCardRatio * 0.5;
   const flightStartLeft = companionCenterLeft;
   const flightStartBottom = companionCenterBottom;
-  const flightTravelX = phoneLandscape ? 0 : isLandscape ? Math.round(safeScreenWidth * 0.04) : Math.round(safeScreenWidth * 0.05);
+  // 몬스터는 stats 행의 오른쪽 전투 슬롯에서 좌우로 이동하므로, 화면 중앙이 아닌
+  // 몬스터 슬롯 중심을 기준으로 목표점을 잡습니다. 펫이 좌측으로 회피하면
+  // 시작점과 목표점의 차이가 자동으로 커져 카드가 몬스터 쪽으로 꺾여 날아갑니다.
+  const monsterAimCenter = safeScreenWidth * (isLandscape ? 0.64 : 0.64);
+  const monsterAimLeft = monsterAimCenter - cardWidth * 0.5;
+  const flightTravelX = phoneLandscape ? 0 : monsterAimLeft - flightStartLeft;
   const monsterTargetTop = rootTopPadding + (isLandscape ? (phoneLandscape ? 116 : 82) : 152);
   const flightTravelY = getAttackTravelY(safeScreenHeight, flightStartBottom, cardWidth * cardRatio, monsterTargetTop, 1.2);
   const hammerStartLeft = Math.max(0, (safeScreenWidth - boardWidth) * 0.5) + cardWidth * 2.25;
