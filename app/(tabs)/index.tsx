@@ -590,6 +590,7 @@ export default function HomeScreen() {
   const [attendanceDay, setAttendanceDay] = useState(0);
   const [lastAttendanceDate, setLastAttendanceDate] = useState<string | null>(null);
   const [showAttendanceClaim, setShowAttendanceClaim] = useState(false);
+  const [showAttendanceRewardFlight, setShowAttendanceRewardFlight] = useState(false);
   const [records, setRecords] = useState<Records>(emptyRecords);
   const [hydrated, setHydrated] = useState(false);
   const [soundEffectsEnabled, setSoundEffectsEnabled] = useState(true);
@@ -641,6 +642,7 @@ export default function HomeScreen() {
   const hammerStrike = useRef(new Animated.Value(0)).current;
   const hammerImpactBurst = useRef(new Animated.Value(0)).current;
   const hintAttention = useRef(new Animated.Value(0)).current;
+  const attendanceRewardFlight = useRef(new Animated.Value(0)).current;
   const hintAttentionLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   const hintIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const layoutTransition = useRef(new Animated.Value(1)).current;
@@ -1237,6 +1239,12 @@ export default function HomeScreen() {
     setLastAttendanceDate(today);
     setHammerCharges((charges) => Math.min(10, charges + reward));
     setShowAttendanceClaim(false);
+    attendanceRewardFlight.stopAnimation();
+    attendanceRewardFlight.setValue(0);
+    setShowAttendanceRewardFlight(true);
+    Animated.timing(attendanceRewardFlight, { toValue: 1, duration: 950, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
+      if (finished) setShowAttendanceRewardFlight(false);
+    });
     showTimedHint(`${nextDay}일차 출석 완료 · 망치 +${reward}`);
     haptic.success();
   };
@@ -1536,6 +1544,10 @@ export default function HomeScreen() {
   const hammerStartLeft = Math.max(0, (safeScreenWidth - boardWidth) * 0.5) + cardWidth * 2.25;
   const hammerStartTop = rootTopPadding + 132;
   const hammerStrikeTranslateX = hammerStrike.interpolate({ inputRange: [0, 0.86, 1], outputRange: [0, hammerStrikeTarget?.dx ?? 0, hammerStrikeTarget?.dx ?? 0] });
+  const attendanceRewardTranslateX = attendanceRewardFlight.interpolate({ inputRange: [0, 1], outputRange: [0, Math.max(40, safeScreenWidth * 0.34)] });
+  const attendanceRewardTranslateY = attendanceRewardFlight.interpolate({ inputRange: [0, 1], outputRange: [0, -Math.max(150, safeScreenHeight * 0.42)] });
+  const attendanceRewardScale = attendanceRewardFlight.interpolate({ inputRange: [0, 0.72, 1], outputRange: [0.72, 1.15, 0.56] });
+  const attendanceRewardOpacity = attendanceRewardFlight.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
   const hammerStrikeTranslateY = hammerStrike.interpolate({ inputRange: [0, 0.86, 1], outputRange: [0, hammerStrikeTarget?.dy ?? 0, (hammerStrikeTarget?.dy ?? 0) + 8] });
   const hammerStrikeScale = hammerStrike.interpolate({ inputRange: [0, 0.76, 0.9, 1], outputRange: [1, 2.25, 3, 2.45] });
   const hammerStrikeRotate = hammerStrike.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "720deg"] });
@@ -1637,6 +1649,7 @@ export default function HomeScreen() {
           <Image source={HAMMER_ICON_ART} resizeMode="contain" style={styles.hammerStrikeImage} />
         </Animated.View> : null}
         {hammerImpactBurstTarget ? <Animated.View pointerEvents="none" style={[styles.hammerImpactBurst, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.5, height: cardWidth * 1.5, transform: [{ translateX: hammerImpactBurstTarget.dx }, { translateY: hammerImpactBurstTarget.dy }, { scale: hammerImpactBurst.interpolate({ inputRange: [0, 0.28, 1], outputRange: [0.35, 1.25, 0.1] }) }, { rotate: hammerImpactBurst.interpolate({ inputRange: [0, 1], outputRange: ["-8deg", "18deg"] }) }], opacity: hammerImpactBurst.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 1, 0] }) }]}><Image source={HAMMER_IMPACT_ART} resizeMode="contain" style={styles.hammerImpactBurstImage} /></Animated.View> : null}
+        {showAttendanceRewardFlight ? <Animated.View pointerEvents="none" style={[styles.attendanceRewardFlight, { left: Math.max(0, safeScreenWidth * 0.5 - 30), top: Math.max(80, safeScreenHeight * 0.58), opacity: attendanceRewardOpacity, transform: [{ translateX: attendanceRewardTranslateX }, { translateY: attendanceRewardTranslateY }, { scale: attendanceRewardScale }, { rotate: attendanceRewardFlight.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) }] }]}><Image source={HAMMER_ICON_ART} resizeMode="contain" style={styles.attendanceRewardFlightImage} /></Animated.View> : null}
         <VictoryFireworks visible={showFireworks} />
         <View style={[styles.header, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact, phoneLandscape && styles.headerPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
           <View style={phoneLandscape && styles.headerTitlePhoneLandscape}>
@@ -1648,8 +1661,9 @@ export default function HomeScreen() {
           </View>
           {isLandscape ? <View style={[styles.landscapeHeaderBanner, phoneLandscape && styles.landscapeHeaderBannerPhone]}><AdBanner compact inline /></View> : null}
           <View style={[styles.headerActions, compactControls && styles.headerActionsCompact, phoneLandscape && styles.headerActionsPhoneLandscape]}>
-            <Pressable accessibilityRole="button" accessibilityLabel="출석체크" onPress={() => { haptic.light(); setShowAttendanceClaim(true); }} style={({ pressed }) => [styles.attendanceHeaderButton, compactControls && styles.iconButtonCompact, pressed && styles.pressed]}>
-              <Image source={DAILY_CHECKIN_ART} resizeMode="contain" style={styles.attendanceHeaderImage} />
+            <Pressable accessibilityRole="button" accessibilityLabel="출석체크" disabled={lastAttendanceDate === localDateKey()} onPress={() => { haptic.light(); setShowAttendanceClaim(true); }} style={({ pressed }) => [styles.attendanceHeaderButton, compactControls && styles.iconButtonCompact, lastAttendanceDate === localDateKey() && styles.attendanceHeaderButtonDone, pressed && styles.pressed]}>
+              <Image source={DAILY_CHECKIN_ART} resizeMode="contain" style={[styles.attendanceHeaderImage, lastAttendanceDate === localDateKey() && styles.attendanceHeaderImageDone]} />
+              {lastAttendanceDate === localDateKey() ? <View pointerEvents="none" style={styles.attendanceDoneBadge}><Text style={styles.attendanceDoneBadgeText}>✓</Text></View> : null}
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="가능한 카드 자동 정리" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, compactControls && styles.autoButtonCompact, pressed && styles.pressed]}>
               <MedievalIcon name="auto" size={19} />
@@ -1893,7 +1907,7 @@ export default function HomeScreen() {
                   </View>
                   {rulesTab === "basic" ? <Text style={styles.rulesText}>A부터 같은 무늬 순서로 위쪽 파운데이션을 완성하면 승리합니다. 카드는 색을 번갈아 놓고 숫자가 하나씩 낮아지게 쌓습니다.</Text> : null}
                   {rulesTab === "cards" ? <Text style={styles.rulesText}>카드를 탭한 뒤 이동할 곳을 탭하세요. 빈 열에는 K만 놓을 수 있습니다. 스톡을 탭하면 새 카드가 나오며, 힌트와 실행 취소로 진행을 도울 수 있습니다.</Text> : null}
-                  {rulesTab === "items" ? <Text style={styles.rulesText}>카드가 몬스터에게 날아가며 파운데이션 카드와 콤보 공격은 피해를 줍니다. 망치는 히든 카드 공개에 사용하고, 출석과 보상형 광고로 최대 10개까지 충전할 수 있습니다.</Text> : null}
+                  {rulesTab === "items" ? <><Text style={styles.rulesText}>카드가 몬스터에게 날아가며 파운데이션 카드와 콤보 공격은 피해를 줍니다. 망치는 히든 카드 공개에 사용하고, 출석과 보상형 광고로 최대 10개까지 충전할 수 있습니다.</Text><Text style={styles.rulesHint}>출석체크: 게임에 접속한 날 출석 버튼을 눌러 보상을 받습니다. 일반 출석은 망치 2개, 10·20·30일차는 망치 5개를 받으며, 당일 출석은 한 번만 인정됩니다.</Text><Text style={styles.rulesHint}>망치 획득: 출석체크 또는 보상형 광고 시청으로 충전됩니다. 망치는 최대 10개까지 보유할 수 있습니다.</Text></> : null}
                   <Pressable onPress={() => { setPaused(false); setSheet(null); }} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>게임 시작하기</Text></Pressable>
                 </>
               ) : null}
@@ -2193,7 +2207,13 @@ const styles = StyleSheet.create({
   rulesTabText: { color: "#A6B4CE", fontSize: 11, fontWeight: "800" },
   rulesTabTextActive: { color: "#FFFDF8" },
   attendanceHeaderButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 13, overflow: "hidden" },
+  attendanceHeaderButtonDone: { backgroundColor: "#465A7F", opacity: 0.72 },
   attendanceHeaderImage: { width: 40, height: 40 },
+  attendanceHeaderImageDone: { opacity: 0.48 },
+  attendanceDoneBadge: { position: "absolute", right: 1, bottom: 1, width: 18, height: 18, alignItems: "center", justifyContent: "center", borderRadius: 9, backgroundColor: "#77D6C3", borderWidth: 2, borderColor: "#152542" },
+  attendanceDoneBadgeText: { color: "#152542", fontSize: 13, lineHeight: 15, fontWeight: "900" },
+  attendanceRewardFlight: { position: "absolute", zIndex: 80, width: 60, height: 60, alignItems: "center", justifyContent: "center" },
+  attendanceRewardFlightImage: { width: 54, height: 54 },
   attendanceCard: { position: "relative", width: "88%", maxWidth: 330, alignItems: "center", padding: 22, paddingTop: 26, borderRadius: 24, borderWidth: 2, borderColor: "#F3C969", backgroundColor: "#1E3153", shadowColor: "#000000", shadowOpacity: 0.46, shadowRadius: 20, elevation: 20 },
   attendanceModalImage: { width: 96, height: 54, marginBottom: 5 },
   attendanceTitle: { color: "#FFF3D1", fontSize: 22, fontWeight: "900", textAlign: "center" },
