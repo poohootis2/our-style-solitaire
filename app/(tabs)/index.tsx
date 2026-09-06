@@ -68,7 +68,7 @@ const HAMMER_ICON_ART = require("../../assets/images/card-breaker-shark-hammer.p
 const HINT_BUTTON_ART = require("../../assets/images/hint-cartoon-button.webp");
 const UNDO_BUTTON_ART = require("../../assets/images/undo-cartoon-button.webp");
 const HAMMER_PLUS_ONE_BUTTON_ART = require("../../assets/images/hammer-plus-one-cartoon-button.webp");
-const DAILY_CHECKIN_ART = { uri: "/manus-storage/daily-checkin-cartoon-button_1de4a333.png" };
+const DAILY_CHECKIN_ART = require("../../assets/images/daily-checkin-cartoon-button.png");
 const HAMMER_IMPACT_ART = { uri: "/manus-storage/hammer-impact-burst_f5d30cb2.png" };
 const COMBO_IMPACT_ARTS = [
   { uri: "/manus-storage/combo-impact-burst-1_48b789ea.png" },
