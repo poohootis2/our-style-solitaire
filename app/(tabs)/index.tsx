@@ -347,12 +347,14 @@ function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress }: { width: nu
   );
 }
 
-function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, travelY = -180, startLeft = 16, startBottom = 44, flightColor, flaming = false }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; travelY?: number; startLeft?: number; startBottom?: number; flightColor?: string; flaming?: boolean }) {
+function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, travelY = -180, startLeft = 16, startBottom = 44, flightColor, flaming = false, monsterMotion, monsterTravelDistance = 0 }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; travelY?: number; startLeft?: number; startBottom?: number; flightColor?: string; flaming?: boolean; monsterMotion?: Animated.Value; monsterTravelDistance?: number }) {
   const color = playingCardColor(card);
   const glow: Record<Suit, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
   const cardHeight = width * cardRatio;
   const glowColor = flightColor ?? glow[card.suit];
   const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelX] });
+  const targetFollow = monsterMotion ? monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-monsterTravelDistance, monsterTravelDistance] }) : null;
+  const followedTranslateX = targetFollow ? Animated.add(translateX, Animated.multiply(progress, targetFollow)) : translateX;
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY] });
   const scale = progress.interpolate({ inputRange: [0, 0.62, 1], outputRange: [1, 1.08, 0.5] });
   const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
@@ -362,7 +364,7 @@ function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0
   const tailTranslateY = progress.interpolate({ inputRange: [0, 1], outputRange: [18, -12] });
   const flameParticles = ["✦", "•", "✧", "•", "✦", "•"];
   return (
-    <Animated.View pointerEvents="none" style={[flaming ? styles.flamingFlyingCard : styles.flyingCard, { left: startLeft, bottom: startBottom, width, height: flaming ? cardHeight * 1.14 : cardHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX }, { translateY }, { scale }, { rotate }] }]}> 
+    <Animated.View pointerEvents="none" style={[flaming ? styles.flamingFlyingCard : styles.flyingCard, { left: startLeft, bottom: startBottom, width, height: flaming ? cardHeight * 1.14 : cardHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX: followedTranslateX }, { translateY }, { scale }, { rotate }] }]}> 
       {flaming ? <>
         <Animated.View pointerEvents="none" style={[styles.flamingTailLayer, { opacity: tailOpacity, transform: [{ translateY: tailTranslateY }, { scale: tailScale }] }]}>
           {flameParticles.map((particle, index) => <Text key={`${particle}-${index}`} style={[styles.flamingTailParticle, { left: `${12 + index * 14}%`, top: `${18 + (index % 3) * 24}%`, color: index % 2 ? "#FF7A18" : "#FFD45C", fontSize: 10 + (index % 3) * 5 }]}>{particle}</Text>)}
@@ -432,8 +434,9 @@ function CardAttackEffect({ kind, combo, travelX, travelY, startLeft = 16, start
 
 type AttackKind = Suit;
 
-function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = false, landscape = false, phoneLandscape = false, travelDistance = 24, monster, isBoss, cardSize }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; travelDistance?: number; monster: BattleAsset; isBoss: boolean; cardSize: number }) {
-  const monsterMotion = useRef(new Animated.Value(1)).current;
+function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = false, landscape = false, phoneLandscape = false, travelDistance = 24, monster, isBoss, cardSize, motionValue }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; travelDistance?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value }) {
+  const internalMonsterMotion = useRef(new Animated.Value(1)).current;
+  const monsterMotion = motionValue ?? internalMonsterMotion;
   const attackProgress = useRef(new Animated.Value(0)).current;
   const [facingLeft, setFacingLeft] = useState(true);
   const [attackVisible, setAttackVisible] = useState(false);
@@ -581,6 +584,7 @@ export default function HomeScreen() {
     layoutExtraReservedHeight,
   );
   const compactControls = compact || compactLandscape;
+  const monsterTravelDistance = isLandscape ? Math.max(160, Math.min(310, Math.round(safeScreenWidth * 0.2) + 50)) : 94;
   const [game, setGame] = useState(createPlayableGame);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -635,6 +639,7 @@ export default function HomeScreen() {
   const gameRef = useRef(game);
   const elapsedSecondsRef = useRef(elapsedSeconds);
   const flightProgress = useRef(new Animated.Value(0)).current;
+  const monsterMotion = useRef(new Animated.Value(1)).current;
   const comboCompanionScale = useRef(new Animated.Value(1)).current;
   const hammerShine = useRef(new Animated.Value(0)).current;
   const hammerIdleMotion = useRef(new Animated.Value(0)).current;
@@ -643,6 +648,8 @@ export default function HomeScreen() {
   const hammerImpactBurst = useRef(new Animated.Value(0)).current;
   const hintAttention = useRef(new Animated.Value(0)).current;
   const attendanceRewardFlight = useRef(new Animated.Value(0)).current;
+  const attendanceAttention = useRef(new Animated.Value(0)).current;
+  const attendanceAttentionLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   const hintAttentionLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   const hintIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const layoutTransition = useRef(new Animated.Value(1)).current;
@@ -692,6 +699,25 @@ export default function HomeScreen() {
     resetHintAttention();
     return () => stopHintAttention();
   }, []);
+
+  useEffect(() => {
+    attendanceAttentionLoopRef.current?.stop();
+    attendanceAttention.stopAnimation();
+    attendanceAttention.setValue(0);
+    if (!hydrated || lastAttendanceDate === localDateKey()) return;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(attendanceAttention, { toValue: 1, duration: 720, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(attendanceAttention, { toValue: 0, duration: 720, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.delay(1100),
+    ]));
+    attendanceAttentionLoopRef.current = loop;
+    loop.start();
+    return () => {
+      loop.stop();
+      attendanceAttention.stopAnimation();
+      attendanceAttention.setValue(0);
+    };
+  }, [attendanceAttention, hydrated, lastAttendanceDate]);
 
   useEffect(() => {
     hammerShine.stopAnimation();
@@ -1644,7 +1670,7 @@ export default function HomeScreen() {
       <Animated.View ref={rootRef} style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: [{ translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }] }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
         <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
-        {flyingAttacks.map((flight) => <FlyingCard key={flight.id} card={flight.card} width={cardWidth} cardRatio={renderCardRatio} progress={flight.progress} travelX={flight.travelX} travelY={flight.travelY} startLeft={flight.startLeft} startBottom={flight.startBottom} flightColor={flight.flightColor} flaming={flight.variant === "flaming"} />)}
+        {flyingAttacks.map((flight) => <FlyingCard key={flight.id} card={flight.card} width={cardWidth} cardRatio={renderCardRatio} progress={flight.progress} travelX={flight.travelX} travelY={flight.travelY} startLeft={flight.startLeft} startBottom={flight.startBottom} flightColor={flight.flightColor} flaming={flight.variant === "flaming"} monsterMotion={monsterMotion} monsterTravelDistance={monsterTravelDistance} />)}
         {hammerStrikeTarget ? <Animated.View pointerEvents="none" style={[styles.hammerStrike, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.08, height: cardWidth * 1.08, transform: [{ translateX: hammerStrikeTranslateX }, { translateY: hammerStrikeTranslateY }, { scale: hammerStrikeScale }, { rotate: hammerStrikeRotate }] }]}> 
           <Image source={HAMMER_ICON_ART} resizeMode="contain" style={styles.hammerStrikeImage} />
         </Animated.View> : null}
@@ -1662,7 +1688,9 @@ export default function HomeScreen() {
           {isLandscape ? <View style={[styles.landscapeHeaderBanner, phoneLandscape && styles.landscapeHeaderBannerPhone]}><AdBanner compact inline /></View> : null}
           <View style={[styles.headerActions, compactControls && styles.headerActionsCompact, phoneLandscape && styles.headerActionsPhoneLandscape]}>
             <Pressable accessibilityRole="button" accessibilityLabel="출석체크" disabled={lastAttendanceDate === localDateKey()} onPress={() => { haptic.light(); setShowAttendanceClaim(true); }} style={({ pressed }) => [styles.attendanceHeaderButton, compactControls && styles.iconButtonCompact, lastAttendanceDate === localDateKey() && styles.attendanceHeaderButtonDone, pressed && styles.pressed]}>
-              <Image source={DAILY_CHECKIN_ART} resizeMode="contain" style={[styles.attendanceHeaderImage, lastAttendanceDate === localDateKey() && styles.attendanceHeaderImageDone]} />
+              <Animated.View pointerEvents="none" style={[styles.attendanceHeaderAnimated, { opacity: attendanceAttention.interpolate({ inputRange: [0, 1], outputRange: [1, 0.64] }), transform: [{ scale: attendanceAttention.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }, { rotate: attendanceAttention.interpolate({ inputRange: [0, 0.5, 1], outputRange: ["0deg", "-3deg", "3deg"] }) }] }]}>
+                <Image source={DAILY_CHECKIN_ART} resizeMode="contain" style={[styles.attendanceHeaderImage, lastAttendanceDate === localDateKey() && styles.attendanceHeaderImageDone]} />
+              </Animated.View>
               {lastAttendanceDate === localDateKey() ? <View pointerEvents="none" style={styles.attendanceDoneBadge}><Text style={styles.attendanceDoneBadgeText}>✓</Text></View> : null}
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="가능한 카드 자동 정리" onPress={runAutoComplete} style={({ pressed }) => [styles.autoButton, compactControls && styles.autoButtonCompact, pressed && styles.pressed]}>
@@ -1693,7 +1721,7 @@ export default function HomeScreen() {
             <View style={styles.statDivider} />
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
           </View>
-          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={isLandscape ? Math.max(160, Math.min(310, Math.round(safeScreenWidth * 0.2) + 50)) : 94} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
+          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={monsterTravelDistance} motionValue={monsterMotion} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
         <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}>
@@ -2207,6 +2235,7 @@ const styles = StyleSheet.create({
   rulesTabText: { color: "#A6B4CE", fontSize: 11, fontWeight: "800" },
   rulesTabTextActive: { color: "#FFFDF8" },
   attendanceHeaderButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 13, overflow: "hidden" },
+  attendanceHeaderAnimated: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
   attendanceHeaderButtonDone: { backgroundColor: "#465A7F", opacity: 0.72 },
   attendanceHeaderImage: { width: 40, height: 40 },
   attendanceHeaderImageDone: { opacity: 0.48 },
