@@ -42,6 +42,7 @@ import { PET_ROSTER } from "@/lib/pet-content";
 import { showRewardedAd } from "@/components/rewarded-ad";
 import { companionAttackColors, getCompanionAttackStyle, type CompanionAttackStyle } from "@/lib/companion-attack";
 import { getAttackTravelY } from "@/lib/attack-layout";
+import { isRunningInPreviewIframe } from "@/lib/_core/manus-runtime";
 
 type Selection = CardSource & { cardId: string };
 type Sheet = "menu" | "rules" | "records" | "sound" | "companions" | null;
@@ -594,6 +595,7 @@ export default function HomeScreen() {
   const [hammerMode, setHammerMode] = useState(false);
   const [hammerCharges, setHammerCharges] = useState(0);
   const [hammerStrikeTarget, setHammerStrikeTarget] = useState<{ dx: number; dy: number } | null>(null);
+  const showPreviewAttackTools = Platform.OS === "web" && (__DEV__ || isRunningInPreviewIframe());
   const [hammerImpactBurstTarget, setHammerImpactBurstTarget] = useState<{ dx: number; dy: number } | null>(null);
   const [showBossWarning, setShowBossWarning] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
@@ -627,6 +629,7 @@ export default function HomeScreen() {
   const hintRepeatCountRef = useRef(0);
   const recentGameFingerprintsRef = useRef<string[]>([]);
   const autoFinishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewComboTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoFinishRunningRef = useRef(false);
   const selectPlayer = useAudioPlayer(require("../../assets/sounds/card-select.wav"));
   const movePlayer = useAudioPlayer(require("../../assets/sounds/card-move.wav"));
@@ -768,6 +771,7 @@ export default function HomeScreen() {
   useEffect(() => () => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     if (autoFinishTimerRef.current) clearTimeout(autoFinishTimerRef.current);
+    if (previewComboTimerRef.current) clearTimeout(previewComboTimerRef.current);
     stopHintAttention();
     autoFinishRunningRef.current = false;
   }, []);
@@ -1366,6 +1370,50 @@ export default function HomeScreen() {
     if (card) selectCard({ kind: "waste", cardId: card.id });
   };
 
+  const playPreviewFoundationAttack = () => {
+    if (!showPreviewAttackTools) return;
+    const previewCard = game.foundations.clubs.at(-1) ?? game.foundations.diamonds.at(-1) ?? game.waste.at(-1) ?? game.tableau.flat().find((card) => card.faceUp);
+    if (!previewCard) {
+      showTimedHint("미리보기용 카드를 찾을 수 없습니다.");
+      return;
+    }
+    setLastDamage(5);
+    setAttackKind(previewCard.suit);
+    setComboAttack(false);
+    setAttackToken((token) => token + 1);
+    playEffect("foundationAttack");
+    playEffect("companionAttack");
+    animateFlight(previewCard, true);
+    showTimedHint("파운데이션 불꽃 카드 공격 미리보기");
+  };
+
+  const playPreviewCombo = () => {
+    if (!showPreviewAttackTools) return;
+    if (previewComboTimerRef.current) clearTimeout(previewComboTimerRef.current);
+    const previewCards = game.tableau.flat().filter((card) => card.faceUp).slice(0, 6);
+    const attackCount = Math.max(3, Math.min(6, previewCards.length || 3));
+    let attackIndex = 0;
+    setComboAttack(true);
+    showTimedHint("콤보 공격 미리보기");
+    const playNext = () => {
+      const card = previewCards[attackIndex % Math.max(1, previewCards.length)] ?? game.waste.at(-1);
+      setLastDamage(5);
+      setAttackKind(card?.suit ?? SUITS[attackIndex % SUITS.length]);
+      setAttackToken((token) => token + 1);
+      playEffect("companionAttack");
+      attackIndex += 1;
+      if (attackIndex < attackCount) {
+        previewComboTimerRef.current = setTimeout(playNext, 760);
+      } else {
+        previewComboTimerRef.current = setTimeout(() => {
+          setComboAttack(false);
+          previewComboTimerRef.current = null;
+        }, 760);
+      }
+    };
+    playNext();
+  };
+
   const runAutoComplete = () => {
     const completed = autoComplete(game);
     if (completed === game) {
@@ -1532,6 +1580,11 @@ export default function HomeScreen() {
             </Pressable>
           </View>
         </View>
+
+        {showPreviewAttackTools ? <View style={styles.previewTools}>
+          <Pressable accessibilityRole="button" accessibilityLabel="콤보 공격 미리보기" onPress={playPreviewCombo} style={({ pressed }) => [styles.previewToolButton, pressed && styles.pressed]}><Text style={styles.previewToolText}>콤보 공격</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="파운데이션 불꽃 카드 공격 미리보기" onPress={playPreviewFoundationAttack} style={({ pressed }) => [styles.previewToolButton, pressed && styles.pressed]}><Text style={styles.previewToolText}>파운데이션 공격</Text></Pressable>
+        </View> : null}
 
         <View style={[styles.stats, isLandscape && styles.statsLandscape, compactLandscape && styles.statsLandscapeCompact, phoneLandscape && styles.statsPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
           <View style={[styles.statsSummary, phoneLandscape && styles.statsSummaryPhoneLandscape]}>
@@ -1807,6 +1860,9 @@ const styles = StyleSheet.create({
   soundButtonText: { color: "#77D6C3", fontSize: 18, lineHeight: 20, fontWeight: "900" },
   menuButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: "#233958" },
   menuButtonText: { color: "#FFFDF8", fontSize: 19, lineHeight: 16, fontWeight: "900", marginTop: -8 },
+  previewTools: { position: "absolute", top: 86, left: 12, right: 12, zIndex: 60, flexDirection: "row", justifyContent: "center", gap: 8 },
+  previewToolButton: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: "#F3C969", backgroundColor: "rgba(24, 39, 68, 0.94)" },
+  previewToolText: { color: "#FFF3D1", fontSize: 10, fontWeight: "900" },
   stats: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 8, marginBottom: 14 },
   statsSummary: { flexDirection: "row", alignItems: "center", justifyContent: "flex-start" },
   statsSummaryPhoneLandscape: { width: "100%" },
