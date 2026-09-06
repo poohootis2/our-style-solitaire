@@ -45,6 +45,17 @@ import { getAttackTravelY } from "@/lib/attack-layout";
 import { isRunningInPreviewIframe } from "@/lib/_core/manus-runtime";
 
 type Selection = CardSource & { cardId: string };
+type ActiveFlight = {
+  id: string;
+  card: Card;
+  variant: "normal" | "flaming";
+  progress: Animated.Value;
+  startLeft: number;
+  startBottom: number;
+  travelX: number;
+  travelY: number;
+  flightColor?: string;
+};
 type Sheet = "menu" | "rules" | "records" | "sound" | "companions" | null;
 type Records = { wins: number; bestScore: number; bestTimeSeconds: number | null };
 
@@ -575,8 +586,8 @@ export default function HomeScreen() {
   const [cardSelectVibrationEnabled, setCardSelectVibrationEnabled] = useState(true);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
   const [resetMode, setResetMode] = useState<"current" | "full">("full");
+  const [flyingAttacks, setFlyingAttacks] = useState<ActiveFlight[]>([]);
   const [flyingCard, setFlyingCard] = useState<Card | null>(null);
-  const [flyingCardVariant, setFlyingCardVariant] = useState<"normal" | "flaming">("normal");
   const [showFireworks, setShowFireworks] = useState(false);
   const [hintMessage, setHintMessage] = useState<string | null>(null);
   const [attackKind, setAttackKind] = useState<AttackKind>("clubs");
@@ -695,16 +706,19 @@ export default function HomeScreen() {
 
   useEffect(() => {
     comboCompanionScale.stopAnimation();
-    comboCompanionScale.setValue(comboAttack ? 1 : 1);
-    if (!comboAttack) return;
-    const animation = Animated.sequence([
-      Animated.timing(comboCompanionScale, { toValue: 2, duration: 1278, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
-      Animated.delay(289),
-      Animated.timing(comboCompanionScale, { toValue: 1, duration: 578, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-    ]);
-    animation.start();
-    return () => animation.stop();
+    if (comboAttack) {
+      const grow = Animated.timing(comboCompanionScale, { toValue: 3, duration: 1450, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+      grow.start();
+      return () => grow.stop();
+    }
+    const reset = Animated.timing(comboCompanionScale, { toValue: 1, duration: 520, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+    reset.start();
+    return () => reset.stop();
   }, [comboAttack, comboCompanionScale]);
+
+  useEffect(() => {
+    setFlyingCard(flyingAttacks.at(-1)?.card ?? null);
+  }, [flyingAttacks]);
 
   const showTimedHint = (message: string) => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -1015,10 +1029,24 @@ export default function HomeScreen() {
   };
 
   const animateFlight = (card: Card, flaming = false) => {
-    setFlyingCard(card);
-    setFlyingCardVariant(flaming ? "flaming" : "normal");
-    flightProgress.setValue(0);
-    Animated.timing(flightProgress, { toValue: 1, duration: flaming ? FLAMING_CARD_FLIGHT_DURATION : FLYING_CARD_DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setFlyingCard(null));
+    const progress = new Animated.Value(0);
+    const id = `flight-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const flight: ActiveFlight = {
+      id,
+      card,
+      variant: flaming ? "flaming" : "normal",
+      progress,
+      startLeft: flightStartLeft,
+      startBottom: flightStartBottom,
+      travelX: flightTravelX,
+      travelY: flightTravelY,
+      flightColor: companionAttackColor,
+    };
+    setFlyingAttacks((current) => [...current, flight]);
+    Animated.timing(progress, { toValue: 1, duration: flaming ? FLAMING_CARD_FLIGHT_DURATION : FLYING_CARD_DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
+      if (!finished) return;
+      setFlyingAttacks((current) => current.filter((active) => active.id !== id));
+    });
   };
 
   const cardFromSource = (source: CardSource): Card | undefined => {
@@ -1075,12 +1103,14 @@ export default function HomeScreen() {
       if (!move) {
         autoFinishRunningRef.current = false;
         autoFinishTimerRef.current = null;
+        setComboAttack(false);
         return;
       }
       const next = moveToFoundation(cursor, move.source);
       if (!next) {
         autoFinishRunningRef.current = false;
         autoFinishTimerRef.current = null;
+        setComboAttack(false);
         return;
       }
       cursor = next;
@@ -1109,7 +1139,6 @@ export default function HomeScreen() {
       setComboAttack(isCombo);
       setAttackToken((token) => token + 1);
       playEffect("foundationAttack");
-      if (isCombo) setTimeout(() => setComboAttack(false), 1000);
     }
     const previousProgress = game.foundations.clubs.length + game.foundations.diamonds.length + game.foundations.hearts.length + game.foundations.spades.length + game.tableau.flat().filter((card) => card.faceUp).length;
     const nextProgress = nextGame.foundations.clubs.length + nextGame.foundations.diamonds.length + nextGame.foundations.hearts.length + nextGame.foundations.spades.length + nextGame.tableau.flat().filter((card) => card.faceUp).length;
@@ -1401,6 +1430,7 @@ export default function HomeScreen() {
       setAttackKind(card?.suit ?? SUITS[attackIndex % SUITS.length]);
       setAttackToken((token) => token + 1);
       playEffect("companionAttack");
+      if (card) animateFlight(card, true);
       attackIndex += 1;
       if (attackIndex < attackCount) {
         previewComboTimerRef.current = setTimeout(playNext, 760);
@@ -1550,7 +1580,7 @@ export default function HomeScreen() {
       <Animated.View ref={rootRef} style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: [{ translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }] }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
         <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
-        {flyingCard ? <FlyingCard card={flyingCard} width={cardWidth} cardRatio={renderCardRatio} progress={flightProgress} travelX={flightTravelX} travelY={flightTravelY} startLeft={flightStartLeft} startBottom={flightStartBottom} flightColor={companionAttackColor} flaming={flyingCardVariant === "flaming"} /> : null}
+        {flyingAttacks.map((flight) => <FlyingCard key={flight.id} card={flight.card} width={cardWidth} cardRatio={renderCardRatio} progress={flight.progress} travelX={flight.travelX} travelY={flight.travelY} startLeft={flight.startLeft} startBottom={flight.startBottom} flightColor={flight.flightColor} flaming={flight.variant === "flaming"} />)}
         {hammerStrikeTarget ? <Animated.View pointerEvents="none" style={[styles.hammerStrike, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.08, height: cardWidth * 1.08, transform: [{ translateX: hammerStrikeTranslateX }, { translateY: hammerStrikeTranslateY }, { scale: hammerStrikeScale }, { rotate: hammerStrikeRotate }] }]}> 
           <Image source={HAMMER_ICON_ART} resizeMode="contain" style={styles.hammerStrikeImage} />
         </Animated.View> : null}
