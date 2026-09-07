@@ -232,11 +232,15 @@ function CardFace({
   const height = width * cardRatio;
   const color = playingCardColor(card);
   const narrowMarkScale = width <= 60 ? 0.82 : width <= 68 ? 0.9 : 1;
+  // 숫자·알파벳은 기존 최소 크기(8px)를 유지하고, 작은 문양만
+  // 카드 폭과 숫자 크기에 맞춰 자동으로 줄여 상단 모서리 겹침을 방지합니다.
   const rankSize = Math.max(8, Math.round(width * 0.26 * narrowMarkScale));
-  const suitSize = Math.max(8, Math.round(width * 0.22 * narrowMarkScale * 1.2));
+  const suitSize = Math.max(7, Math.min(
+    Math.round(width * 0.22 * narrowMarkScale * 1.2),
+    Math.max(7, rankSize),
+  ));
   const centerSize = Math.max(18, Math.round(width * 0.52 * (width <= 60 ? 0.88 : 1)));
   const markInset = Math.max(4, Math.round(width * 0.075));
-  const suitTopOffset = Math.max(16, rankSize + Math.round(width * 0.12));
   const isRoyal = card.rank >= 11;
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bossShine = useRef(new Animated.Value(-1)).current;
