@@ -296,7 +296,7 @@ function CardFace({
       ]}
     >
       <Text style={[styles.rankTop, { color, top: markInset, left: markInset, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
-      <Text style={[styles.suitTop, { color, top: suitTopOffset, right: Math.max(2, Math.round(markInset * 0.45)), fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
+      <Text style={[styles.suitTop, { color, top: markInset, right: Math.max(2, Math.round(markInset * 0.45)), fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
       {isRoyal ? <RoyalPortrait rank={card.rank as 11 | 12 | 13} chapter={chapter} /> : <Text style={[styles.suitCenter, { color, fontSize: centerSize }]}>{suitSymbols[card.suit]}</Text>}
       <Text style={[styles.rankBottom, { color, right: markInset, bottom: markInset * 0.65, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
       <Text style={[styles.suitBottom, { color, left: markInset, bottom: markInset * 0.65, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
@@ -1855,10 +1855,10 @@ export default function HomeScreen() {
               <Pressable accessibilityRole="button" accessibilityLabel="망치 안내 닫기" onPress={() => setShowHammerOffer(false)} style={({ pressed }) => [styles.noMovesPopupClose, pressed && styles.pressed]}><Text style={styles.noMovesPopupCloseText}>×</Text></Pressable>
               {dailyAdHammerRewards >= MAX_DAILY_AD_HAMMER_REWARDS ? <>
                 <Text style={styles.hammerOfferTitle}>일일 광고 보상이 소진되었습니다.</Text>
-                <Text style={styles.hammerOfferCopy}>오늘 광고로 획득할 수 있는 망치 5개를 모두 사용했습니다. 이번 스테이지를 새로 시작해보세요.</Text>
+                <Text style={styles.hammerOfferCopy}>광고 5회 보상이 모두 소진되었습니다. 이 Stage를 새로 시작하거나, 완전히 Stage 1로 돌아가세요.</Text>
                 <View style={styles.noMovesPopupActions}>
-                  <Pressable accessibilityRole="button" accessibilityLabel="현재 스테이지 새로 시작" onPress={() => { setShowHammerOffer(false); requestCurrentStageRestart(); }} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>스테이지 새로 시작</Text></Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel="광고 안내 닫기" onPress={() => setShowHammerOffer(false)} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>닫기</Text></Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel="현재 Stage 새로 시작" onPress={() => { setShowHammerOffer(false); requestCurrentStageRestart(); }} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>이 Stage 재시작</Text></Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Stage 1로 돌아가기" onPress={() => { setShowHammerOffer(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>Stage 1로</Text></Pressable>
                 </View>
               </> : <>
                 <Text style={styles.hammerOfferTitle}>히든 카드를 열어 길을 만들까요?</Text>
