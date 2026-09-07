@@ -86,6 +86,8 @@ const CARD_SELECT_VIBRATION_KEY = "our-style-solitaire:card-select-vibration";
 const SELECTED_COMPANION_KEY = "our-style-solitaire:selected-companion";
 const UNLOCKED_PETS_KEY = "our-style-solitaire:unlocked-pets";
 const ATTENDANCE_KEY = "our-style-solitaire:attendance";
+const DAILY_AD_HAMMER_REWARD_KEY = "our-style-solitaire:daily-ad-hammer-reward";
+const MAX_DAILY_AD_HAMMER_REWARDS = 5;
 const INITIAL_UNLOCKED_PET_IDS = ["cloud-tiger", "gumiho-tail", "mochi-rabbit"];
 const PHYSICAL_EDGE_INSET = 52;
 const MAX_UNDO_STEPS = 3;
@@ -231,7 +233,7 @@ function CardFace({
   const color = playingCardColor(card);
   const narrowMarkScale = width <= 60 ? 0.82 : width <= 68 ? 0.9 : 1;
   const rankSize = Math.max(8, Math.round(width * 0.26 * narrowMarkScale));
-  const suitSize = Math.max(7, Math.round(width * 0.22 * narrowMarkScale));
+  const suitSize = Math.max(8, Math.round(width * 0.22 * narrowMarkScale * 1.2));
   const centerSize = Math.max(18, Math.round(width * 0.52 * (width <= 60 ? 0.88 : 1)));
   const markInset = Math.max(4, Math.round(width * 0.075));
   const suitTopOffset = Math.max(16, rankSize + Math.round(width * 0.12));
@@ -294,7 +296,7 @@ function CardFace({
       ]}
     >
       <Text style={[styles.rankTop, { color, top: markInset, left: markInset, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
-      <Text style={[styles.suitTop, { color, top: suitTopOffset, right: markInset, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
+      <Text style={[styles.suitTop, { color, top: suitTopOffset, right: Math.max(2, Math.round(markInset * 0.45)), fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
       {isRoyal ? <RoyalPortrait rank={card.rank as 11 | 12 | 13} chapter={chapter} /> : <Text style={[styles.suitCenter, { color, fontSize: centerSize }]}>{suitSymbols[card.suit]}</Text>}
       <Text style={[styles.rankBottom, { color, right: markInset, bottom: markInset * 0.65, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
       <Text style={[styles.suitBottom, { color, left: markInset, bottom: markInset * 0.65, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
@@ -626,6 +628,8 @@ export default function HomeScreen() {
   const [showHammerOffer, setShowHammerOffer] = useState(false);
   const [hammerMode, setHammerMode] = useState(false);
   const [hammerCharges, setHammerCharges] = useState(0);
+  const [dailyAdHammerRewards, setDailyAdHammerRewards] = useState(0);
+  const [dailyAdRewardDate, setDailyAdRewardDate] = useState<string | null>(null);
   const [hammerStrikeTarget, setHammerStrikeTarget] = useState<{ dx: number; dy: number } | null>(null);
   const showPreviewAttackTools = Platform.OS === "web" && (__DEV__ || isRunningInPreviewIframe());
   const [hammerImpactBurstTarget, setHammerImpactBurstTarget] = useState<{ dx: number; dy: number } | null>(null);
@@ -839,7 +843,7 @@ export default function HomeScreen() {
     let mounted = true;
     const loadLocalGame = async () => {
       try {
-        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, cardSelectVibrationValue, selectedCompanionValue, unlockedPetsValue, attendanceValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, CARD_SELECT_VIBRATION_KEY, SELECTED_COMPANION_KEY, UNLOCKED_PETS_KEY, ATTENDANCE_KEY]);
+        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, cardSelectVibrationValue, selectedCompanionValue, unlockedPetsValue, attendanceValue, dailyAdRewardValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, CARD_SELECT_VIBRATION_KEY, SELECTED_COMPANION_KEY, UNLOCKED_PETS_KEY, ATTENDANCE_KEY, DAILY_AD_HAMMER_REWARD_KEY]);
         if (!mounted) return;
         if (activeGameValue[1] && !newGameStarted.current) {
           const saved = JSON.parse(activeGameValue[1]) as { saveVersion?: number; game?: typeof game; elapsedSeconds?: number };
@@ -875,6 +879,20 @@ export default function HomeScreen() {
           const savedAttendance = JSON.parse(attendanceValue[1]) as { day?: number; lastDate?: string | null };
           setAttendanceDay(typeof savedAttendance.day === "number" ? Math.max(0, savedAttendance.day) : 0);
           setLastAttendanceDate(typeof savedAttendance.lastDate === "string" ? savedAttendance.lastDate : null);
+        }
+        const today = localDateKey();
+        if (dailyAdRewardValue[1]) {
+          const savedAdReward = JSON.parse(dailyAdRewardValue[1]) as { date?: string; count?: number };
+          if (savedAdReward.date === today) {
+            setDailyAdRewardDate(today);
+            setDailyAdHammerRewards(Math.max(0, Math.min(MAX_DAILY_AD_HAMMER_REWARDS, savedAdReward.count ?? 0)));
+          } else {
+            setDailyAdRewardDate(today);
+            setDailyAdHammerRewards(0);
+            AsyncStorage.setItem(DAILY_AD_HAMMER_REWARD_KEY, JSON.stringify({ date: today, count: 0 })).catch(() => undefined);
+          }
+        } else {
+          setDailyAdRewardDate(today);
         }
       } catch {
         // A fresh local game is retained when storage is unavailable or malformed.
@@ -1292,8 +1310,12 @@ export default function HomeScreen() {
     }
       setRewardedRetrySlot(1);
     if (twoTouchOpensUsed === 0) { showTimedHint("먼저 무료 망치를 사용해 주세요."); return; }
+    if (dailyAdHammerRewards >= MAX_DAILY_AD_HAMMER_REWARDS) {
+      showDailyAdRewardExhausted();
+      return;
+    }
     if (rewardedRevealUsed >= 10) {
-      showTimedHint("광고 망치는 최대 10개까지 사용할 수 있습니다.");
+      showTimedHint("광고 망치는 이번 스테이지에서 더 사용할 수 없습니다.");
       return;
     }
     setRewardedAdError(null);
@@ -1305,6 +1327,7 @@ export default function HomeScreen() {
     }
     const nextRewardedCount = rewardedRevealUsed + 1;
     setRewardedRevealUsed(nextRewardedCount);
+    recordDailyAdHammerReward();
     setHammerCharges((charges) => Math.min(10, charges + 1));
     setShowTwoTouch(false);
     setShowNoMovesPopup(false);
@@ -1312,7 +1335,26 @@ export default function HomeScreen() {
     showTimedHint(`원하는 카드를 클릭하세요 (광고 망치 ${nextRewardedCount}/10)`);
   };
 
+  const recordDailyAdHammerReward = () => {
+    const today = localDateKey();
+    setDailyAdRewardDate(today);
+    setDailyAdHammerRewards((count) => {
+      const nextCount = Math.min(MAX_DAILY_AD_HAMMER_REWARDS, count + 1);
+      AsyncStorage.setItem(DAILY_AD_HAMMER_REWARD_KEY, JSON.stringify({ date: today, count: nextCount })).catch(() => undefined);
+      return nextCount;
+    });
+  };
+
+  const showDailyAdRewardExhausted = () => {
+    setShowHammerOffer(true);
+    showTimedHint("일일 광고 보상이 모두 소진되었습니다.");
+  };
+
   const claimHammerAdReward = async () => {
+    if (dailyAdHammerRewards >= MAX_DAILY_AD_HAMMER_REWARDS) {
+      showDailyAdRewardExhausted();
+      return;
+    }
     if (hammerCharges >= 10) {
       showTimedHint("망치가 가득 찼습니다. 현재 최대 10개입니다.");
       return;
@@ -1324,8 +1366,9 @@ export default function HomeScreen() {
       setRewardedAdError("광고가 준비되지 않았거나 끝까지 시청되지 않았습니다. 다시 시도해 주세요.");
       return;
     }
+    recordDailyAdHammerReward();
     setHammerCharges((charges) => Math.min(10, charges + 1));
-    showTimedHint(`망치 +1 충전 완료 (${Math.min(10, hammerCharges + 1)}/10)`);
+    showTimedHint(`망치 +1 충전 완료 (${Math.min(10, hammerCharges + 1)}/10) · 오늘 ${dailyAdHammerRewards + 1}/${MAX_DAILY_AD_HAMMER_REWARDS}`);
   };
 
   const beginHammerMode = (allowRepeat = false) => {
@@ -1810,12 +1853,21 @@ export default function HomeScreen() {
           <View style={styles.modalBackdropCenter}>
             <View style={styles.hammerOfferCard}>
               <Pressable accessibilityRole="button" accessibilityLabel="망치 안내 닫기" onPress={() => setShowHammerOffer(false)} style={({ pressed }) => [styles.noMovesPopupClose, pressed && styles.pressed]}><Text style={styles.noMovesPopupCloseText}>×</Text></Pressable>
-              <Text style={styles.hammerOfferTitle}>히든 카드를 열어 길을 만들까요?</Text>
-              <Text style={styles.hammerOfferCopy}>망치로 열지 않은 카드 1장을 즉시 공개해 스톡 옆 공개 영역에 놓을 수 있습니다.</Text>
-              <View style={styles.noMovesPopupActions}>
-                <Pressable accessibilityRole="button" accessibilityLabel="망치 사용" onPress={() => { setHammerCharges((charges) => Math.min(10, charges + 1)); beginHammerMode(true); }} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>망치 사용</Text></Pressable>
-                <Pressable accessibilityRole="button" accessibilityLabel="새로 시작" onPress={() => { setShowHammerOffer(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>새로 시작</Text></Pressable>
-              </View>
+              {dailyAdHammerRewards >= MAX_DAILY_AD_HAMMER_REWARDS ? <>
+                <Text style={styles.hammerOfferTitle}>일일 광고 보상이 소진되었습니다.</Text>
+                <Text style={styles.hammerOfferCopy}>오늘 광고로 획득할 수 있는 망치 5개를 모두 사용했습니다. 이번 스테이지를 새로 시작해보세요.</Text>
+                <View style={styles.noMovesPopupActions}>
+                  <Pressable accessibilityRole="button" accessibilityLabel="현재 스테이지 새로 시작" onPress={() => { setShowHammerOffer(false); requestCurrentStageRestart(); }} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>스테이지 새로 시작</Text></Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel="광고 안내 닫기" onPress={() => setShowHammerOffer(false)} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>닫기</Text></Pressable>
+                </View>
+              </> : <>
+                <Text style={styles.hammerOfferTitle}>히든 카드를 열어 길을 만들까요?</Text>
+                <Text style={styles.hammerOfferCopy}>망치로 열지 않은 카드 1장을 즉시 공개해 스톡 옆 공개 영역에 놓을 수 있습니다.</Text>
+                <View style={styles.noMovesPopupActions}>
+                  <Pressable accessibilityRole="button" accessibilityLabel="망치 사용" onPress={() => { setHammerCharges((charges) => Math.min(10, charges + 1)); beginHammerMode(true); }} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>망치 사용</Text></Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel="새로 시작" onPress={() => { setShowHammerOffer(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>새로 시작</Text></Pressable>
+                </View>
+              </>}
             </View>
           </View>
         </Modal>
