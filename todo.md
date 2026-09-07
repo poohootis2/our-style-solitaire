@@ -558,3 +558,30 @@
 
 - [x] 캐릭터가 좌측에 있을 때 불타는 카드가 몬스터 방향으로 회전하도록 수정
 - [x] 불타는 카드 시작점·목표점 좌우 방향 및 비행 중 회전 회귀 검증
+
+- [ ] 휴대폰에 이전 APK가 설치되는 원인과 출력 파일 버전 확인
+- [ ] 최신 Release APK의 versionCode·versionName·생성 시각 검증
+- [ ] APK 복사·다운로드·설치 경로를 최신 파일 기준으로 정리
+
+- [ ] 휴대폰 설치 패키지 versionCode·versionName과 빌드 APK 메타데이터 대조
+- [ ] 설치 APK와 실제 실행 앱의 패키지·서명·SHA-256 불일치 원인 확인
+- [ ] 이전 화면 표시가 앱 내부 하드코딩인지 번들 캐시인지 판별
+
+- [ ] clean 실행 전 Release 서명 설정과 업로드 키 경로 확인
+- [ ] clean·assembleRelease 후 APK의 버전과 서명 지문 검증
+
+- [ ] clean 후에도 이전 화면이 보이는 APK·설치 패키지 불일치 진단
+- [ ] 휴대폰 실제 설치 versionCode·versionName·설치 경로 대조
+- [ ] Release APK에 포함된 JS 번들이 최신 소스인지 확인
+
+- [ ] Google Play 내부 테스트 전 최신 작업 소스 기반 직접 설치 APK 준비
+- [ ] Windows 빌드 폴더와 최신 게임 화면·자산 소스 일치 확인
+- [ ] 실기기에서 최신 UI·전투·광고·출석·망치 기능 회귀 검증
+
+- [ ] Release APK 빌드 성공 여부와 실제 출력 파일 수정 시각 확인
+- [ ] 모든 APK 출력 경로의 버전·생성 시각 비교
+- [ ] 최신 APK 파일을 별도 이름으로 복사하고 실기기 설치 전 검증
+
+- [x] Release APK 실행 직후 종료 원인 logcat 수집
+- [x] 최신 소스 반영 후 JavaScript 번들·AdMob·Manifest·Release 난독화 설정 점검
+- [ ] 수정 APK 재빌드 후 실기기 실행 회귀 검증
