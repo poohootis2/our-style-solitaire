@@ -616,3 +616,7 @@
 - [x] 카드 숫자·문양 겹침을 390px 이하 폭과 일반 세로 폭에서 회귀 검증
 - [x] 최신 소스 반영 여부를 확인한 뒤 APK·AAB versionCode·versionName·생성 시각 검증
 - [x] APK 설치 전 산출물 SHA-256·패키지 버전·Release 서명·실행 화면을 대조
+
+- [x] 앱 versionName을 1.7.9로 갱신
+- [x] Android versionCode를 34로 갱신
+- [x] APK·AAB 빌드 전 버전 메타데이터 일치 여부 검증
