@@ -229,9 +229,10 @@ function CardFace({
 }) {
   const height = width * cardRatio;
   const color = playingCardColor(card);
-  const rankSize = Math.max(10, Math.round(width * 0.26));
-  const suitSize = Math.max(9, Math.round(width * 0.22));
-  const centerSize = Math.max(21, Math.round(width * 0.52));
+  const narrowMarkScale = width <= 60 ? 0.82 : width <= 68 ? 0.9 : 1;
+  const rankSize = Math.max(8, Math.round(width * 0.26 * narrowMarkScale));
+  const suitSize = Math.max(7, Math.round(width * 0.22 * narrowMarkScale));
+  const centerSize = Math.max(18, Math.round(width * 0.52 * (width <= 60 ? 0.88 : 1)));
   const markInset = Math.max(4, Math.round(width * 0.075));
   const suitTopOffset = Math.max(16, rankSize + Math.round(width * 0.12));
   const isRoyal = card.rank >= 11;
@@ -293,12 +294,10 @@ function CardFace({
       ]}
     >
       <Text style={[styles.rankTop, { color, top: markInset, left: markInset, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
-      <Text style={[styles.suitTop, { color, top: suitTopOffset, left: markInset, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
+      <Text style={[styles.suitTop, { color, top: suitTopOffset, right: markInset, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
       {isRoyal ? <RoyalPortrait rank={card.rank as 11 | 12 | 13} chapter={chapter} /> : <Text style={[styles.suitCenter, { color, fontSize: centerSize }]}>{suitSymbols[card.suit]}</Text>}
-      <View style={[styles.bottomMark, { right: markInset, bottom: markInset * 0.65 }]}>
-        <Text style={[styles.rankBottom, { color, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
-        <Text style={[styles.suitBottom, { color, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
-      </View>
+      <Text style={[styles.rankBottom, { color, right: markInset, bottom: markInset * 0.65, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
+      <Text style={[styles.suitBottom, { color, left: markInset, bottom: markInset * 0.65, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
       {isBoss ? <Animated.View pointerEvents="none" style={[styles.bossCardShine, { opacity: 0.9, transform: [{ translateX: shineTranslateX }, { rotate: "18deg" }] }]} /> : null}
     </Pressable>
   );
@@ -567,7 +566,8 @@ export default function HomeScreen() {
   const safeScreenWidth = Math.max(260, screenWidth - insets.left - insets.right);
   const safeScreenHeight = Math.max(220, screenHeight - insets.top - insets.bottom);
   const compactLandscape = isLandscape && safeScreenHeight <= 460;
-  const rootTopPadding = isLandscape ? 4 : PHYSICAL_EDGE_INSET;
+  const narrowCover = !isLandscape && safeScreenWidth <= 390;
+  const rootTopPadding = isLandscape ? 4 : Math.max(0, PHYSICAL_EDGE_INSET - 15);
   // Some edge-to-edge Android devices report a zero bottom inset while the
   // persistent home or three-button bar still overlays the game window.
   const systemBottomInset = Platform.OS !== "web" ? Math.max(insets.bottom, isLandscape ? 48 : 36) : insets.bottom;
@@ -575,7 +575,7 @@ export default function HomeScreen() {
   // Reserve the additional header spacing used by the inline landscape banner.
   // This keeps the banner, title, and action buttons on separate visual lanes.
   const layoutExtraReservedHeight = isLandscape ? (phoneLandscape ? 16 : 18) : 58;
-  const bottomControlsBottom = isLandscape ? systemBottomInset + 4 : Math.max(92, systemBottomInset + 28);
+  const bottomControlsBottom = isLandscape ? systemBottomInset + 4 : Math.max(92, systemBottomInset + 28) + 15;
   // In portrait, keep the banner below the action buttons while reserving the
   // system navigation inset so it never sits under the home indicator.
   const portraitBannerBottom = Math.max(4, bottomControlsBottom - 64);
@@ -1460,6 +1460,8 @@ export default function HomeScreen() {
       return;
     }
     if (selection) {
+      // 다른 카드를 더블탭한 경우에는 기존 선택을 이동 대상으로 해석하지 않고,
+      // 방금 탭한 앞면 카드를 새 선택으로 교체합니다.
       moveSelectionToTableau(column);
       return;
     }
@@ -1553,10 +1555,10 @@ export default function HomeScreen() {
   const bossWarningScale = bossIntroProgress.interpolate({ inputRange: [0, 0.22, 0.82, 1], outputRange: [0.82, 1, 1.04, 0.94] });
   const companionAttackStyle = getCompanionAttackStyle(selectedCompanion);
   const companionAttackColor = companionAttackColors[companionAttackStyle];
-  const companionSize = Math.max(61, Math.round(cardWidth * 1.64 * 0.9));
+  const companionSize = Math.max(61, Math.round(cardWidth * 1.64 * 0.9 * 1.3));
   const companionBaseLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
   const companionBottom = bottomControlsBottom + 52 + (!isLandscape ? 1 : 0);
-  const renderCardRatio = !isLandscape ? Math.max(0.76, cardRatio * 0.95) : cardRatio;
+  const renderCardRatio = !isLandscape ? Math.max(0.76, cardRatio * 0.9) : cardRatio;
   const activeShuffleStep: 0 | 1 | 2 = twoTouchOpensUsed === 0 ? 0 : rewardedRevealUsed < 10 ? 1 : 2;
   const shuffleHelpTitle = activeShuffleStep === 0 ? "무료 망치" : `광고 보상 망치 +${activeShuffleStep}`;
   const shuffleHelpCopy = activeShuffleStep === 0
@@ -1685,12 +1687,12 @@ export default function HomeScreen() {
         {hammerImpactBurstTarget ? <Animated.View pointerEvents="none" style={[styles.hammerImpactBurst, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.5, height: cardWidth * 1.5, transform: [{ translateX: hammerImpactBurstTarget.dx }, { translateY: hammerImpactBurstTarget.dy }, { scale: hammerImpactBurst.interpolate({ inputRange: [0, 0.28, 1], outputRange: [0.35, 1.25, 0.1] }) }, { rotate: hammerImpactBurst.interpolate({ inputRange: [0, 1], outputRange: ["-8deg", "18deg"] }) }], opacity: hammerImpactBurst.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 1, 0] }) }]}><Image source={HAMMER_IMPACT_ART} resizeMode="contain" style={styles.hammerImpactBurstImage} /></Animated.View> : null}
         {showAttendanceRewardFlight ? <Animated.View pointerEvents="none" style={[styles.attendanceRewardFlight, { left: Math.max(0, safeScreenWidth * 0.5 - 30), top: Math.max(80, safeScreenHeight * 0.58), opacity: attendanceRewardOpacity, transform: [{ translateX: attendanceRewardTranslateX }, { translateY: attendanceRewardTranslateY }, { scale: attendanceRewardScale }, { rotate: attendanceRewardFlight.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) }] }]}><Image source={HAMMER_ICON_ART} resizeMode="contain" style={styles.attendanceRewardFlightImage} /></Animated.View> : null}
         <VictoryFireworks visible={showFireworks} />
-        <View style={[styles.header, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact, phoneLandscape && styles.headerPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
-          <View style={phoneLandscape && styles.headerTitlePhoneLandscape}>
-            <Text style={styles.eyebrow}>OUR STYLE</Text>
+          <View style={[styles.header, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact, phoneLandscape && styles.headerPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
+            <View style={phoneLandscape && styles.headerTitlePhoneLandscape}>
+            <Text style={[styles.eyebrow, narrowCover && styles.eyebrowNarrow]}>OUR STYLE</Text>
             <View style={styles.titleLine}>
-              <Text style={[styles.title, { fontSize: Math.round((compactLandscape ? 23 : 27) * (isLandscape ? 1 : uiScale)), lineHeight: Math.round((compactLandscape ? 27 : 31) * (isLandscape ? 1 : uiScale)) }]}>Solitaire</Text>
-              <View style={styles.levelBadge}><Text style={styles.levelText}>LV {battleContent.chapter} · STAGE {game.level}</Text></View>
+              <Text style={[styles.title, narrowCover && styles.titleNarrow, { fontSize: Math.round((compactLandscape ? 23 : narrowCover ? 26 : 27) * (isLandscape ? 1 : uiScale)), lineHeight: Math.round((compactLandscape ? 27 : narrowCover ? 30 : 31) * (isLandscape ? 1 : uiScale)) }]}>Solitaire</Text>
+              <View style={styles.levelBadge}><Text style={[styles.levelText, narrowCover && styles.levelTextNarrow]}>LV {battleContent.chapter}{"\n"}STAGE {game.level}</Text></View>
             </View>
           </View>
           {isLandscape ? <View style={[styles.landscapeHeaderBanner, phoneLandscape && styles.landscapeHeaderBannerPhone]}><AdBanner compact inline /></View> : null}
@@ -1721,7 +1723,7 @@ export default function HomeScreen() {
           <Pressable accessibilityRole="button" accessibilityLabel="파운데이션 불꽃 카드 공격 미리보기" onPress={playPreviewFoundationAttack} style={({ pressed }) => [styles.previewToolButton, pressed && styles.pressed]}><Text style={styles.previewToolText}>파운데이션 공격</Text></Pressable>
         </View> : null}
 
-        <View style={[styles.stats, isLandscape && styles.statsLandscape, compactLandscape && styles.statsLandscapeCompact, phoneLandscape && styles.statsPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
+        <View style={[styles.stats, narrowCover && styles.statsNarrowCover, isLandscape && styles.statsLandscape, compactLandscape && styles.statsLandscapeCompact, phoneLandscape && styles.statsPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
           <View style={[styles.statsSummary, phoneLandscape && styles.statsSummaryPhoneLandscape]}>
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.score}</Text><Text style={styles.statLabel}>점수</Text></View>
             <View style={styles.statDivider} />
@@ -1732,7 +1734,7 @@ export default function HomeScreen() {
           <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={monsterTravelDistance} motionValue={monsterMotion} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
-        <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}>
+        <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
         <View style={[styles.board, { width: boardWidth }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
@@ -1772,7 +1774,7 @@ export default function HomeScreen() {
               {pile.map((card, index) => (
                 <View ref={index === pile.length - 1 ? (node) => { tableauBottomCardRefs.current[column] = node; } : undefined} key={card.id} style={{ position: "absolute", top: index * stackOffset, left: 0, zIndex: index }}>
                   {card.faceUp ? (
-                    <CardFace card={card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => autoMoveToFoundation({ kind: "tableau", column, index })} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
+                    <CardFace card={card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => { if (selection && selection.cardId !== card.id) { selectCard({ kind: "tableau", column, index, cardId: card.id }); return; } autoMoveToFoundation({ kind: "tableau", column, index }); }} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
                   ) : (
                     <CardBack width={cardWidth} cardRatio={renderCardRatio} theme={cardBackTheme} onPress={() => onTableauPress(column, index, card)} />
                   )}
@@ -1941,8 +1943,8 @@ export default function HomeScreen() {
                   <View style={styles.rulesTabs}>
                     {([["basic", "기본 규칙"], ["cards", "카드 이동"], ["items", "공격·아이템"]] as const).map(([tab, label]) => <Pressable key={tab} onPress={() => setRulesTab(tab)} style={({ pressed }) => [styles.rulesTab, rulesTab === tab && styles.rulesTabActive, pressed && styles.pressed]}><Text style={[styles.rulesTabText, rulesTab === tab && styles.rulesTabTextActive]}>{label}</Text></Pressable>)}
                   </View>
-                  {rulesTab === "basic" ? <Text style={styles.rulesText}>A부터 같은 무늬 순서로 위쪽 파운데이션을 완성하면 승리합니다. 카드는 색을 번갈아 놓고 숫자가 하나씩 낮아지게 쌓습니다.</Text> : null}
-                  {rulesTab === "cards" ? <Text style={styles.rulesText}>카드를 탭한 뒤 이동할 곳을 탭하세요. 빈 열에는 K만 놓을 수 있습니다. 스톡을 탭하면 새 카드가 나오며, 힌트와 실행 취소로 진행을 도울 수 있습니다.</Text> : null}
+                  {rulesTab === "basic" ? <Text style={styles.rulesText}>A부터 같은 무늬 순서로 위쪽 파운데이션을 완성하면 승리합니다. 카드는 색을 번갈아 놓고 숫자가 하나씩 낮아지게 쌓습니다. 반복되는 이동이 2번 연속일 경우 더 이상 이동할 수 없다는 창이 떠도 X 버튼을 눌러 계속 진행할 수 있습니다.</Text> : null}
+                  {rulesTab === "cards" ? <Text style={styles.rulesText}>카드를 탭한 뒤 이동할 곳을 탭하세요. 빈 열에는 K만 놓을 수 있습니다. 스톡을 탭하면 새 카드가 나오며, 힌트와 실행 취소로 진행을 도울 수 있습니다. 카드를 잘못 선택했다면 다른 카드를 더블탭해 선택을 바꿀 수 있습니다.</Text> : null}
                   {rulesTab === "items" ? <><Text style={styles.rulesText}>카드가 몬스터에게 날아가며 파운데이션 카드와 콤보 공격은 피해를 줍니다. 망치는 히든 카드 공개에 사용하고, 출석과 보상형 광고로 최대 10개까지 충전할 수 있습니다.</Text><Text style={styles.rulesHint}>출석체크: 게임에 접속한 날 출석 버튼을 눌러 보상을 받습니다. 일반 출석은 망치 2개, 10·20·30일차는 망치 5개를 받으며, 당일 출석은 한 번만 인정됩니다.</Text><Text style={styles.rulesHint}>망치 획득: 출석체크 또는 보상형 광고 시청으로 충전됩니다. 망치는 최대 10개까지 보유할 수 있습니다.</Text></> : null}
                   <Pressable onPress={() => { setPaused(false); setSheet(null); }} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>게임 시작하기</Text></Pressable>
                 </>
@@ -1993,10 +1995,13 @@ const styles = StyleSheet.create({
   landscapeHeaderBanner: { flex: 1, minWidth: 0, maxWidth: 320, height: 50, marginHorizontal: 14, alignItems: "center", justifyContent: "center" },
   landscapeHeaderBannerPhone: { flex: 0, width: "100%", maxWidth: 260, height: 42, marginHorizontal: 0, marginVertical: 6 },
   eyebrow: { color: "#77D6C3", fontSize: 10, fontWeight: "800", letterSpacing: 2.2 },
+  eyebrowNarrow: { fontSize: 9, letterSpacing: 1.8 },
   title: { color: "#FFFDF8", fontSize: 27, lineHeight: 31, fontWeight: "800", letterSpacing: -0.7 },
+  titleNarrow: { fontSize: 26, lineHeight: 30 },
   titleLine: { flexDirection: "row", alignItems: "center", gap: 8 },
   levelBadge: { borderRadius: 10, paddingHorizontal: 7, paddingVertical: 4, backgroundColor: "#233958", borderWidth: 1, borderColor: "#3D5A85" },
-  levelText: { color: "#77D6C3", fontSize: 9, fontWeight: "900", letterSpacing: 0.4 },
+  levelText: { color: "#77D6C3", fontSize: 9, lineHeight: 10, fontWeight: "900", letterSpacing: 0.4, textAlign: "center" },
+  levelTextNarrow: { fontSize: 8, lineHeight: 9, letterSpacing: 0.2 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 7 },
   headerActionsCompact: { gap: 3 },
   autoButton: { minHeight: 34, justifyContent: "center", paddingHorizontal: 11, borderRadius: 17, backgroundColor: "#233958", borderWidth: 1, borderColor: "#3D5A85" },
@@ -2017,6 +2022,7 @@ const styles = StyleSheet.create({
   previewToolButton: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: "#F3C969", backgroundColor: "rgba(24, 39, 68, 0.94)" },
   previewToolText: { color: "#FFF3D1", fontSize: 10, fontWeight: "900" },
   stats: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 8, marginBottom: 14 },
+  statsNarrowCover: { paddingVertical: 7, marginBottom: 12 },
   statsSummary: { flexDirection: "row", alignItems: "center", justifyContent: "flex-start" },
   statsSummaryPhoneLandscape: { width: "100%" },
   statsLandscape: { paddingVertical: 3, marginBottom: 6 },
@@ -2097,8 +2103,8 @@ const styles = StyleSheet.create({
   royalPortrait: { position: "absolute", top: "24%", left: "13%", width: "74%", height: "61%", overflow: "hidden", borderRadius: 12, transform: [{ scale: 0.9 }] },
   royalSprite: { position: "absolute", width: "400%", height: "300%" },
   bottomMark: { position: "absolute", right: 5, bottom: 3, transform: [{ rotate: "180deg" }], alignItems: "center" },
-  rankBottom: { fontSize: 14, lineHeight: 15, fontWeight: "900" },
-  suitBottom: { fontSize: 12, lineHeight: 12, fontWeight: "900" },
+  rankBottom: { position: "absolute", fontSize: 14, lineHeight: 15, fontWeight: "900" },
+  suitBottom: { position: "absolute", fontSize: 12, lineHeight: 12, fontWeight: "900" },
   cardBack: { borderColor: "#0C1222", backgroundColor: "#77D6C3", padding: 4 },
   backInner: { flex: 1, justifyContent: "center", alignItems: "center", borderRadius: 4, backgroundColor: "#1E3153", borderWidth: 1, borderColor: "#9BE4D5" },
   backMark: { color: "#77D6C3", fontSize: 26, fontWeight: "900" },

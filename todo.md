@@ -585,3 +585,21 @@
 - [x] Release APK 실행 직후 종료 원인 logcat 수집
 - [x] 최신 소스 반영 후 JavaScript 번들·AdMob·Manifest·Release 난독화 설정 점검
 - [ ] 수정 APK 재빌드 후 실기기 실행 회귀 검증
+
+- [ ] 최신 Animated.Image 크래시 수정 소스 반영 확인 후 APK·AAB 재빌드
+- [ ] Play Console 기존 versionCode보다 큰 새 버전 코드 결정
+- [ ] APK·AAB의 버전·서명·AdMob 권한 검증
+
+- [ ] Windows 소스 1752행 망치 아이콘을 Animated.Image로 수정
+- [ ] Animated.Image 수정본의 TypeScript·Vitest 검증 및 최신 ZIP 반영
+- [ ] 수정된 APK·AAB를 versionCode 33으로 재빌드하고 실기기 실행 확인
+
+- [x] 폴드 전면 폭이 좁은 화면에서 앱 제목·LV stage 배지·HUD 글자 크기 1pt 축소
+- [x] LV1·stage 1 배지를 2줄로 배치
+- [x] 몬스터·이동시간 HUD 카드 영역 세로 높이 10% 축소
+- [x] 잘못 선택한 카드에서 다른 카드를 더블탭하면 새 카드를 선택하도록 수정
+- [x] 상단·하단 UI와 카드의 위치를 15px 조정하고 하단 버튼·광고를 15px 아래로 이동
+- [x] 카드 중앙 보조 문양을 우측 상단·좌측 하단으로 재배치
+- [x] 게임 규칙 팝업에 반복 이동 2회 안내 문구 추가
+- [x] 펫 기본 크기 30% 확대
+- [x] 좁은 화면에서 카드 숫자·문양이 겹치지 않도록 반응형 축소
