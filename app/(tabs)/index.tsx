@@ -71,6 +71,19 @@ const FLAMING_CARD_ART_BY_STYLE: Record<CompanionAttackStyle, ImageSourcePropTyp
   orange: { uri: "/manus-storage/attack-lightning-card_7a5930f8.png" },
   white: { uri: "/manus-storage/attack-shadow-card_26d37c36.png" },
 };
+const ATTACK_IMPACT_ART_BY_STYLE: Record<CompanionAttackStyle, ImageSourcePropType> = {
+  red: { uri: "/manus-storage/attack-fire-impact_d9bc33b9.png" },
+  blue: { uri: "/manus-storage/attack-ice-impact_bd518a60.png" },
+  orange: { uri: "/manus-storage/attack-lightning-impact_764dbd72.png" },
+  white: { uri: "/manus-storage/attack-shadow-impact_3ba053a9.png" },
+};
+const ATTACK_STYLE_LABELS: Record<CompanionAttackStyle, string> = { red: "불꽃", blue: "빙결", orange: "번개", white: "그림자" };
+const ATTACK_SOUND_BY_STYLE = {
+  red: require("../../assets/audio/attack-fire.wav"),
+  blue: require("../../assets/audio/attack-ice.wav"),
+  orange: require("../../assets/audio/attack-lightning.wav"),
+  white: require("../../assets/audio/attack-shadow.wav"),
+} as const;
 const HAMMER_ICON_ART = require("../../assets/images/card-breaker-shark-hammer.png");
 const HINT_BUTTON_ART = require("../../assets/images/hint-cartoon-button.webp");
 const UNDO_BUTTON_ART = require("../../assets/images/undo-cartoon-button.webp");
@@ -450,7 +463,7 @@ function CardAttackEffect({ kind, combo, travelX, travelY, startLeft = 16, start
 
 type AttackKind = Suit;
 
-function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = false, landscape = false, phoneLandscape = false, travelDistance = 24, monster, isBoss, cardSize, motionValue }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; travelDistance?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value }) {
+function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo, compact = false, landscape = false, phoneLandscape = false, travelDistance = 24, monster, isBoss, cardSize, motionValue }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; attackStyle: CompanionAttackStyle; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; travelDistance?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value }) {
   const internalMonsterMotion = useRef(new Animated.Value(1)).current;
   const monsterMotion = motionValue ?? internalMonsterMotion;
   const attackProgress = useRef(new Animated.Value(0)).current;
@@ -542,7 +555,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, combo, compact = f
       <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, transform: [{ translateX: monsterTranslate }, { translateY: bossEntranceTranslateY }, { scale: bossEntranceScale }] }]}>
         <Animated.View style={[styles.monsterImageLayer, { width: spriteSize, height: spriteSize, transform: [{ scale: monsterScale }, { scaleX: facingLeft ? -1 : 1 }] }]}>
           <Image source={monster.image} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, defeatVisible && styles.monsterDefeated]} accessibilityLabel={monster.name} />
-          {attackVisible ? <Animated.View pointerEvents="none" style={[styles.comboImpactOverlay, { width: spriteSize * 0.9, height: spriteSize * 0.9, left: spriteSize * 0.05, top: spriteSize * 0.05, opacity: comboImpactOpacity, transform: [{ scale: comboImpactScale }, { rotate: comboImpactRotate }] }]}><Image source={COMBO_IMPACT_ARTS[impactVariant]} resizeMode="contain" style={styles.comboImpactImage} /></Animated.View> : null}
+          {attackVisible ? <Animated.View pointerEvents="none" style={[styles.comboImpactOverlay, { width: spriteSize * 0.9, height: spriteSize * 0.9, left: spriteSize * 0.05, top: spriteSize * 0.05, opacity: comboImpactOpacity, transform: [{ scale: comboImpactScale }, { rotate: comboImpactRotate }] }]}><Image source={ATTACK_IMPACT_ART_BY_STYLE[attackStyle]} resizeMode="contain" style={styles.comboImpactImage} /></Animated.View> : null}
         </Animated.View>
         {attackVisible ? <Animated.Text style={[styles.monsterProjectile, { color: attackColors[attackKind], transform: [{ translateX: projectileTranslate }, { scale: projectileScale }] }]}>{attackSymbols[attackKind]}</Animated.Text> : null}
         {damageVisible ? <Animated.Text style={[styles.damageText, { opacity: damageOpacity, transform: [{ translateY: damageTranslateY }] }]}>−{damage}</Animated.Text> : null}
@@ -647,6 +660,7 @@ export default function HomeScreen() {
   const showPreviewAttackTools = Platform.OS === "web" && (__DEV__ || isRunningInPreviewIframe());
   const [hammerImpactBurstTarget, setHammerImpactBurstTarget] = useState<{ dx: number; dy: number } | null>(null);
   const [showBossWarning, setShowBossWarning] = useState(false);
+  const [showBossPrepReward, setShowBossPrepReward] = useState(false);
   const [undoStack, setUndoStack] = useState<typeof game[]>([]);
   const newGameStarted = useRef(false);
   const suppressNextShufflePromptRef = useRef(false);
@@ -689,6 +703,10 @@ export default function HomeScreen() {
   const shufflePlayer = useAudioPlayer(require("../../assets/sounds/card-shuffle.wav"));
   const companionAttackPlayer = useAudioPlayer(require("../../assets/sounds/companion-attack.wav"));
   const foundationAttackPlayer = useAudioPlayer(require("../../assets/sounds/foundation-attack.wav"));
+  const fireAttackPlayer = useAudioPlayer(ATTACK_SOUND_BY_STYLE.red);
+  const iceAttackPlayer = useAudioPlayer(ATTACK_SOUND_BY_STYLE.blue);
+  const lightningAttackPlayer = useAudioPlayer(ATTACK_SOUND_BY_STYLE.orange);
+  const shadowAttackPlayer = useAudioPlayer(ATTACK_SOUND_BY_STYLE.white);
   const backgroundPlayer = useAudioPlayer(require("../../assets/sounds/medieval-solitaire-loop.mp3"));
 
   const stopHintAttention = () => {
@@ -793,7 +811,7 @@ export default function HomeScreen() {
   const setSoundEffectsVolumePreference = (value: number) => {
     const volume = clampVolume(value);
     setSoundEffectsVolume(volume);
-    for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer]) {
+    for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer, fireAttackPlayer, iceAttackPlayer, lightningAttackPlayer, shadowAttackPlayer]) {
       try { player.volume = soundEffectsEnabled ? volume : 0; } catch { /* optional audio */ }
     }
   };
@@ -807,7 +825,7 @@ export default function HomeScreen() {
   };
 
   const setSoundEffectsEnabledPreference = (enabled: boolean) => {
-        for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer]) {
+        for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer, fireAttackPlayer, iceAttackPlayer, lightningAttackPlayer, shadowAttackPlayer]) {
       try { player.volume = enabled ? soundEffectsVolume : 0;
 
         if (!enabled) player.pause();
@@ -993,7 +1011,7 @@ export default function HomeScreen() {
   }, [hydrated]);
 
   useEffect(() => {
-    for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer]) {
+    for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer, fireAttackPlayer, iceAttackPlayer, lightningAttackPlayer, shadowAttackPlayer]) {
       try {
         player.volume = soundEffectsEnabled ? soundEffectsVolume : 0;
         if (!soundEffectsEnabled) player.pause();
@@ -1007,7 +1025,7 @@ export default function HomeScreen() {
     // Re-apply both independent mixer buses after either slider changes. This
     // prevents platform audio-session updates from leaving the music bus at the
     // effects bus level on some Android audio implementations.
-    for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer]) {
+    for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer, fireAttackPlayer, iceAttackPlayer, lightningAttackPlayer, shadowAttackPlayer]) {
       try { player.volume = soundEffectsEnabled ? soundEffectsVolume : 0; } catch { /* optional audio */ }
     }
     try { backgroundPlayer.volume = backgroundMusicEnabled ? backgroundMusicVolume : 0; } catch { /* optional audio */ }
@@ -1057,6 +1075,7 @@ export default function HomeScreen() {
       const nextClaimedBossPrepStages = [...claimedBossPrepStages, level];
       setClaimedBossPrepStages(nextClaimedBossPrepStages);
       setHammerCharges((charges) => Math.min(10, charges + 1));
+      setShowBossPrepReward(true);
       showTimedHint("보스 전 준비 보너스: 망치 +1");
     }
     recentGameFingerprintsRef.current = [gameStateFingerprint(freshGame)];
@@ -1132,7 +1151,7 @@ export default function HomeScreen() {
 
   const playEffect = (effect: "select" | "move" | "shuffle" | "companionAttack" | "foundationAttack") => {
     if (!soundEffectsEnabled) return;
-    const player = effect === "select" ? selectPlayer : effect === "move" ? movePlayer : effect === "shuffle" ? shufflePlayer : effect === "companionAttack" ? companionAttackPlayer : foundationAttackPlayer;
+    const player = effect === "select" ? selectPlayer : effect === "move" ? movePlayer : effect === "shuffle" ? shufflePlayer : effect === "companionAttack" ? ({ red: fireAttackPlayer, blue: iceAttackPlayer, orange: lightningAttackPlayer, white: shadowAttackPlayer } as const)[companionAttackStyle] : foundationAttackPlayer;
     try {
       player.seekTo(0);
       player.play();
@@ -1728,6 +1747,12 @@ export default function HomeScreen() {
   }, [cardWidth, companionAvoidanceShift, companionBaseLeft, companionBottom, companionSize, flyingCard, game.tableau, isLandscape, safeScreenHeight, safeScreenWidth]);
 
   useEffect(() => {
+    if (!showBossPrepReward) return;
+    const timeout = setTimeout(() => setShowBossPrepReward(false), 2400);
+    return () => clearTimeout(timeout);
+  }, [showBossPrepReward]);
+
+  useEffect(() => {
     if (!hydrated || !battleContent.isBoss || bossWarningStageRef.current === battleContent.stage) return;
     bossWarningStageRef.current = battleContent.stage;
     setShowBossWarning(true);
@@ -1754,6 +1779,7 @@ export default function HomeScreen() {
       <Animated.View ref={rootRef} style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: [{ translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }] }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
         <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
+        {showBossPrepReward ? <View style={styles.bossPrepRewardPopup}><Text style={styles.bossPrepRewardTitle}>보스 준비 보너스 획득!</Text><Text style={styles.bossPrepRewardCopy}>망치 +1</Text></View> : null}
         {flyingAttacks.map((flight) => <FlyingCard key={flight.id} card={flight.card} width={cardWidth} cardRatio={renderCardRatio} progress={flight.progress} travelX={flight.travelX} travelY={flight.travelY} startLeft={flight.startLeft} startBottom={flight.startBottom} flightColor={flight.flightColor} flamingArt={flight.flamingArt} flaming={flight.variant === "flaming"} monsterMotion={monsterMotion} monsterTravelDistance={monsterTravelDistance} />)}
         {hammerStrikeTarget ? <Animated.View pointerEvents="none" style={[styles.hammerStrike, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.08, height: cardWidth * 1.08, transform: [{ translateX: hammerStrikeTranslateX }, { translateY: hammerStrikeTranslateY }, { scale: hammerStrikeScale }, { rotate: hammerStrikeRotate }] }]}> 
           <Image source={HAMMER_ICON_ART} resizeMode="contain" style={styles.hammerStrikeImage} />
@@ -1805,7 +1831,8 @@ export default function HomeScreen() {
             <View style={styles.statDivider} />
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
           </View>
-          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={monsterTravelDistance} motionValue={monsterMotion} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
+          <View style={[styles.attributeBadge, phoneLandscape && styles.attributeBadgePhoneLandscape]} accessibilityLabel={`현재 펫 속성 ${ATTACK_STYLE_LABELS[companionAttackStyle]}`}><View style={[styles.attributeBadgeDot, { backgroundColor: companionAttackColor }]} /><Text style={styles.attributeBadgeLabel}>펫 속성</Text><Text style={[styles.attributeBadgeValue, { color: companionAttackColor }]}>{ATTACK_STYLE_LABELS[companionAttackStyle]}</Text></View>
+          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={monsterTravelDistance} motionValue={monsterMotion} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
         <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
@@ -2108,6 +2135,11 @@ const styles = StyleSheet.create({
   statsNarrowCover: { paddingVertical: 7, marginBottom: 12 },
   statsSummary: { flexDirection: "row", alignItems: "center", justifyContent: "flex-start" },
   statsSummaryPhoneLandscape: { width: "100%" },
+  attributeBadge: { flexDirection: "row", alignItems: "center", gap: 4, marginLeft: 8, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 10, backgroundColor: "rgba(19, 31, 58, 0.9)", borderWidth: 1, borderColor: "#4A638A" },
+  attributeBadgePhoneLandscape: { marginLeft: 0, marginTop: 5, alignSelf: "flex-start" },
+  attributeBadgeDot: { width: 7, height: 7, borderRadius: 4 },
+  attributeBadgeLabel: { color: "#A6B4CE", fontSize: 9, fontWeight: "800" },
+  attributeBadgeValue: { fontSize: 11, fontWeight: "900" },
   statsLandscape: { paddingVertical: 3, marginBottom: 6 },
   statsLandscapeCompact: { paddingVertical: 1, marginBottom: 4 },
   statsPhoneLandscape: { position: "absolute", left: 0, top: 128, flexDirection: "column", alignItems: "stretch", justifyContent: "flex-start", paddingVertical: 6, marginBottom: 0, zIndex: 5 },
@@ -2240,6 +2272,9 @@ const styles = StyleSheet.create({
   bossWarningEyebrow: { color: "#FFE7A2", fontSize: 10, fontWeight: "900", letterSpacing: 2.2 },
   bossWarningTitle: { color: "#FFFDF8", fontSize: 25, lineHeight: 30, fontWeight: "900", marginTop: 4, textAlign: "center" },
   bossWarningCopy: { color: "#FFC1B4", fontSize: 11, fontWeight: "800", marginTop: 4, textAlign: "center" },
+  bossPrepRewardPopup: { position: "absolute", top: "31%", left: 28, right: 28, zIndex: 62, alignItems: "center", paddingVertical: 12, paddingHorizontal: 18, borderRadius: 16, backgroundColor: "rgba(20, 44, 73, 0.96)", borderWidth: 2, borderColor: "#F3C969", shadowColor: "#FFD66B", shadowOpacity: 0.8, shadowRadius: 14, elevation: 14 },
+  bossPrepRewardTitle: { color: "#FFE7A2", fontSize: 16, fontWeight: "900", textAlign: "center" },
+  bossPrepRewardCopy: { color: "#FFFDF8", fontSize: 22, fontWeight: "900", marginTop: 3, textAlign: "center" },
   fireworkParticle: { position: "absolute", width: 10, height: 10, borderRadius: 5, shadowColor: "#FFFFFF", shadowOpacity: 0.8, shadowRadius: 5, elevation: 10 },
   victoryText: { position: "absolute", top: "43%", color: "#FFFDF8", fontSize: 28, fontWeight: "900", letterSpacing: 1.8, textShadowColor: "#FF7A66", textShadowRadius: 14 },
   pressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
