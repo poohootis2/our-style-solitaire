@@ -140,24 +140,20 @@ describe("클론다이크 규칙", () => {
     expect(isChapterBossStage(1)).toBe(false);
   });
 
-  it("초반은 Turn 1을 유지하고 보스·중반 도전 스테이지만 Turn 3을 사용한다", () => {
-    expect(getDifficulty(1).drawCount).toBe(1);
-    expect(getDifficulty(3).drawCount).toBe(1);
-    expect(getDifficulty(4).drawCount).toBe(3); // chapter boss exception
-    expect(getDifficulty(5).drawCount).toBe(1);
-    expect(getDifficulty(6).drawCount).toBe(3); // mid-game challenge stage
-    expect(getDifficulty(4).maxRecycles).toBe(3);
-    expect(getDifficulty(5).maxRecycles).toBe(Number.POSITIVE_INFINITY);
-    expect(getDifficulty(6).maxRecycles).toBe(2);
+  it("완화된 난이도는 초반 Turn 1과 넉넉한 재순환으로 펫 수집을 돕는다", () => {
+    expect(getDifficulty(1)).toMatchObject({ drawCount: 1, maxRecycles: 5 });
+    expect(getDifficulty(4)).toMatchObject({ drawCount: 1, maxRecycles: 5 });
+    expect(getDifficulty(10)).toMatchObject({ drawCount: 1, maxRecycles: 5 });
+    expect(getDifficulty(11)).toMatchObject({ drawCount: 3, maxRecycles: 5 });
+    expect(getDifficulty(12)).toMatchObject({ drawCount: 3, maxRecycles: 4 });
+    expect(getDifficulty(13)).toMatchObject({ drawCount: 1, maxRecycles: 4 });
 
-    const level3 = drawFromStock(createNewGame(3));
     const level4 = drawFromStock(createNewGame(4));
-    const level5 = drawFromStock(createNewGame(5));
-    const level6 = drawFromStock(createNewGame(6));
-    expect(level3.waste).toHaveLength(1);
-    expect(level4.waste).toHaveLength(3);
-    expect(level5.waste).toHaveLength(1);
-    expect(level6.waste).toHaveLength(3);
+    const level11 = drawFromStock(createNewGame(11));
+    const level13 = drawFromStock(createNewGame(13));
+    expect(level4.waste).toHaveLength(1);
+    expect(level11.waste).toHaveLength(3);
+    expect(level13.waste).toHaveLength(1);
   });
 
   it("모든 카드가 공개되고 스톡이 비면 자동 정렬을 시작할 수 있다", () => {

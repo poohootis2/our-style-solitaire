@@ -86,21 +86,21 @@ export function isChapterBossStage(stage: number): boolean {
 }
 
 export function getDifficulty(level: number): Difficulty {
-  // Casual mobile pacing: stages 1–5 stay on Turn 1 so new players can learn
-  // the rules, while chapter-boss stages add Turn 3 as a special challenge.
-  if (isChapterBossStage(level)) return { drawCount: 3, maxRecycles: 3, label: "보스 도전" };
-  if (level <= 5) return { drawCount: 1, maxRecycles: Number.POSITIVE_INFINITY, label: level <= 2 ? "입문" : "초반 도전" };
-  // Mix Turn 1 and Turn 3 during the mid-game instead of increasing difficulty
-  // monotonically. Every third stage gives a short challenge spike.
-  if (level <= 15) return { drawCount: level % 3 === 0 ? 3 : 1, maxRecycles: level % 3 === 0 ? 2 : 3, label: level % 3 === 0 ? "중반 도전" : "중반" };
-  return { drawCount: 3, maxRecycles: Math.max(1, 6 - Math.min(level - 15, 5)), label: "마스터" };
+  // Relaxed mobile pacing: the first ten stages stay on Turn 1, including
+  // the early chapter bosses, and allow five Stock recycles for collection.
+  if (isChapterBossStage(level) && level >= 11) return { drawCount: 3, maxRecycles: 5, label: "보스 도전" };
+  if (level <= 10) return { drawCount: 1, maxRecycles: 5, label: level <= 2 ? "입문" : "초반" };
+  // Keep Turn 1 through most of the mid-game. Turn 3 appears only on every
+  // fourth stage, while four recycles preserve a forgiving route to pets.
+  if (level <= 20) return { drawCount: level % 4 === 0 ? 3 : 1, maxRecycles: 4, label: level % 4 === 0 ? "중반 도전" : "중반" };
+  return { drawCount: 3, maxRecycles: 3, label: "마스터" };
 }
 
 function minimumInitialMoves(level: number): number {
-  if (level <= 2) return 3;
-  if (level <= 5) return 2;
-  if (level <= 15) return 1;
-  return 0;
+  if (level <= 2) return 4;
+  if (level <= 10) return 3;
+  if (level <= 20) return 2;
+  return 1;
 }
 
 function countInitialMoves(tableau: Card[][]): number {
