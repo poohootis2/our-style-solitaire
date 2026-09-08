@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { getChapterForStage, isChapterBossStage } from "../lib/solitaire";
-import { getCompanionAttackStyle } from "../lib/companion-attack";
+import { getCompanionAttackStyle, getPetAttackStyle } from "../lib/companion-attack";
 
 describe("스테이지 전투 콘텐츠 규칙", () => {
   it("스테이지가 네 챕터 범위로 이어진다", () => {
@@ -14,6 +14,10 @@ describe("스테이지 전투 콘텐츠 규칙", () => {
   it("챕터가 바뀌는 스테이지에서만 보스 플래그가 켜진다", () => {
     expect([4, 7, 11].every(isChapterBossStage)).toBe(true);
     expect([1, 2, 3, 5, 6, 8, 10, 12].some(isChapterBossStage)).toBe(false);
+  });
+
+  it("수집 펫 ID에 따라 네 가지 속성 공격 카드가 순환한다", () => {
+    expect(["pet-004", "pet-005", "pet-006", "pet-007"].map(getPetAttackStyle)).toEqual(["red", "blue", "orange", "white"]);
   });
 
   it("동료 공격 효과는 빨강·파랑·주황·하양 4색 슬롯을 지원한다", () => {

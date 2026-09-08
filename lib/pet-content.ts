@@ -1,5 +1,4 @@
 import type { BattleAsset } from "./battle-content";
-
 export const PET_ROSTER: BattleAsset[] = [
   { id: "pet-003", name: '루나 시바', image: require("../assets/images/characters/pets/003-pet-3.png"), attackStyle: "white" },
   { id: "pet-004", name: '리본 푸들', image: require("../assets/images/characters/pets/004-pet-4.png"), attackStyle: "white" },

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Animated, AppState, Easing, Image, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Animated, AppState, Easing, Image, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ImageSourcePropType } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
@@ -40,7 +40,7 @@ import {
 import { getBattleContent, getCompanionRoster, type BattleAsset } from "@/lib/battle-content";
 import { PET_ROSTER } from "@/lib/pet-content";
 import { showRewardedAd } from "@/components/rewarded-ad";
-import { companionAttackColors, getCompanionAttackStyle, type CompanionAttackStyle } from "@/lib/companion-attack";
+import { companionAttackColors, getCompanionAttackStyle, getPetAttackStyle, type CompanionAttackStyle } from "@/lib/companion-attack";
 import { getAttackTravelY } from "@/lib/attack-layout";
 import { isRunningInPreviewIframe } from "@/lib/_core/manus-runtime";
 
@@ -55,6 +55,7 @@ type ActiveFlight = {
   travelX: number;
   travelY: number;
   flightColor?: string;
+  flamingArt?: ImageSourcePropType;
 };
 type Sheet = "menu" | "rules" | "records" | "sound" | "companions" | null;
 type Records = { wins: number; bestScore: number; bestTimeSeconds: number | null };
@@ -64,6 +65,12 @@ const ROYAL_SPRITE = require("../../assets/images/royal-card-sprite.png");
 const RESET_MODAL_PANEL = { uri: "/manus-storage/solitaire-reset-modal-panel_5afc1a91.png" };
 const RESET_BUTTONS_ART = { uri: "/manus-storage/solitaire-reset-buttons_31124c25.png" };
 const FLAMING_CARD_ART = require("../../assets/images/flaming-card-attack.png");
+const FLAMING_CARD_ART_BY_STYLE: Record<CompanionAttackStyle, ImageSourcePropType> = {
+  red: { uri: "/manus-storage/attack-fire-card_abea8263.png" },
+  blue: { uri: "/manus-storage/attack-ice-card_238fe671.png" },
+  orange: { uri: "/manus-storage/attack-lightning-card_7a5930f8.png" },
+  white: { uri: "/manus-storage/attack-shadow-card_26d37c36.png" },
+};
 const HAMMER_ICON_ART = require("../../assets/images/card-breaker-shark-hammer.png");
 const HINT_BUTTON_ART = require("../../assets/images/hint-cartoon-button.webp");
 const UNDO_BUTTON_ART = require("../../assets/images/undo-cartoon-button.webp");
@@ -85,6 +92,7 @@ const BACKGROUND_MUSIC_VOLUME_KEY = "our-style-solitaire:background-music-volume
 const CARD_SELECT_VIBRATION_KEY = "our-style-solitaire:card-select-vibration";
 const SELECTED_COMPANION_KEY = "our-style-solitaire:selected-companion";
 const UNLOCKED_PETS_KEY = "our-style-solitaire:unlocked-pets";
+const BOSS_PREP_BONUSES_KEY = "our-style-solitaire:boss-prep-bonuses";
 const ATTENDANCE_KEY = "our-style-solitaire:attendance";
 const DAILY_AD_HAMMER_REWARD_KEY = "our-style-solitaire:daily-ad-hammer-reward";
 const MAX_DAILY_AD_HAMMER_REWARDS = 5;
@@ -352,7 +360,7 @@ function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress }: { width: nu
   );
 }
 
-function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, travelY = -180, startLeft = 16, startBottom = 44, flightColor, flaming = false, monsterMotion, monsterTravelDistance = 0 }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; travelY?: number; startLeft?: number; startBottom?: number; flightColor?: string; flaming?: boolean; monsterMotion?: Animated.Value; monsterTravelDistance?: number }) {
+function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, travelY = -180, startLeft = 16, startBottom = 44, flightColor, flamingArt = FLAMING_CARD_ART, flaming = false, monsterMotion, monsterTravelDistance = 0 }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; travelY?: number; startLeft?: number; startBottom?: number; flightColor?: string; flamingArt?: ImageSourcePropType; flaming?: boolean; monsterMotion?: Animated.Value; monsterTravelDistance?: number }) {
   const color = playingCardColor(card);
   const glow: Record<Suit, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
   const cardHeight = width * cardRatio;
@@ -377,7 +385,7 @@ function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0
         <Animated.View pointerEvents="none" style={[styles.flamingTailLayer, { opacity: tailOpacity, transform: [{ translateY: tailTranslateY }, { scale: tailScale }] }]}>
           {flameParticles.map((particle, index) => <Text key={`${particle}-${index}`} style={[styles.flamingTailParticle, { left: `${12 + index * 14}%`, top: `${18 + (index % 3) * 24}%`, color: index % 2 ? "#FF7A18" : "#FFD45C", fontSize: 10 + (index % 3) * 5 }]}>{particle}</Text>)}
         </Animated.View>
-        <Image source={FLAMING_CARD_ART} resizeMode="contain" style={styles.flamingCardArt} />
+        <Image source={flamingArt} resizeMode="contain" style={styles.flamingCardArt} />
       </> : <>
         <Text style={[styles.flyingRank, { color }]}>{rankLabels[card.rank]}</Text>
         <Text style={[styles.flyingSuit, { color }]}>{suitSymbols[card.suit]}</Text>
@@ -623,6 +631,7 @@ export default function HomeScreen() {
   const [comboAttack, setComboAttack] = useState(false);
   const [selectedCompanionId, setSelectedCompanionId] = useState("cloud-tiger");
   const [unlockedPetIds, setUnlockedPetIds] = useState<string[]>(INITIAL_UNLOCKED_PET_IDS);
+  const [claimedBossPrepStages, setClaimedBossPrepStages] = useState<number[]>([]);
   const [showTwoTouch, setShowTwoTouch] = useState(false);
   const [showNoMovesPopup, setShowNoMovesPopup] = useState(false);
   const [twoTouchOpensUsed, setTwoTouchOpensUsed] = useState(0);
@@ -847,7 +856,7 @@ export default function HomeScreen() {
     let mounted = true;
     const loadLocalGame = async () => {
       try {
-        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, cardSelectVibrationValue, selectedCompanionValue, unlockedPetsValue, attendanceValue, dailyAdRewardValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, CARD_SELECT_VIBRATION_KEY, SELECTED_COMPANION_KEY, UNLOCKED_PETS_KEY, ATTENDANCE_KEY, DAILY_AD_HAMMER_REWARD_KEY]);
+        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, cardSelectVibrationValue, selectedCompanionValue, unlockedPetsValue, bossPrepValue, attendanceValue, dailyAdRewardValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, CARD_SELECT_VIBRATION_KEY, SELECTED_COMPANION_KEY, UNLOCKED_PETS_KEY, BOSS_PREP_BONUSES_KEY, ATTENDANCE_KEY, DAILY_AD_HAMMER_REWARD_KEY]);
         if (!mounted) return;
         if (activeGameValue[1] && !newGameStarted.current) {
           const saved = JSON.parse(activeGameValue[1]) as { saveVersion?: number; game?: typeof game; elapsedSeconds?: number };
@@ -878,6 +887,10 @@ export default function HomeScreen() {
             ]));
             setUnlockedPetIds(restoredPets);
           }
+        }
+        if (bossPrepValue[1]) {
+          const savedBossPrepStages = JSON.parse(bossPrepValue[1]);
+          if (Array.isArray(savedBossPrepStages)) setClaimedBossPrepStages(savedBossPrepStages.filter((stage): stage is number => Number.isInteger(stage) && stage > 0));
         }
         if (attendanceValue[1]) {
           const savedAttendance = JSON.parse(attendanceValue[1]) as { day?: number; lastDate?: string | null };
@@ -967,6 +980,10 @@ export default function HomeScreen() {
     if (!hydrated) return;
     AsyncStorage.setItem(ATTENDANCE_KEY, JSON.stringify({ day: attendanceDay, lastDate: lastAttendanceDate })).catch(() => undefined);
   }, [attendanceDay, hydrated, lastAttendanceDate]);
+  useEffect(() => {
+    if (!hydrated) return;
+    AsyncStorage.setItem(BOSS_PREP_BONUSES_KEY, JSON.stringify(claimedBossPrepStages)).catch(() => undefined);
+  }, [claimedBossPrepStages, hydrated]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -1034,6 +1051,14 @@ export default function HomeScreen() {
     bossWarningStageRef.current = null;
     setShowBossWarning(false);
     const freshGame = createPlayableGame(level);
+    const enteringBossStage = getBattleContent(level, false).isBoss;
+    const shouldGrantBossPrepBonus = enteringBossStage && !manualReset && !claimedBossPrepStages.includes(level);
+    if (shouldGrantBossPrepBonus) {
+      const nextClaimedBossPrepStages = [...claimedBossPrepStages, level];
+      setClaimedBossPrepStages(nextClaimedBossPrepStages);
+      setHammerCharges((charges) => Math.min(10, charges + 1));
+      showTimedHint("보스 전 준비 보너스: 망치 +1");
+    }
     recentGameFingerprintsRef.current = [gameStateFingerprint(freshGame)];
     haptic.light();
     setGame(freshGame);
@@ -1129,6 +1154,7 @@ export default function HomeScreen() {
       travelX: flightTravelX,
       travelY: flightTravelY,
       flightColor: companionAttackColor,
+      flamingArt: FLAMING_CARD_ART_BY_STYLE[companionAttackStyle],
     };
     setFlyingAttacks((current) => [...current, flight]);
     Animated.timing(progress, { toValue: 1, duration: flaming ? FLAMING_CARD_FLIGHT_DURATION : FLYING_CARD_DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
@@ -1267,7 +1293,8 @@ export default function HomeScreen() {
     }
     if (isWon(nextGame)) {
       saveWin(nextGame);
-      unlockRandomPets(battleContent.isBoss ? 2 : 1);
+      const petRewardCount = battleContent.isBoss ? 3 : game.level <= 10 ? 2 : 1;
+      unlockRandomPets(petRewardCount);
       const nextStage = nextGame.level + 1;
       const nextChapter = getChapterForStage(nextStage);
       setShowFireworks(true);
@@ -1600,7 +1627,7 @@ export default function HomeScreen() {
   const selectedCompanion = companionRoster.find((candidate) => candidate.id === selectedCompanionId) ?? battleContent.companion;
   const bossWarningOpacity = bossIntroProgress.interpolate({ inputRange: [0, 0.18, 0.82, 1], outputRange: [0, 1, 1, 0] });
   const bossWarningScale = bossIntroProgress.interpolate({ inputRange: [0, 0.22, 0.82, 1], outputRange: [0.82, 1, 1.04, 0.94] });
-  const companionAttackStyle = getCompanionAttackStyle(selectedCompanion);
+  const companionAttackStyle = selectedCompanion.id.startsWith("pet-") ? getPetAttackStyle(selectedCompanion.id) : getCompanionAttackStyle(selectedCompanion);
   const companionAttackColor = companionAttackColors[companionAttackStyle];
   const companionSize = Math.max(61, Math.round(cardWidth * 1.64 * 0.9 * 1.3));
   const companionBaseLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
@@ -1727,7 +1754,7 @@ export default function HomeScreen() {
       <Animated.View ref={rootRef} style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: [{ translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }] }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
         <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
-        {flyingAttacks.map((flight) => <FlyingCard key={flight.id} card={flight.card} width={cardWidth} cardRatio={renderCardRatio} progress={flight.progress} travelX={flight.travelX} travelY={flight.travelY} startLeft={flight.startLeft} startBottom={flight.startBottom} flightColor={flight.flightColor} flaming={flight.variant === "flaming"} monsterMotion={monsterMotion} monsterTravelDistance={monsterTravelDistance} />)}
+        {flyingAttacks.map((flight) => <FlyingCard key={flight.id} card={flight.card} width={cardWidth} cardRatio={renderCardRatio} progress={flight.progress} travelX={flight.travelX} travelY={flight.travelY} startLeft={flight.startLeft} startBottom={flight.startBottom} flightColor={flight.flightColor} flamingArt={flight.flamingArt} flaming={flight.variant === "flaming"} monsterMotion={monsterMotion} monsterTravelDistance={monsterTravelDistance} />)}
         {hammerStrikeTarget ? <Animated.View pointerEvents="none" style={[styles.hammerStrike, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.08, height: cardWidth * 1.08, transform: [{ translateX: hammerStrikeTranslateX }, { translateY: hammerStrikeTranslateY }, { scale: hammerStrikeScale }, { rotate: hammerStrikeRotate }] }]}> 
           <Image source={HAMMER_ICON_ART} resizeMode="contain" style={styles.hammerStrikeImage} />
         </Animated.View> : null}
