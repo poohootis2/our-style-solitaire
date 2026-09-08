@@ -395,6 +395,10 @@ function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0
   return (
     <Animated.View pointerEvents="none" style={[flaming ? styles.flamingFlyingCard : styles.flyingCard, { left: startLeft, bottom: startBottom, width, height: flaming ? cardHeight * 1.14 : cardHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX: followedTranslateX }, { translateY }, { scale }, { rotate }] }]}> 
       {flaming ? <>
+        <View pointerEvents="none" style={styles.flamingCardFace}>
+          <Text style={[styles.flyingRank, styles.flamingCardText, { color }]}>{rankLabels[card.rank]}</Text>
+          <Text style={[styles.flyingSuit, styles.flamingCardText, { color }]}>{suitSymbols[card.suit]}</Text>
+        </View>
         <Animated.View pointerEvents="none" style={[styles.flamingTailLayer, { opacity: tailOpacity, transform: [{ translateY: tailTranslateY }, { scale: tailScale }] }]}>
           {flameParticles.map((particle, index) => <Text key={`${particle}-${index}`} style={[styles.flamingTailParticle, { left: `${12 + index * 14}%`, top: `${18 + (index % 3) * 24}%`, color: index % 2 ? "#FF7A18" : "#FFD45C", fontSize: 10 + (index % 3) * 5 }]}>{particle}</Text>)}
         </Animated.View>
@@ -2262,7 +2266,9 @@ const styles = StyleSheet.create({
   hammerModeHintText: { color: "#FFF3D1", fontSize: 12, fontWeight: "900", textAlign: "center" },
   flyingCard: { position: "absolute", left: 16, bottom: 44, zIndex: 30, overflow: "hidden", borderRadius: 8, backgroundColor: "#FFFDF8", borderWidth: 2, borderColor: "#FF7A66", shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 9, elevation: 12 },
   flamingFlyingCard: { position: "absolute", zIndex: 31, overflow: "visible", backgroundColor: "transparent", borderWidth: 0, shadowOpacity: 0, elevation: 0, alignItems: "center", justifyContent: "center" },
-  flamingCardArt: { position: "absolute", top: "-8%", left: "-8%", width: "116%", height: "116%", zIndex: 2 },
+  flamingCardFace: { ...StyleSheet.absoluteFillObject, borderRadius: 8, backgroundColor: "#FFFDF8", borderWidth: 2, borderColor: "#FF7A66", shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 9, elevation: 12, zIndex: 1 },
+  flamingCardText: { zIndex: 4 },
+  flamingCardArt: { position: "absolute", top: "-8%", left: "-8%", width: "116%", height: "116%", zIndex: 3, opacity: 0.78 },
   flamingTailLayer: { ...StyleSheet.absoluteFillObject, zIndex: 1, overflow: "visible" },
   flamingTailParticle: { position: "absolute", fontWeight: "900", textShadowColor: "#FF4B12", textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8 },
   flyingRank: { position: "absolute", top: 6, left: 7, fontSize: 16, fontWeight: "900" },
