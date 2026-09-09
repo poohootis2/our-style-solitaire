@@ -384,9 +384,7 @@ function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress }: { width: nu
 }
 
 function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, travelY = -180, startLeft = 16, startBottom = 44, flightColor, flamingArt = FLAMING_CARD_ART, flaming = false, monsterMotion, monsterTravelDistance = 0 }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; travelY?: number; startLeft?: number; startBottom?: number; flightColor?: string; flamingArt?: ImageSourcePropType; flaming?: boolean; monsterMotion?: Animated.Value; monsterTravelDistance?: number }) {
-  const color = playingCardColor(card);
   const glow: Record<Suit, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
-  const cardHeight = width * cardRatio;
   const glowColor = flightColor ?? glow[card.suit];
   const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelX] });
   const targetFollow = monsterMotion ? monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-monsterTravelDistance, monsterTravelDistance] }) : null;
@@ -394,29 +392,12 @@ function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY] });
   const scale = progress.interpolate({ inputRange: [0, 0.62, 1], outputRange: [1, 1.08, 0.5] });
   const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
-  // 카드의 세로축이 실제 비행 벡터를 바라보도록 기본 방향을 계산합니다.
-  // 캐릭터가 몬스터의 왼쪽에 있으면 양의 각도, 오른쪽에 있으면 음의 각도가 됩니다.
   const directionAngle = Math.atan2(travelX, -travelY) * (180 / Math.PI);
   const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: [`${directionAngle.toFixed(2)}deg`, `${(directionAngle + 720).toFixed(2)}deg`] });
-  const tailOpacity = progress.interpolate({ inputRange: [0, 0.72, 1], outputRange: [0.95, 0.85, 0] });
-  const tailScale = progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.7, 1.05, 0.35] });
-  const tailTranslateY = progress.interpolate({ inputRange: [0, 1], outputRange: [18, -12] });
-  const flameParticles = ["✦", "•", "✧", "•", "✦", "•"];
+  const imageSize = width * (flaming ? 1.14 : 1);
   return (
-    <Animated.View pointerEvents="none" style={[flaming ? styles.flamingFlyingCard : styles.flyingCard, { left: startLeft, bottom: startBottom, width, height: flaming ? cardHeight * 1.14 : cardHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX: followedTranslateX }, { translateY }, { scale }, { rotate }] }]}> 
-      {flaming ? <>
-        <View pointerEvents="none" style={styles.flamingCardFace}>
-          <Text style={[styles.flyingRank, styles.flamingCardText, { color }]}>{rankLabels[card.rank]}</Text>
-          <Text style={[styles.flyingSuit, styles.flamingCardText, { color }]}>{suitSymbols[card.suit]}</Text>
-        </View>
-        <Animated.View pointerEvents="none" style={[styles.flamingTailLayer, { opacity: tailOpacity, transform: [{ translateY: tailTranslateY }, { scale: tailScale }] }]}>
-          {flameParticles.map((particle, index) => <Text key={`${particle}-${index}`} style={[styles.flamingTailParticle, { left: `${12 + index * 14}%`, top: `${18 + (index % 3) * 24}%`, color: index % 2 ? "#FF7A18" : "#FFD45C", fontSize: 10 + (index % 3) * 5 }]}>{particle}</Text>)}
-        </Animated.View>
-        <Image source={flamingArt} resizeMode="contain" style={styles.flamingCardArt} />
-      </> : <>
-        <Text style={[styles.flyingRank, { color }]}>{rankLabels[card.rank]}</Text>
-        <Text style={[styles.flyingSuit, { color }]}>{suitSymbols[card.suit]}</Text>
-      </>}
+    <Animated.View pointerEvents="none" style={[styles.attributeFlyingCard, { left: startLeft, bottom: startBottom, width: imageSize, height: imageSize, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX: followedTranslateX }, { translateY }, { scale }, { rotate }] }]}> 
+      <Image source={flamingArt} resizeMode="contain" style={styles.attributeFlyingCardImage} />
     </Animated.View>
   );
 }
@@ -2320,6 +2301,8 @@ const styles = StyleSheet.create({
   hammerModeHint: { position: "absolute", left: 18, right: 18, top: "44%", zIndex: 62, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 13, backgroundColor: "rgba(90, 41, 26, 0.96)", borderWidth: 2, borderColor: "#F3A85D", shadowColor: "#FFB86B", shadowOpacity: 0.75, shadowRadius: 11, elevation: 16 },
   hammerModeHintText: { color: "#FFF3D1", fontSize: 12, fontWeight: "900", textAlign: "center" },
   flyingCard: { position: "absolute", left: 16, bottom: 44, zIndex: 30, overflow: "hidden", borderRadius: 8, backgroundColor: "#FFFDF8", borderWidth: 2, borderColor: "#FF7A66", shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 9, elevation: 12 },
+  attributeFlyingCard: { position: "absolute", zIndex: 31, overflow: "visible", alignItems: "center", justifyContent: "center", backgroundColor: "transparent", borderWidth: 0, shadowOpacity: 0, elevation: 0 },
+  attributeFlyingCardImage: { width: "100%", height: "100%" },
   flamingFlyingCard: { position: "absolute", zIndex: 31, overflow: "visible", backgroundColor: "transparent", borderWidth: 0, shadowOpacity: 0, elevation: 0, alignItems: "center", justifyContent: "center" },
   flamingCardFace: { ...StyleSheet.absoluteFillObject, borderRadius: 8, backgroundColor: "#FFFDF8", borderWidth: 2, borderColor: "#FF7A66", shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 9, elevation: 12, zIndex: 1 },
   flamingCardText: { zIndex: 4 },
