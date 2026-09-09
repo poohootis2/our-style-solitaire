@@ -186,7 +186,7 @@ function MedievalBackdrop({ source }: { source: number }) {
   );
 }
 
-function CompanionAnchor({ companion, size, left, bottom, horizontalShift, comboScale, onPress }: { companion: BattleAsset; size: number; left: number; bottom: number; horizontalShift: Animated.Value; comboScale: Animated.Value; onPress: () => void }) {
+function CompanionAnchor({ companion, attackStyle, size, left, bottom, horizontalShift, comboScale, onPress }: { companion: BattleAsset; attackStyle: CompanionAttackStyle; size: number; left: number; bottom: number; horizontalShift: Animated.Value; comboScale: Animated.Value; onPress: () => void }) {
   const drift = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const animation = Animated.loop(Animated.sequence([
@@ -202,10 +202,14 @@ function CompanionAnchor({ companion, size, left, bottom, horizontalShift, combo
   const rotate = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-2deg", "0deg", "2deg"] });
   return <Animated.View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom, transform: [{ translateX: horizontalShift }, { scale: comboScale }] }]}> 
     <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 막힘 도움 보기`} onPress={onPress} style={({ pressed }) => [styles.companionPressTarget, pressed && styles.companionPressed]}>
-      <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX }, { translateY }, { rotate }] }]}>
+      <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX }, { translateY }, { rotate }] }]}> 
         <Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} />
       </Animated.View>
     </Pressable>
+    <View pointerEvents="none" accessibilityLabel={`현재 펫 속성 ${ATTACK_STYLE_LABELS[attackStyle]}`} style={[styles.companionAttributeLabel, { top: size + 4, width: Math.max(size, 72) }]}> 
+      <View style={[styles.companionAttributeDot, { backgroundColor: companionAttackColors[attackStyle] }]} />
+      <Text style={styles.companionAttributeText}>{ATTACK_STYLE_LABELS[attackStyle]}</Text>
+    </View>
   </Animated.View>;
 }
 
@@ -1835,7 +1839,6 @@ export default function HomeScreen() {
             <View style={styles.statDivider} />
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
           </View>
-          <View style={[styles.attributeBadge, phoneLandscape && styles.attributeBadgePhoneLandscape]} accessibilityLabel={`현재 펫 속성 ${ATTACK_STYLE_LABELS[companionAttackStyle]}`}><View style={[styles.attributeBadgeDot, { backgroundColor: companionAttackColor }]} /><Text style={styles.attributeBadgeLabel}>펫 속성</Text><Text style={[styles.attributeBadgeValue, { color: companionAttackColor }]}>{ATTACK_STYLE_LABELS[companionAttackStyle]}</Text></View>
           <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={monsterTravelDistance} motionValue={monsterMotion} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
@@ -1892,7 +1895,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
-        <CompanionAnchor companion={selectedCompanion} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} onPress={() => undefined} />
+        <CompanionAnchor companion={selectedCompanion} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} onPress={() => undefined} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges >= 10 ? "망치가 가득 참" : "광고 시청 후 망치 하나 받기"} disabled={hammerCharges >= 10} onPress={() => { haptic.light(); void claimHammerAdReward(); }} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHammerButton, phoneLandscape && styles.bottomButtonPhoneLandscape, hammerCharges >= 10 && styles.cartoonActionButtonDisabled, pressed && styles.pressed]}>
@@ -2188,6 +2191,9 @@ const styles = StyleSheet.create({
   companionAnchor: { position: "absolute", zIndex: 22, alignItems: "center", justifyContent: "center" },
   companionPressTarget: { width: "100%", height: "100%" },
   companionPressed: { opacity: 0.78, transform: [{ scale: 0.97 }] },
+  companionAttributeLabel: { position: "absolute", left: 0, height: 25, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingHorizontal: 7, borderRadius: 999, backgroundColor: "rgba(11, 25, 49, 0.92)", borderWidth: 1, borderColor: "rgba(255, 216, 107, 0.78)" },
+  companionAttributeDot: { width: 7, height: 7, borderRadius: 999 },
+  companionAttributeText: { color: "#FFE8A8", fontSize: 11, fontWeight: "900", textShadowColor: "#0B1931", textShadowRadius: 2 },
   companionTapFrame: { position: "absolute", borderWidth: 3, borderRadius: 999, shadowColor: "#FFD86B", shadowOpacity: 0.95, shadowRadius: 12, elevation: 14 },
   companionImageFrame: { position: "absolute", alignItems: "center", justifyContent: "center" },
   shuffleBurstFrame: { position: "absolute", zIndex: 0, alignItems: "center", justifyContent: "center" },

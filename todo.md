@@ -656,3 +656,31 @@
 
 - [x] 미리보기 서버 URL 복구 및 번들 오류 확인
 - [x] 콤보·파운데이션 공격 미리보기에서 카드 본체·속성 이펙트 확인
+
+- [ ] Windows 프로젝트의 최신 index.tsx·assets 반영 여부 확인
+- [ ] versionCode 34·versionName 1.7.9를 app.config.ts와 build.gradle에 일치 적용
+- [ ] Release APK·AAB에 최신 소스와 34/1.7.9가 포함됐는지 검증
+- [ ] 이전 APK 혼입 방지를 위한 파일명·생성 시각·adb 설치 절차 확인
+
+- [ ] Windows 최신 index.tsx·자산과 versionCode 34/1.7.9 설정 대조
+- [ ] 생성 APK의 실제 수정 시각·메타데이터·SHA-256 확인
+- [ ] adb 설치 패키지와 PC APK의 버전·경로 일치 확인
+
+- [ ] 휴대폰 USB 디버깅·ADB 연결 확인
+- [ ] 실제 설치 앱의 versionCode·versionName·설치 경로 대조
+
+- [ ] Windows에서 휴대폰 USB 장치와 USB 디버깅 허용 상태 확인
+- [ ] adb devices에 휴대폰이 device 상태로 표시되는지 확인
+
+- [ ] 카드 작은 문양 위치 변경 코드가 Windows Release 소스에 포함됐는지 대조
+- [ ] 최신 카드 렌더링 소스로 APK를 재빌드하고 실기기 위치 확인
+
+- [ ] Windows 프로젝트의 suitTopOffset 기반 구형 카드 문양 코드를 최신 위치 계산으로 교체
+- [ ] 최신 카드 문양 소스 반영 후 APK 재빌드·실기기 검증
+
+- [ ] Windows에 복사할 최신 ZIP이 난이도 완화·펫 보상·보스 보너스·속성 전투를 포함하는지 확인
+- [ ] 복사 후 해당 기능 코드와 자산의 존재 여부 검증
+
+- [x] 현재 펫 이미지 바로 아래에 공격 속성 라벨 표시
+- [x] 좁은 화면에서 펫 속성 라벨과 카드·버튼 겹침 회귀 검증
+- [ ] 수정 후 Windows app·lib·assets 재동기화 안내
