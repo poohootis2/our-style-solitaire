@@ -1460,7 +1460,7 @@ export default function HomeScreen() {
     const target = cardFromSource(source);
     const revealedGame = revealHiddenCardWithHammer(game, source);
     if (!revealedGame || !target) {
-      showTimedHint("망치 사용 중에는 열지 않은 타블로 카드만 탭할 수 있습니다.");
+      showTimedHint("망치 사용 중에는 원하는 히든카드를 탭할 수 있습니다.");
       haptic.error();
       return;
     }
@@ -1508,7 +1508,7 @@ export default function HomeScreen() {
 
   const dragMoveCard = (source: CardSource, dx: number, dy: number) => {
     if (hammerMode) {
-      showTimedHint("망치 사용 중입니다. 카드를 탭해 파괴하세요.");
+      showTimedHint("망치 사용 중입니다. 원하는 히든카드를 탭해 공개하세요.");
       return;
     }
     const movingCard = cardFromSource(source);
@@ -2171,10 +2171,10 @@ const styles = StyleSheet.create({
   monsterSpriteCompact: { width: 34, height: 38 },
   monsterImageLayer: { alignItems: "center", justifyContent: "center" },
   bossCardShine: { position: "absolute", top: "-45%", bottom: "-45%", left: "-12%", width: 11, backgroundColor: "rgba(255, 246, 180, 0.92)", shadowColor: "#FFFFFF", shadowOpacity: 1, shadowRadius: 8, elevation: 8 },
-  monsterInfo: { width: 68, alignItems: "flex-start", position: "relative", right: 10 },
-  monsterInfoCompact: { width: 54, position: "relative", right: 10 },
+  monsterInfo: { width: 68, alignItems: "flex-start", position: "relative", right: -7 },
+  monsterInfoCompact: { width: 54, position: "relative", right: -7 },
   monsterInfoBoss: { width: 92 },
-  monsterInfoPortrait: { position: "relative", right: 10 },
+  monsterInfoPortrait: { position: "relative", right: -7 },
   companionSprite: { width: 34, height: 38, marginHorizontal: 1 },
   companionSpriteCompact: { width: 27, height: 31 },
   monsterNameRow: { flexDirection: "row", alignItems: "flex-start", gap: 3, width: "100%" },
