@@ -141,9 +141,9 @@ describe("클론다이크 규칙", () => {
   });
 
   it("완화된 난이도는 초반 Turn 1과 넉넉한 재순환으로 펫 수집을 돕는다", () => {
-    expect(getDifficulty(1)).toMatchObject({ drawCount: 1, maxRecycles: 5 });
-    expect(getDifficulty(4)).toMatchObject({ drawCount: 1, maxRecycles: 5 });
-    expect(getDifficulty(10)).toMatchObject({ drawCount: 1, maxRecycles: 5 });
+    expect(getDifficulty(1)).toMatchObject({ drawCount: 1, maxRecycles: 8 });
+    expect(getDifficulty(4)).toMatchObject({ drawCount: 1, maxRecycles: 7 });
+    expect(getDifficulty(10)).toMatchObject({ drawCount: 1, maxRecycles: 7 });
     expect(getDifficulty(11)).toMatchObject({ drawCount: 3, maxRecycles: 5 });
     expect(getDifficulty(12)).toMatchObject({ drawCount: 3, maxRecycles: 4 });
     expect(getDifficulty(13)).toMatchObject({ drawCount: 1, maxRecycles: 4 });

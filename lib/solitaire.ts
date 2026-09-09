@@ -86,10 +86,11 @@ export function isChapterBossStage(stage: number): boolean {
 }
 
 export function getDifficulty(level: number): Difficulty {
-  // Relaxed mobile pacing: the first ten stages stay on Turn 1, including
-  // the early chapter bosses, and allow five Stock recycles for collection.
+  // Extra-forgiving mobile opening: early stages stay on Turn 1 and allow
+  // generous Stock recycles so new players can recover from a poor route.
   if (isChapterBossStage(level) && level >= 11) return { drawCount: 3, maxRecycles: 5, label: "보스 도전" };
-  if (level <= 10) return { drawCount: 1, maxRecycles: 5, label: level <= 2 ? "입문" : "초반" };
+  if (level <= 3) return { drawCount: 1, maxRecycles: 8, label: "입문" };
+  if (level <= 10) return { drawCount: 1, maxRecycles: 7, label: "초반" };
   // Keep Turn 1 through most of the mid-game. Turn 3 appears only on every
   // fourth stage, while four recycles preserve a forgiving route to pets.
   if (level <= 20) return { drawCount: level % 4 === 0 ? 3 : 1, maxRecycles: 4, label: level % 4 === 0 ? "중반 도전" : "중반" };
@@ -97,8 +98,8 @@ export function getDifficulty(level: number): Difficulty {
 }
 
 function minimumInitialMoves(level: number): number {
-  if (level <= 2) return 4;
-  if (level <= 10) return 3;
+  if (level <= 3) return 6;
+  if (level <= 10) return 5;
   if (level <= 20) return 2;
   return 1;
 }

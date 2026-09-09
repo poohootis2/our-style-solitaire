@@ -118,7 +118,7 @@ const MAX_DAILY_AD_HAMMER_REWARDS = 5;
 const INITIAL_UNLOCKED_PET_IDS = ["cloud-tiger", "gumiho-tail", "mochi-rabbit"];
 const PHYSICAL_EDGE_INSET = 52;
 const MAX_UNDO_STEPS = 3;
-const CARD_ATTACK_FLIGHT_DURATION = 1500;
+const CARD_ATTACK_FLIGHT_DURATION = 1800;
 const FLAMING_CARD_FLIGHT_DURATION = CARD_ATTACK_FLIGHT_DURATION * 2;
 const FLYING_CARD_DURATION = CARD_ATTACK_FLIGHT_DURATION;
 const emptyRecords: Records = { wins: 0, bestScore: 0, bestTimeSeconds: null };
@@ -392,12 +392,11 @@ function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY] });
   const scale = progress.interpolate({ inputRange: [0, 0.62, 1], outputRange: [1, 1.08, 0.5] });
   const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
-  const directionAngle = Math.atan2(travelX, -travelY) * (180 / Math.PI);
-  const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: [`${directionAngle.toFixed(2)}deg`, `${(directionAngle + 720).toFixed(2)}deg`] });
-  const imageSize = width * (flaming ? 1.14 : 1);
+  const imageHeight = width * (flaming ? 1.14 : 1);
+  const imageWidth = width * 2;
   return (
-    <Animated.View pointerEvents="none" style={[styles.attributeFlyingCard, { left: startLeft, bottom: startBottom, width: imageSize, height: imageSize, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX: followedTranslateX }, { translateY }, { scale }, { rotate }] }]}> 
-      <Image source={flamingArt} resizeMode="contain" style={styles.attributeFlyingCardImage} />
+    <Animated.View pointerEvents="none" style={[styles.attributeFlyingCard, { left: startLeft, bottom: startBottom, width: imageWidth, height: imageHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX: followedTranslateX }, { translateY }, { scale }] }]}> 
+      <Image source={flamingArt} resizeMode="stretch" style={styles.attributeFlyingCardImage} />
     </Animated.View>
   );
 }
@@ -2199,10 +2198,10 @@ const styles = StyleSheet.create({
   monsterSpriteCompact: { width: 34, height: 38 },
   monsterImageLayer: { alignItems: "center", justifyContent: "center" },
   bossCardShine: { position: "absolute", top: "-45%", bottom: "-45%", left: "-12%", width: 11, backgroundColor: "rgba(255, 246, 180, 0.92)", shadowColor: "#FFFFFF", shadowOpacity: 1, shadowRadius: 8, elevation: 8 },
-  monsterInfo: { width: 68, alignItems: "flex-start", position: "relative", right: -22 },
-  monsterInfoCompact: { width: 54, position: "relative", right: -22 },
+  monsterInfo: { width: 68, alignItems: "flex-start", position: "relative", right: -42 },
+  monsterInfoCompact: { width: 54, position: "relative", right: -42 },
   monsterInfoBoss: { width: 92 },
-  monsterInfoPortrait: { position: "relative", right: -22 },
+  monsterInfoPortrait: { position: "relative", right: -42 },
   companionSprite: { width: 34, height: 38, marginHorizontal: 1 },
   companionSpriteCompact: { width: 27, height: 31 },
   monsterNameRow: { flexDirection: "row", alignItems: "flex-start", gap: 3, width: "100%" },
