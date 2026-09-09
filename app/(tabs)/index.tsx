@@ -66,10 +66,10 @@ const RESET_MODAL_PANEL = { uri: "/manus-storage/solitaire-reset-modal-panel_5af
 const RESET_BUTTONS_ART = { uri: "/manus-storage/solitaire-reset-buttons_31124c25.png" };
 const FLAMING_CARD_ART = require("../../assets/images/flaming-card-attack.png");
 const FLAMING_CARD_ART_BY_STYLE: Record<CompanionAttackStyle, ImageSourcePropType> = {
-  red: { uri: "/manus-storage/attack-fire-card_abea8263.png" },
-  blue: { uri: "/manus-storage/attack-ice-card_238fe671.png" },
-  orange: { uri: "/manus-storage/attack-lightning-card_7a5930f8.png" },
-  white: { uri: "/manus-storage/attack-shadow-card_26d37c36.png" },
+  red: require("../../assets/images/attack-cards/attack-fire-card.webp"),
+  blue: require("../../assets/images/attack-cards/attack-ice-card.webp"),
+  orange: require("../../assets/images/attack-cards/attack-lightning-card.webp"),
+  white: require("../../assets/images/attack-cards/attack-shadow-card.webp"),
 };
 const ATTACK_IMPACT_ART_BY_STYLE: Record<CompanionAttackStyle, ImageSourcePropType> = {
   red: { uri: "/manus-storage/attack-fire-impact_d9bc33b9.png" },
