@@ -77,6 +77,12 @@ const ATTACK_IMPACT_ART_BY_STYLE: Record<CompanionAttackStyle, ImageSourcePropTy
   orange: { uri: "/manus-storage/attack-lightning-impact_764dbd72.png" },
   white: { uri: "/manus-storage/attack-shadow-impact_3ba053a9.png" },
 };
+const ATTACK_CARD_PREVIEW_ITEMS: Array<{ style: CompanionAttackStyle; label: string; source: ImageSourcePropType }> = [
+  { style: "red", label: "불꽃", source: FLAMING_CARD_ART_BY_STYLE.red },
+  { style: "blue", label: "빙결", source: FLAMING_CARD_ART_BY_STYLE.blue },
+  { style: "orange", label: "번개", source: FLAMING_CARD_ART_BY_STYLE.orange },
+  { style: "white", label: "그림자", source: FLAMING_CARD_ART_BY_STYLE.white },
+];
 const ATTACK_STYLE_LABELS: Record<CompanionAttackStyle, string> = { red: "불꽃", blue: "빙결", orange: "번개", white: "그림자" };
 const ATTACK_SOUND_BY_STYLE = {
   red: require("../../assets/audio/attack-fire.wav"),
@@ -471,6 +477,32 @@ function CardAttackEffect({ kind, combo, travelX, travelY, startLeft = 16, start
 
 type AttackKind = Suit;
 
+function AttributeImpactBurst({ attackStyle, progress, size }: { attackStyle: CompanionAttackStyle; progress: Animated.Value; size: number }) {
+  const particles: Record<CompanionAttackStyle, string[]> = {
+    red: ["✦", "✹", "•", "✦", "•", "✹"],
+    blue: ["❄", "◆", "✧", "❄", "◆", "✧"],
+    orange: ["⚡", "✦", "•", "⚡", "✦", "•"],
+    white: ["✦", "◌", "•", "✧", "◌", "✦"],
+  };
+  const colors: Record<CompanionAttackStyle, string[]> = {
+    red: ["#FF4B12", "#FFD45C"],
+    blue: ["#8FE8FF", "#DDFBFF"],
+    orange: ["#FFD45C", "#FF8A24"],
+    white: ["#D9E2FF", "#8B9BFF"],
+  };
+  const accent = colors[attackStyle];
+  return <Animated.View pointerEvents="none" style={[styles.attributeImpactBurst, { width: size, height: size, opacity: progress.interpolate({ inputRange: [0, 0.12, 0.72, 1], outputRange: [0, 1, 0.92, 0] }) }]}>
+    {particles[attackStyle].map((particle, index) => {
+      const angle = (index / particles[attackStyle].length) * Math.PI * 2;
+      const distance = size * (0.24 + (index % 2) * 0.1);
+      const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(angle) * distance] });
+      const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(angle) * distance] });
+      const scale = progress.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0.2, 1.25, 0.35] });
+      return <Animated.Text key={`${attackStyle}-${index}`} style={[styles.attributeImpactParticle, { color: accent[index % accent.length], fontSize: Math.max(12, size * 0.22), transform: [{ translateX }, { translateY }, { scale }, { rotate: `${index * 28}deg` }] }]}>{particle}</Animated.Text>;
+    })}
+  </Animated.View>;
+}
+
 function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo, compact = false, landscape = false, phoneLandscape = false, travelDistance = 24, monster, isBoss, cardSize, motionValue }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; attackStyle: CompanionAttackStyle; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; travelDistance?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value }) {
   const internalMonsterMotion = useRef(new Animated.Value(1)).current;
   const monsterMotion = motionValue ?? internalMonsterMotion;
@@ -563,7 +595,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
       <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, transform: [{ translateX: monsterTranslate }, { translateY: bossEntranceTranslateY }, { scale: bossEntranceScale }] }]}>
         <Animated.View style={[styles.monsterImageLayer, { width: spriteSize, height: spriteSize, transform: [{ scale: monsterScale }, { scaleX: facingLeft ? -1 : 1 }] }]}>
           <Image source={monster.image} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, defeatVisible && styles.monsterDefeated]} accessibilityLabel={monster.name} />
-          {attackVisible ? <Animated.View pointerEvents="none" style={[styles.comboImpactOverlay, { width: spriteSize * 0.9, height: spriteSize * 0.9, left: spriteSize * 0.05, top: spriteSize * 0.05, opacity: comboImpactOpacity, transform: [{ scale: comboImpactScale }, { rotate: comboImpactRotate }] }]}><Image source={ATTACK_IMPACT_ART_BY_STYLE[attackStyle]} resizeMode="contain" style={styles.comboImpactImage} /></Animated.View> : null}
+          {attackVisible ? <Animated.View pointerEvents="none" style={[styles.comboImpactOverlay, { width: spriteSize * 0.9, height: spriteSize * 0.9, left: spriteSize * 0.05, top: spriteSize * 0.05, opacity: comboImpactOpacity, transform: [{ scale: comboImpactScale }, { rotate: comboImpactRotate }] }]}><Image source={ATTACK_IMPACT_ART_BY_STYLE[attackStyle]} resizeMode="contain" style={styles.comboImpactImage} /><AttributeImpactBurst attackStyle={attackStyle} progress={comboImpactProgress} size={spriteSize * 0.9} /></Animated.View> : null}
         </Animated.View>
         {attackVisible ? <Animated.Text style={[styles.monsterProjectile, { color: attackColors[attackKind], transform: [{ translateX: projectileTranslate }, { scale: projectileScale }] }]}>{attackSymbols[attackKind]}</Animated.Text> : null}
         {damageVisible ? <Animated.Text style={[styles.damageText, { opacity: damageOpacity, transform: [{ translateY: damageTranslateY }] }]}>−{damage}</Animated.Text> : null}
@@ -666,6 +698,7 @@ export default function HomeScreen() {
   const [dailyAdRewardDate, setDailyAdRewardDate] = useState<string | null>(null);
   const [hammerStrikeTarget, setHammerStrikeTarget] = useState<{ dx: number; dy: number } | null>(null);
   const showPreviewAttackTools = Platform.OS === "web" && (__DEV__ || isRunningInPreviewIframe());
+  const [showAttackCardPreview, setShowAttackCardPreview] = useState(false);
   const [hammerImpactBurstTarget, setHammerImpactBurstTarget] = useState<{ dx: number; dy: number } | null>(null);
   const [showBossWarning, setShowBossWarning] = useState(false);
   const [showBossPrepReward, setShowBossPrepReward] = useState(false);
@@ -1829,6 +1862,11 @@ export default function HomeScreen() {
         {showPreviewAttackTools ? <View style={styles.previewTools}>
           <Pressable accessibilityRole="button" accessibilityLabel="콤보 공격 미리보기" onPress={playPreviewCombo} style={({ pressed }) => [styles.previewToolButton, pressed && styles.pressed]}><Text style={styles.previewToolText}>콤보 공격</Text></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="파운데이션 불꽃 카드 공격 미리보기" onPress={playPreviewFoundationAttack} style={({ pressed }) => [styles.previewToolButton, pressed && styles.pressed]}><Text style={styles.previewToolText}>파운데이션 공격</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="펫 속성별 공격 카드 보기" onPress={() => setShowAttackCardPreview((visible) => !visible)} style={({ pressed }) => [styles.previewToolButton, pressed && styles.pressed]}><Text style={styles.previewToolText}>속성 카드 보기</Text></Pressable>
+        </View> : null}
+        {showPreviewAttackTools && showAttackCardPreview ? <View style={styles.attackCardPreviewPanel}>
+          <View style={styles.attackCardPreviewHeader}><Text style={styles.attackCardPreviewTitle}>펫 속성별 공격 카드</Text><Pressable accessibilityRole="button" accessibilityLabel="속성 카드 미리보기 닫기" onPress={() => setShowAttackCardPreview(false)}><Text style={styles.attackCardPreviewClose}>×</Text></Pressable></View>
+          <View style={styles.attackCardPreviewRow}>{ATTACK_CARD_PREVIEW_ITEMS.map((item) => <View key={item.style} style={[styles.attackCardPreviewItem, item.style === companionAttackStyle && styles.attackCardPreviewItemActive]}><Image source={item.source} resizeMode="contain" style={styles.attackCardPreviewImage} /><Text style={styles.attackCardPreviewLabel}>{item.label}</Text></View>)}</View>
         </View> : null}
 
         <View style={[styles.stats, narrowCover && styles.statsNarrowCover, isLandscape && styles.statsLandscape, compactLandscape && styles.statsLandscapeCompact, phoneLandscape && styles.statsPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
@@ -2138,6 +2176,15 @@ const styles = StyleSheet.create({
   previewTools: { position: "absolute", top: 86, left: 12, right: 12, zIndex: 60, flexDirection: "row", justifyContent: "center", gap: 8 },
   previewToolButton: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: "#F3C969", backgroundColor: "rgba(24, 39, 68, 0.94)" },
   previewToolText: { color: "#FFF3D1", fontSize: 10, fontWeight: "900" },
+  attackCardPreviewPanel: { position: "absolute", top: 126, left: 12, right: 12, zIndex: 61, padding: 10, borderRadius: 14, backgroundColor: "rgba(14, 28, 53, 0.97)", borderWidth: 1, borderColor: "#F3C969", shadowColor: "#000000", shadowOpacity: 0.35, shadowRadius: 10, elevation: 14 },
+  attackCardPreviewHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
+  attackCardPreviewTitle: { color: "#FFF3D1", fontSize: 12, fontWeight: "900" },
+  attackCardPreviewClose: { color: "#FFD86B", fontSize: 24, lineHeight: 22, fontWeight: "700", paddingHorizontal: 5 },
+  attackCardPreviewRow: { flexDirection: "row", justifyContent: "space-between", gap: 6 },
+  attackCardPreviewItem: { flex: 1, alignItems: "center", padding: 4, borderRadius: 9, borderWidth: 1, borderColor: "#36527A" },
+  attackCardPreviewItemActive: { borderColor: "#77D6C3", backgroundColor: "rgba(119, 214, 195, 0.14)" },
+  attackCardPreviewImage: { width: "100%", height: 74 },
+  attackCardPreviewLabel: { color: "#D6E2F4", fontSize: 10, fontWeight: "800", marginTop: 2 },
   stats: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 8, marginBottom: 14 },
   statsNarrowCover: { paddingVertical: 7, marginBottom: 12 },
   statsSummary: { flexDirection: "row", alignItems: "center", justifyContent: "flex-start" },
@@ -2186,6 +2233,8 @@ const styles = StyleSheet.create({
   monsterRedFlash: { position: "absolute", left: "8%", top: "8%", width: "84%", height: "84%", borderRadius: 999, backgroundColor: "#FF1F3D" },
   comboImpactOverlay: { position: "absolute", zIndex: 8, alignItems: "center", justifyContent: "center" },
   comboImpactImage: { width: "100%", height: "100%" },
+  attributeImpactBurst: { position: "absolute", left: 0, top: 0, alignItems: "center", justifyContent: "center", zIndex: 12 },
+  attributeImpactParticle: { position: "absolute", fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 7 },
   monsterHp: { color: "#BCEAE2", fontSize: 11, fontWeight: "800", marginTop: 2 },
   monsterProjectile: { position: "absolute", left: 8, top: 12, fontSize: 24, fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 7 },
   companionAnchor: { position: "absolute", zIndex: 22, alignItems: "center", justifyContent: "center" },
