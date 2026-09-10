@@ -490,7 +490,7 @@ function AttributeImpactBurst({ attackStyle, progress, size }: { attackStyle: Co
   </Animated.View>;
 }
 
-function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo, compact = false, landscape = false, phoneLandscape = false, travelDistance = 24, monster, isBoss, cardSize, motionValue }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; attackStyle: CompanionAttackStyle; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; travelDistance?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value }) {
+function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo, compact = false, landscape = false, phoneLandscape = false, travelDistance = 24, monster, isBoss, cardSize, motionValue, onCenterLayout }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; attackStyle: CompanionAttackStyle; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; travelDistance?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; onCenterLayout?: (centerX: number) => void }) {
   const internalMonsterMotion = useRef(new Animated.Value(1)).current;
   const monsterMotion = motionValue ?? internalMonsterMotion;
   const attackProgress = useRef(new Animated.Value(0)).current;
@@ -578,7 +578,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const infoWidth = Math.max(54, Math.round(cardSize * 1.02));
 
   return (
-    <View style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
+    <View onLayout={({ nativeEvent }) => onCenterLayout?.(nativeEvent.layout.x + spriteSize * 0.5)} style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
       <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, transform: [{ translateX: monsterTranslate }, { translateY: bossEntranceTranslateY }, { scale: bossEntranceScale }] }]}>
         <Animated.View style={[styles.monsterImageLayer, { width: spriteSize, height: spriteSize, transform: [{ scale: monsterScale }, { scaleX: facingLeft ? -1 : 1 }] }]}>
           <Image source={monster.image} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, defeatVisible && styles.monsterDefeated]} accessibilityLabel={monster.name} />
@@ -705,6 +705,7 @@ export default function HomeScreen() {
   const elapsedSecondsRef = useRef(elapsedSeconds);
   const flightProgress = useRef(new Animated.Value(0)).current;
   const monsterMotion = useRef(new Animated.Value(1)).current;
+  const [monsterImageCenterX, setMonsterImageCenterX] = useState<number | null>(null);
   const comboCompanionScale = useRef(new Animated.Value(1)).current;
   const hammerShine = useRef(new Animated.Value(0)).current;
   const hammerIdleMotion = useRef(new Animated.Value(0)).current;
@@ -1715,7 +1716,7 @@ export default function HomeScreen() {
   // 몬스터는 stats 행의 오른쪽 전투 슬롯에서 좌우로 이동하므로, 화면 중앙이 아닌
   // 몬스터 슬롯 중심을 기준으로 목표점을 잡습니다. 펫이 좌측으로 회피하면
   // 시작점과 목표점의 차이가 자동으로 커져 카드가 몬스터 쪽으로 꺾여 날아갑니다.
-  const monsterAimCenter = safeScreenWidth * (isLandscape ? 0.78 : 0.82);
+  const monsterAimCenter = monsterImageCenterX ?? safeScreenWidth * (isLandscape ? 0.70 : 0.72);
   const monsterAimLeft = monsterAimCenter - cardWidth * 0.5;
   const flightTravelX = phoneLandscape ? 0 : monsterAimLeft - flightStartLeft;
   const monsterTargetTop = rootTopPadding + (isLandscape ? (phoneLandscape ? 116 : 82) : 152);
@@ -1886,7 +1887,7 @@ export default function HomeScreen() {
             <View style={styles.statDivider} />
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
           </View>
-          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={monsterTravelDistance} motionValue={monsterMotion} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
+          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={monsterTravelDistance} motionValue={monsterMotion} onCenterLayout={setMonsterImageCenterX} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
         <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
