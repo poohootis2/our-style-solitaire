@@ -630,7 +630,7 @@ export default function HomeScreen() {
   // Reserve the additional header spacing used by the inline landscape banner.
   // This keeps the banner, title, and action buttons on separate visual lanes.
   const layoutExtraReservedHeight = isLandscape ? (phoneLandscape ? 16 : 18) : 58;
-  const bottomControlsBottom = isLandscape ? systemBottomInset + 4 : Math.max(92, systemBottomInset + 28) + 15 + (foldPortrait ? 18 : 0);
+  const bottomControlsBottom = isLandscape ? systemBottomInset + 4 : Math.max(77, systemBottomInset + 13) + (foldPortrait ? 18 : 0);
   // In portrait, keep the banner below the action buttons while reserving the
   // system navigation inset so it never sits under the home indicator.
   const portraitBannerBottom = foldPortrait ? Math.max(0, bottomControlsBottom - 130) : Math.max(0, bottomControlsBottom - 98);
@@ -642,7 +642,7 @@ export default function HomeScreen() {
     layoutExtraReservedHeight,
   );
   const stackOffset = foldPortrait ? Math.max(16, Math.round(baseStackOffset * 0.78)) : baseStackOffset;
-  const tableauGap = foldPortrait ? Math.max(4, Math.round(baseTableauGap * 0.9)) : baseTableauGap;
+  const tableauGap = foldPortrait ? Math.max(8, Math.round(baseTableauGap * 1.22)) : baseTableauGap;
   const compactControls = compact || compactLandscape;
   const monsterTravelDistance = isLandscape ? Math.max(160, Math.min(310, Math.round(safeScreenWidth * 0.2) + 50)) : 94;
   const [game, setGame] = useState(createPlayableGame);
@@ -2223,10 +2223,10 @@ const styles = StyleSheet.create({
   monsterSpriteCompact: { width: 34, height: 38 },
   monsterImageLayer: { alignItems: "center", justifyContent: "center" },
   bossCardShine: { position: "absolute", top: "-45%", bottom: "-45%", left: "-12%", width: 11, backgroundColor: "rgba(255, 246, 180, 0.92)", shadowColor: "#FFFFFF", shadowOpacity: 1, shadowRadius: 8, elevation: 8 },
-  monsterInfo: { width: 68, alignItems: "flex-start", position: "relative", right: -42 },
-  monsterInfoCompact: { width: 54, position: "relative", right: -42 },
+  monsterInfo: { width: 68, alignItems: "flex-start", position: "relative", right: -62 },
+  monsterInfoCompact: { width: 54, position: "relative", right: -62 },
   monsterInfoBoss: { width: 92 },
-  monsterInfoPortrait: { position: "relative", right: -42 },
+  monsterInfoPortrait: { position: "relative", right: -62 },
   companionSprite: { width: 34, height: 38, marginHorizontal: 1 },
   companionSpriteCompact: { width: 27, height: 31 },
   monsterNameRow: { flexDirection: "row", alignItems: "flex-start", gap: 3, width: "100%" },
