@@ -398,7 +398,7 @@ function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0
   const targetFollow = monsterMotion ? monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-monsterTravelDistance, monsterTravelDistance] }) : null;
   const followedTranslateX = targetFollow ? Animated.add(translateX, Animated.multiply(progress, targetFollow)) : translateX;
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY] });
-  const scale = progress.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0.1, 0.6, 1] });
+  const scale = progress.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0.05, 0.6, 0.05] });
   const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
   const imageHeight = width * (flaming ? 1.14 : 1);
   const imageWidth = width * 2;
@@ -467,10 +467,10 @@ type AttackKind = Suit;
 
 function AttributeImpactBurst({ attackStyle, progress, size }: { attackStyle: CompanionAttackStyle; progress: Animated.Value; size: number }) {
   const particles: Record<CompanionAttackStyle, string[]> = {
-    red: ["✦", "✹", "•", "✦", "•", "✹"],
-    blue: ["❄", "◆", "✧", "❄", "◆", "✧"],
-    orange: ["⚡", "✦", "•", "⚡", "✦", "•"],
-    white: ["✦", "◌", "•", "✧", "◌", "✦"],
+    red: ["✦", "✹", "•", "✧", "✦", "•", "✹", "✧", "•", "✦"],
+    blue: ["❄", "◆", "✧", "◇", "❄", "◆", "✧", "◇", "❄", "◆"],
+    orange: ["⚡", "ϟ", "✦", "•", "⚡", "ϟ", "✦", "•", "⚡", "✦"],
+    white: ["✦", "◌", "•", "✧", "◆", "◌", "✦", "•", "✧", "◆"],
   };
   const colors: Record<CompanionAttackStyle, string[]> = {
     red: ["#FF4B12", "#FFD45C"],
@@ -482,11 +482,12 @@ function AttributeImpactBurst({ attackStyle, progress, size }: { attackStyle: Co
   return <Animated.View pointerEvents="none" style={[styles.attributeImpactBurst, { width: size, height: size, opacity: progress.interpolate({ inputRange: [0, 0.12, 0.72, 1], outputRange: [0, 1, 0.92, 0] }) }]}>
     {particles[attackStyle].map((particle, index) => {
       const angle = (index / particles[attackStyle].length) * Math.PI * 2;
-      const distance = size * (0.24 + (index % 2) * 0.1);
+      const distance = size * (0.28 + (index % 3) * 0.09);
       const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(angle) * distance] });
       const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(angle) * distance] });
-      const scale = progress.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0.2, 1.25, 0.35] });
-      return <Animated.Text key={`${attackStyle}-${index}`} style={[styles.attributeImpactParticle, { color: accent[index % accent.length], fontSize: Math.max(12, size * 0.22), transform: [{ translateX }, { translateY }, { scale }, { rotate: `${index * 28}deg` }] }]}>{particle}</Animated.Text>;
+      const scale = progress.interpolate({ inputRange: [0, 0.2, 0.72, 1], outputRange: [0.15, 1.35, 0.9, 0.08] });
+      const particleSize = Math.max(10, size * (index % 3 === 0 ? 0.2 : 0.15));
+      return <Animated.Text key={`${attackStyle}-${index}`} style={[styles.attributeImpactParticle, { color: accent[index % accent.length], fontSize: particleSize, transform: [{ translateX }, { translateY }, { scale }, { rotate: `${index * 37}deg` }] }]}>{particle}</Animated.Text>;
     })}
   </Animated.View>;
 }
