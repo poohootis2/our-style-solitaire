@@ -119,7 +119,7 @@ const UNLOCKED_PETS_KEY = "our-style-solitaire:unlocked-pets";
 const BOSS_PREP_BONUSES_KEY = "our-style-solitaire:boss-prep-bonuses";
 const ATTENDANCE_KEY = "our-style-solitaire:attendance";
 const DAILY_AD_HAMMER_REWARD_KEY = "our-style-solitaire:daily-ad-hammer-reward";
-const MAX_DAILY_AD_HAMMER_REWARDS = 5;
+const MAX_DAILY_AD_HAMMER_REWARDS = 10;
 const INITIAL_UNLOCKED_PET_IDS = ["pet-004", "pet-005", "pet-006", "pet-007"];
 const DEFAULT_PET_ID = INITIAL_UNLOCKED_PET_IDS[0];
 const PHYSICAL_EDGE_INSET = 52;
@@ -1423,13 +1423,15 @@ export default function HomeScreen() {
       return;
     }
     const nextRewardedCount = rewardedRevealUsed + 1;
+    const dailyRewardNumber = Math.min(MAX_DAILY_AD_HAMMER_REWARDS, dailyAdHammerRewards + 1);
+    const rewardAmount = dailyRewardNumber >= 6 ? 2 : 1;
     setRewardedRevealUsed(nextRewardedCount);
     recordDailyAdHammerReward();
-    setHammerCharges((charges) => Math.min(10, charges + 1));
+    setHammerCharges((charges) => Math.min(10, charges + rewardAmount));
     setShowTwoTouch(false);
     setShowNoMovesPopup(false);
     beginHammerMode(true);
-    showTimedHint(`원하는 카드를 클릭하세요 (광고 망치 ${nextRewardedCount}/10)`);
+    showTimedHint(`원하는 카드를 클릭하세요 (광고 망치 ${nextRewardedCount}/10 · 오늘 ${dailyRewardNumber}/10 · 망치 +${rewardAmount})`);
   };
 
   const recordDailyAdHammerReward = () => {
@@ -1463,9 +1465,11 @@ export default function HomeScreen() {
       setRewardedAdError("광고가 준비되지 않았거나 끝까지 시청되지 않았습니다. 다시 시도해 주세요.");
       return;
     }
+    const dailyRewardNumber = Math.min(MAX_DAILY_AD_HAMMER_REWARDS, dailyAdHammerRewards + 1);
+    const rewardAmount = dailyRewardNumber >= 6 ? 2 : 1;
     recordDailyAdHammerReward();
-    setHammerCharges((charges) => Math.min(10, charges + 1));
-    showTimedHint(`망치 +1 충전 완료 (${Math.min(10, hammerCharges + 1)}/10) · 오늘 ${dailyAdHammerRewards + 1}/${MAX_DAILY_AD_HAMMER_REWARDS}`);
+    setHammerCharges((charges) => Math.min(10, charges + rewardAmount));
+    showTimedHint(`망치 +${rewardAmount} 충전 완료 (${Math.min(10, hammerCharges + rewardAmount)}/10) · 오늘 ${dailyRewardNumber}/${MAX_DAILY_AD_HAMMER_REWARDS}`);
   };
 
   const beginHammerMode = (allowRepeat = false) => {
@@ -1711,7 +1715,7 @@ export default function HomeScreen() {
   // 몬스터는 stats 행의 오른쪽 전투 슬롯에서 좌우로 이동하므로, 화면 중앙이 아닌
   // 몬스터 슬롯 중심을 기준으로 목표점을 잡습니다. 펫이 좌측으로 회피하면
   // 시작점과 목표점의 차이가 자동으로 커져 카드가 몬스터 쪽으로 꺾여 날아갑니다.
-  const monsterAimCenter = safeScreenWidth * (isLandscape ? 0.64 : 0.64);
+  const monsterAimCenter = safeScreenWidth * (isLandscape ? 0.70 : 0.72);
   const monsterAimLeft = monsterAimCenter - cardWidth * 0.5;
   const flightTravelX = phoneLandscape ? 0 : monsterAimLeft - flightStartLeft;
   const monsterTargetTop = rootTopPadding + (isLandscape ? (phoneLandscape ? 116 : 82) : 152);
@@ -1963,7 +1967,7 @@ export default function HomeScreen() {
               <Pressable accessibilityRole="button" accessibilityLabel="망치 안내 닫기" onPress={() => setShowHammerOffer(false)} style={({ pressed }) => [styles.noMovesPopupClose, pressed && styles.pressed]}><Text style={styles.noMovesPopupCloseText}>×</Text></Pressable>
               {dailyAdHammerRewards >= MAX_DAILY_AD_HAMMER_REWARDS ? <>
                 <Text style={styles.hammerOfferTitle}>일일 광고 보상이 소진되었습니다.</Text>
-                <Text style={styles.hammerOfferCopy}>광고 5회 보상이 모두 소진되었습니다. 이 Stage를 새로 시작하거나, 완전히 Stage 1로 돌아가세요.</Text>
+                <Text style={styles.hammerOfferCopy}>오늘 광고 10회 보상이 모두 소진되었습니다. 1~5회차는 망치 1개, 6~10회차는 망치 2개를 받습니다. 내일이 되면 광고 보상이 다시 열리며, 현재 스테이지 진행은 유지됩니다.</Text>
                 <View style={styles.noMovesPopupActions}>
                   <Pressable accessibilityRole="button" accessibilityLabel="현재 Stage 새로 시작" onPress={() => { setShowHammerOffer(false); requestCurrentStageRestart(); }} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>이 Stage 재시작</Text></Pressable>
                   <Pressable accessibilityRole="button" accessibilityLabel="Stage 1로 돌아가기" onPress={() => { setShowHammerOffer(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>Stage 1로</Text></Pressable>
