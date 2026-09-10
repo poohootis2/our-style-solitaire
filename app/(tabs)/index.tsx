@@ -13,6 +13,7 @@ import { haptic } from "@/lib/haptics";
 import {
   autoComplete,
   cloneGameState,
+  countAvailableMoves,
   findAutoFoundationMove,
   isLateGameAutoFinishReady,
   createPlayableGame,
@@ -66,10 +67,10 @@ const RESET_MODAL_PANEL = { uri: "/manus-storage/solitaire-reset-modal-panel_5af
 const RESET_BUTTONS_ART = { uri: "/manus-storage/solitaire-reset-buttons_31124c25.png" };
 const FLAMING_CARD_ART = require("../../assets/images/flaming-card-attack.png");
 const FLAMING_CARD_ART_BY_STYLE: Record<CompanionAttackStyle, ImageSourcePropType> = {
-  red: require("../../assets/images/attack-cards/attack-fire-card.webp"),
-  blue: require("../../assets/images/attack-cards/attack-ice-card.webp"),
-  orange: require("../../assets/images/attack-cards/attack-lightning-card.webp"),
-  white: require("../../assets/images/attack-cards/attack-shadow-card.webp"),
+  red: require("../../assets/images/attack-cards/attack-fire-card.png"),
+  blue: require("../../assets/images/attack-cards/attack-ice-card.png"),
+  orange: require("../../assets/images/attack-cards/attack-lightning-card.png"),
+  white: require("../../assets/images/attack-cards/attack-shadow-card.png"),
 };
 const ATTACK_IMPACT_ART_BY_STYLE: Record<CompanionAttackStyle, ImageSourcePropType> = {
   red: { uri: "/manus-storage/attack-fire-impact_d9bc33b9.png" },
@@ -390,7 +391,7 @@ function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0
   const targetFollow = monsterMotion ? monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-monsterTravelDistance, monsterTravelDistance] }) : null;
   const followedTranslateX = targetFollow ? Animated.add(translateX, Animated.multiply(progress, targetFollow)) : translateX;
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY] });
-  const scale = progress.interpolate({ inputRange: [0, 0.62, 1], outputRange: [1, 1.08, 0.5] });
+  const scale = progress.interpolate({ inputRange: [0, 0.62, 1], outputRange: [0.1, 1, 2] });
   const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
   const imageHeight = width * (flaming ? 1.14 : 1);
   const imageWidth = width * 2;
@@ -1862,6 +1863,11 @@ export default function HomeScreen() {
 
         <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
         <View style={[styles.board, { width: boardWidth }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
+        <View style={styles.difficultyStatus} accessibilityLabel={`남은 재순환 ${Math.max(0, difficulty.maxRecycles - game.recycles)}회, 유효 이동 ${countAvailableMoves(game)}회`}>
+          <Text style={styles.difficultyStatusText}>재순환 {Math.max(0, difficulty.maxRecycles - game.recycles)}회</Text>
+          <Text style={styles.difficultyStatusDivider}>·</Text>
+          <Text style={styles.difficultyStatusText}>유효 이동 {countAvailableMoves(game)}회</Text>
+        </View>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
             {game.stock.length ? (
@@ -2242,6 +2248,9 @@ const styles = StyleSheet.create({
   board: { alignSelf: "center" },
   boardLandscape: { flex: 1, justifyContent: "flex-start" },
   boardPhoneLandscape: { position: "absolute", right: 8, top: 88, alignSelf: "auto" },
+  difficultyStatus: { flexDirection: "row", alignItems: "center", justifyContent: "center", alignSelf: "center", gap: 7, marginBottom: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: "rgba(26, 32, 48, 0.78)", borderWidth: 1, borderColor: "rgba(243, 201, 105, 0.72)" },
+  difficultyStatusText: { color: "#FFF3D1", fontSize: 10, lineHeight: 13, fontWeight: "900" },
+  difficultyStatusDivider: { color: "#F3C969", fontSize: 12, fontWeight: "900" },
   topPiles: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
   topPilesLandscape: { marginBottom: 6 },
   stockWasteGroup: { flexDirection: "row", gap: 6 },

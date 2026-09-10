@@ -114,6 +114,35 @@ function countInitialMoves(tableau: Card[][]): number {
   return aceMoves + tableauMoves;
 }
 
+/** 현재 보드에서 즉시 실행 가능한 대표 이동 수를 표시용으로 계산합니다. */
+export function countAvailableMoves(game: GameState): number {
+  let count = 0;
+  const wasteCard = game.waste.at(-1);
+  if (wasteCard) {
+    if (canPlaceOnFoundation(wasteCard, game.foundations[wasteCard.suit], game.destroyedCards)) count += 1;
+    count += game.tableau.filter((pile) => canPlaceOnTableau(wasteCard, pile.at(-1))).length;
+  }
+
+  game.tableau.forEach((pile, sourceColumn) => {
+    const topCard = pile.at(-1);
+    if (topCard?.faceUp) {
+      if (canPlaceOnFoundation(topCard, game.foundations[topCard.suit], game.destroyedCards)) count += 1;
+      count += game.tableau.filter((target, targetColumn) => targetColumn !== sourceColumn && canPlaceOnTableau(topCard, target.at(-1))).length;
+    } else if (topCard) {
+      count += 1;
+    }
+
+    pile.forEach((card, index) => {
+      if (!card.faceUp || index === pile.length - 1 || pile.slice(index).some((item) => !item.faceUp)) return;
+      count += game.tableau.filter((target, targetColumn) => targetColumn !== sourceColumn && canPlaceOnTableau(card, target.at(-1))).length;
+    });
+  });
+
+  const difficulty = getDifficulty(game.level);
+  if (game.stock.length > 0 || (game.waste.length > 0 && game.recycles < difficulty.maxRecycles)) count += 1;
+  return count;
+}
+
 function makeDeck(): Card[] {
   return SUITS.flatMap((suit) =>
     Array.from({ length: 13 }, (_, offset) => ({
