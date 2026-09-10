@@ -633,7 +633,7 @@ export default function HomeScreen() {
   const bottomControlsBottom = isLandscape ? systemBottomInset + 4 : Math.max(92, systemBottomInset + 28) + 15 + (foldPortrait ? 18 : 0);
   // In portrait, keep the banner below the action buttons while reserving the
   // system navigation inset so it never sits under the home indicator.
-  const portraitBannerBottom = foldPortrait ? Math.max(0, bottomControlsBottom - 96) : Math.max(4, bottomControlsBottom - 64);
+  const portraitBannerBottom = foldPortrait ? Math.max(0, bottomControlsBottom - 130) : Math.max(0, bottomControlsBottom - 98);
   const { boardWidth, cardWidth, cardRatio, compact, stackOffset: baseStackOffset, tableauGap: baseTableauGap, uiScale, sideRailWidth } = getGameLayout(
     safeScreenWidth,
     safeScreenHeight,
@@ -1822,7 +1822,7 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
-      <Animated.View ref={rootRef} style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: [{ translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }] }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
+        <Animated.View ref={rootRef} style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: [{ translateY: -19 }, { translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }] }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
         <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
         {showBossPrepReward ? <View style={styles.bossPrepRewardPopup}><Text style={styles.bossPrepRewardTitle}>보스 준비 보너스 획득!</Text><Text style={styles.bossPrepRewardCopy}>망치 +1</Text></View> : null}
