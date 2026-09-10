@@ -13,7 +13,6 @@ import { haptic } from "@/lib/haptics";
 import {
   autoComplete,
   cloneGameState,
-  countAvailableMoves,
   findAutoFoundationMove,
   isLateGameAutoFinishReady,
   createPlayableGame,
@@ -21,7 +20,6 @@ import {
   revealHiddenCardWithHammer,
   flipTableauCard,
   findHint,
-  getDifficulty,
   getChapterForStage,
   isWon,
   moveFoundationToTableau,
@@ -375,7 +373,7 @@ function VolumeSlider({ label, value, onChange, disabled = false }: { label: str
   );
 }
 
-function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress, difficultyLabel }: { width: number; cardRatio?: number; theme: CardBackTheme; onPress: () => void; difficultyLabel?: string }) {
+function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress }: { width: number; cardRatio?: number; theme: CardBackTheme; onPress: () => void }) {
   const height = width * cardRatio;
   return (
     <Pressable
@@ -386,7 +384,6 @@ function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress, difficultyLab
     >
       <View style={[styles.backInner, { backgroundColor: theme.inner, borderColor: theme.border }]}> 
         <Text style={[styles.backMark, { color: theme.mark }]}>{theme.glyph}</Text>
-        {difficultyLabel ? <Text pointerEvents="none" style={styles.cardBackDifficulty}>{difficultyLabel}</Text> : null}
       </View>
     </Pressable>
   );
@@ -623,6 +620,7 @@ export default function HomeScreen() {
   const safeScreenWidth = Math.max(260, screenWidth - insets.left - insets.right);
   const safeScreenHeight = Math.max(220, screenHeight - insets.top - insets.bottom);
   const compactLandscape = isLandscape && safeScreenHeight <= 460;
+  const foldPortrait = !isLandscape && isTablet;
   const narrowCover = !isLandscape && safeScreenWidth <= 390;
   const rootTopPadding = isLandscape ? 4 : Math.max(0, PHYSICAL_EDGE_INSET - 15);
   // Some edge-to-edge Android devices report a zero bottom inset while the
@@ -632,17 +630,19 @@ export default function HomeScreen() {
   // Reserve the additional header spacing used by the inline landscape banner.
   // This keeps the banner, title, and action buttons on separate visual lanes.
   const layoutExtraReservedHeight = isLandscape ? (phoneLandscape ? 16 : 18) : 58;
-  const bottomControlsBottom = isLandscape ? systemBottomInset + 4 : Math.max(92, systemBottomInset + 28) + 15;
+  const bottomControlsBottom = isLandscape ? systemBottomInset + 4 : Math.max(92, systemBottomInset + 28) + 15 + (foldPortrait ? 18 : 0);
   // In portrait, keep the banner below the action buttons while reserving the
   // system navigation inset so it never sits under the home indicator.
-  const portraitBannerBottom = Math.max(4, bottomControlsBottom - 64);
-  const { boardWidth, cardWidth, cardRatio, compact, stackOffset, tableauGap, uiScale, sideRailWidth } = getGameLayout(
+  const portraitBannerBottom = foldPortrait ? Math.max(0, bottomControlsBottom - 96) : Math.max(4, bottomControlsBottom - 64);
+  const { boardWidth, cardWidth, cardRatio, compact, stackOffset: baseStackOffset, tableauGap: baseTableauGap, uiScale, sideRailWidth } = getGameLayout(
     safeScreenWidth,
     safeScreenHeight,
     rootTopPadding + rootBottomPadding,
     isLandscape,
     layoutExtraReservedHeight,
   );
+  const stackOffset = foldPortrait ? Math.max(16, Math.round(baseStackOffset * 0.78)) : baseStackOffset;
+  const tableauGap = foldPortrait ? Math.max(4, Math.round(baseTableauGap * 0.9)) : baseTableauGap;
   const compactControls = compact || compactLandscape;
   const monsterTravelDistance = isLandscape ? Math.max(160, Math.min(310, Math.round(safeScreenWidth * 0.2) + 50)) : 94;
   const [game, setGame] = useState(createPlayableGame);
@@ -1686,7 +1686,6 @@ export default function HomeScreen() {
     applyGame(completed, isWon(completed));
   };
 
-  const difficulty = getDifficulty(game.level);
   const cardBackTheme = getCardBackTheme(getChapterForStage(game.level));
   const battleContent = getBattleContent(game.level, isLandscape);
   const companionRoster = [...getCompanionRoster(), ...PET_ROSTER];
@@ -1891,7 +1890,7 @@ export default function HomeScreen() {
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
             {game.stock.length ? (
-              <CardBack width={cardWidth} cardRatio={renderCardRatio} theme={cardBackTheme} onPress={drawStockCard} difficultyLabel={`재순환 ${Math.max(0, difficulty.maxRecycles - game.recycles)}회\n유효 이동 ${countAvailableMoves(game)}회`} />
+              <CardBack width={cardWidth} cardRatio={renderCardRatio} theme={cardBackTheme} onPress={drawStockCard} />
             ) : (
               <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label={game.waste.length ? "↻" : ""} onPress={() => applyGame(drawFromStock(game))} />
             )}
@@ -1924,7 +1923,7 @@ export default function HomeScreen() {
             <Animated.View key={`column-${column}`} style={[styles.tableauColumn, { width: cardWidth, minHeight: cardWidth * renderCardRatio, transform: [{ translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, (3 - column) * (cardWidth + tableauGap)] }) }, { scaleY: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 0.12] }) }, { scaleX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 0.9] }) }] }]}> 
               {pile.length === 0 ? <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label="K" onPress={() => moveSelectionToTableau(column)} /> : null}
               {pile.map((card, index) => (
-                <View ref={index === pile.length - 1 ? (node) => { tableauBottomCardRefs.current[column] = node; } : undefined} key={card.id} style={{ position: "absolute", top: index * stackOffset, left: 0, zIndex: index }}>
+                <View ref={index === pile.length - 1 ? (node) => { tableauBottomCardRefs.current[column] = node; } : undefined} key={card.id} style={{ position: "absolute", top: index * stackOffset, left: 0, zIndex: 100 + index, elevation: 100 + index }}>
                   {card.faceUp ? (
                     <CardFace card={card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => { if (selection && selection.cardId !== card.id) { selectCard({ kind: "tableau", column, index, cardId: card.id }); return; } autoMoveToFoundation({ kind: "tableau", column, index }); }} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
                   ) : (
@@ -2291,10 +2290,9 @@ const styles = StyleSheet.create({
   cardBack: { borderColor: "#0C1222", backgroundColor: "#77D6C3", padding: 4 },
   backInner: { flex: 1, justifyContent: "center", alignItems: "center", borderRadius: 4, backgroundColor: "#1E3153", borderWidth: 1, borderColor: "#9BE4D5" },
   backMark: { color: "#77D6C3", fontSize: 26, fontWeight: "900" },
-  cardBackDifficulty: { position: "absolute", left: 2, right: 2, bottom: 4, paddingVertical: 2, borderRadius: 3, backgroundColor: "rgba(8, 16, 34, 0.84)", color: "#FFF3D1", fontSize: 8, lineHeight: 10, fontWeight: "900", textAlign: "center", textShadowColor: "#000", textShadowRadius: 2 },
-  tableau: { flex: 1, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
+  tableau: { flex: 1, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", position: "relative", zIndex: 60, elevation: 60 },
   tableauLandscape: { flexGrow: 0 },
-  tableauColumn: { position: "relative" },
+  tableauColumn: { position: "relative", zIndex: 61, elevation: 61 },
   portraitAdBanner: { position: "absolute", left: 0, right: 0, zIndex: 9, alignItems: "center" },
   bottomControls: { position: "absolute", left: 0, right: 0, bottom: 58, zIndex: 40, elevation: 20, flexDirection: "row", alignSelf: "center", justifyContent: "center", gap: 8 },
   bottomControlsLandscape: { bottom: 4 },
