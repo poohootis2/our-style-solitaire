@@ -385,13 +385,6 @@ function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress }: { width: nu
   );
 }
 
-function attackStyleFromArt(source: ImageSourcePropType): CompanionAttackStyle {
-  if (source === FLAMING_CARD_ART_BY_STYLE.blue) return "blue";
-  if (source === FLAMING_CARD_ART_BY_STYLE.orange) return "orange";
-  if (source === FLAMING_CARD_ART_BY_STYLE.white) return "white";
-  return "red";
-}
-
 function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, travelY = -180, startLeft = 16, startBottom = 44, flightColor, flamingArt = FLAMING_CARD_ART, flaming = false, monsterMotion, monsterTravelDistance = 0 }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; travelY?: number; startLeft?: number; startBottom?: number; flightColor?: string; flamingArt?: ImageSourcePropType; flaming?: boolean; monsterMotion?: Animated.Value; monsterTravelDistance?: number }) {
   const glow: Record<Suit, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
   const glowColor = flightColor ?? glow[card.suit];
@@ -399,19 +392,13 @@ function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0
   const targetFollow = monsterMotion ? monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-monsterTravelDistance, monsterTravelDistance] }) : null;
   const followedTranslateX = targetFollow ? Animated.add(translateX, Animated.multiply(progress, targetFollow)) : translateX;
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY] });
-  const scale = progress.interpolate({ inputRange: [0, 0.62, 1], outputRange: [0.1, 1, 2] });
+  const scale = progress.interpolate({ inputRange: [0, 0.62, 1], outputRange: [0.1, 0.72, 1] });
   const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
   const imageHeight = width * (flaming ? 1.14 : 1);
   const imageWidth = width * 2;
-  const headRatio: Record<CompanionAttackStyle, number> = { red: 0.28, blue: 0.32, orange: 0.22, white: 0.26 };
   return (
     <Animated.View pointerEvents="none" style={[styles.attributeFlyingCard, { left: startLeft, bottom: startBottom, width: imageWidth, height: imageHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX: followedTranslateX }, { translateY }, { scale }] }]}> 
-      <View style={styles.attributeFlyingCardImageFrame}>
-        <Image source={flamingArt} resizeMode="stretch" style={[styles.attributeFlyingCardImage, { transform: [{ scaleX: 0.92 }, { scaleY: 0.82 }] }]} />
-        <View pointerEvents="none" style={[styles.attributeCardHeadClip, { height: imageHeight * headRatio[attackStyleFromArt(flamingArt)] }]}>
-          <Image source={flamingArt} resizeMode="stretch" style={[styles.attributeFlyingCardImage, { transform: [{ scaleX: 1.18 }, { scaleY: 1.18 }, { translateY: -imageHeight * 0.035 }] }]} />
-        </View>
-      </View>
+      <Image source={flamingArt} resizeMode="stretch" style={[styles.attributeFlyingCardImage, { transform: [{ scaleX: 0.92 }, { scaleY: 0.82 }] }]} />
     </Animated.View>
   );
 }
@@ -2324,9 +2311,7 @@ const styles = StyleSheet.create({
   hammerModeHintText: { color: "#FFF3D1", fontSize: 12, fontWeight: "900", textAlign: "center" },
   flyingCard: { position: "absolute", left: 16, bottom: 44, zIndex: 30, overflow: "hidden", borderRadius: 8, backgroundColor: "#FFFDF8", borderWidth: 2, borderColor: "#FF7A66", shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 9, elevation: 12 },
   attributeFlyingCard: { position: "absolute", zIndex: 31, overflow: "visible", alignItems: "center", justifyContent: "center", backgroundColor: "transparent", borderWidth: 0, shadowOpacity: 0, elevation: 0 },
-  attributeFlyingCardImageFrame: { width: "100%", height: "100%", overflow: "visible", alignItems: "center" },
   attributeFlyingCardImage: { ...StyleSheet.absoluteFillObject },
-  attributeCardHeadClip: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden" },
   flamingFlyingCard: { position: "absolute", zIndex: 31, overflow: "visible", backgroundColor: "transparent", borderWidth: 0, shadowOpacity: 0, elevation: 0, alignItems: "center", justifyContent: "center" },
   flamingCardFace: { ...StyleSheet.absoluteFillObject, borderRadius: 8, backgroundColor: "#FFFDF8", borderWidth: 2, borderColor: "#FF7A66", shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 9, elevation: 12, zIndex: 1 },
   flamingCardText: { zIndex: 4 },
