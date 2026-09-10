@@ -91,6 +91,12 @@ const ATTACK_SOUND_BY_STYLE = {
   orange: require("../../assets/audio/attack-lightning.wav"),
   white: require("../../assets/audio/attack-shadow.wav"),
 } as const;
+const ATTACK_IMPACT_SOUND_BY_STYLE = {
+  red: require("../../assets/audio/impact/impact-fire.wav"),
+  blue: require("../../assets/audio/impact/impact-ice.wav"),
+  orange: require("../../assets/audio/impact/impact-lightning.wav"),
+  white: require("../../assets/audio/impact/impact-shadow.wav"),
+} as const;
 const HAMMER_ICON_ART = require("../../assets/images/card-breaker-shark-hammer.png");
 const HINT_BUTTON_ART = require("../../assets/images/hint-cartoon-button.webp");
 const UNDO_BUTTON_ART = require("../../assets/images/undo-cartoon-button.webp");
@@ -392,7 +398,7 @@ function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0
   const targetFollow = monsterMotion ? monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-monsterTravelDistance, monsterTravelDistance] }) : null;
   const followedTranslateX = targetFollow ? Animated.add(translateX, Animated.multiply(progress, targetFollow)) : translateX;
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY] });
-  const scale = progress.interpolate({ inputRange: [0, 0.62, 1], outputRange: [0.1, 0.72, 1] });
+  const scale = progress.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0.1, 0.6, 1] });
   const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
   const imageHeight = width * (flaming ? 1.14 : 1);
   const imageWidth = width * 2;
@@ -730,6 +736,10 @@ export default function HomeScreen() {
   const iceAttackPlayer = useAudioPlayer(ATTACK_SOUND_BY_STYLE.blue);
   const lightningAttackPlayer = useAudioPlayer(ATTACK_SOUND_BY_STYLE.orange);
   const shadowAttackPlayer = useAudioPlayer(ATTACK_SOUND_BY_STYLE.white);
+  const fireImpactPlayer = useAudioPlayer(ATTACK_IMPACT_SOUND_BY_STYLE.red);
+  const iceImpactPlayer = useAudioPlayer(ATTACK_IMPACT_SOUND_BY_STYLE.blue);
+  const lightningImpactPlayer = useAudioPlayer(ATTACK_IMPACT_SOUND_BY_STYLE.orange);
+  const shadowImpactPlayer = useAudioPlayer(ATTACK_IMPACT_SOUND_BY_STYLE.white);
   const backgroundPlayer = useAudioPlayer(require("../../assets/sounds/medieval-solitaire-loop.mp3"));
 
   const stopHintAttention = () => {
@@ -834,7 +844,7 @@ export default function HomeScreen() {
   const setSoundEffectsVolumePreference = (value: number) => {
     const volume = clampVolume(value);
     setSoundEffectsVolume(volume);
-    for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer, fireAttackPlayer, iceAttackPlayer, lightningAttackPlayer, shadowAttackPlayer]) {
+    for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer, fireAttackPlayer, iceAttackPlayer, lightningAttackPlayer, shadowAttackPlayer, fireImpactPlayer, iceImpactPlayer, lightningImpactPlayer, shadowImpactPlayer]) {
       try { player.volume = soundEffectsEnabled ? volume : 0; } catch { /* optional audio */ }
     }
   };
@@ -848,7 +858,7 @@ export default function HomeScreen() {
   };
 
   const setSoundEffectsEnabledPreference = (enabled: boolean) => {
-        for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer, fireAttackPlayer, iceAttackPlayer, lightningAttackPlayer, shadowAttackPlayer]) {
+        for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer, fireAttackPlayer, iceAttackPlayer, lightningAttackPlayer, shadowAttackPlayer, fireImpactPlayer, iceImpactPlayer, lightningImpactPlayer, shadowImpactPlayer]) {
       try { player.volume = enabled ? soundEffectsVolume : 0;
 
         if (!enabled) player.pause();
@@ -1034,7 +1044,7 @@ export default function HomeScreen() {
   }, [hydrated]);
 
   useEffect(() => {
-    for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer, fireAttackPlayer, iceAttackPlayer, lightningAttackPlayer, shadowAttackPlayer]) {
+    for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer, fireAttackPlayer, iceAttackPlayer, lightningAttackPlayer, shadowAttackPlayer, fireImpactPlayer, iceImpactPlayer, lightningImpactPlayer, shadowImpactPlayer]) {
       try {
         player.volume = soundEffectsEnabled ? soundEffectsVolume : 0;
         if (!soundEffectsEnabled) player.pause();
@@ -1048,7 +1058,7 @@ export default function HomeScreen() {
     // Re-apply both independent mixer buses after either slider changes. This
     // prevents platform audio-session updates from leaving the music bus at the
     // effects bus level on some Android audio implementations.
-    for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer, fireAttackPlayer, iceAttackPlayer, lightningAttackPlayer, shadowAttackPlayer]) {
+    for (const player of [selectPlayer, movePlayer, shufflePlayer, companionAttackPlayer, foundationAttackPlayer, fireAttackPlayer, iceAttackPlayer, lightningAttackPlayer, shadowAttackPlayer, fireImpactPlayer, iceImpactPlayer, lightningImpactPlayer, shadowImpactPlayer]) {
       try { player.volume = soundEffectsEnabled ? soundEffectsVolume : 0; } catch { /* optional audio */ }
     }
     try { backgroundPlayer.volume = backgroundMusicEnabled ? backgroundMusicVolume : 0; } catch { /* optional audio */ }
@@ -1183,6 +1193,17 @@ export default function HomeScreen() {
     }
   };
 
+  const playAttributeImpact = () => {
+    if (!soundEffectsEnabled) return;
+    const player = ({ red: fireImpactPlayer, blue: iceImpactPlayer, orange: lightningImpactPlayer, white: shadowImpactPlayer } as const)[companionAttackStyle];
+    try {
+      player.seekTo(0);
+      player.play();
+    } catch {
+      // Impact audio must never interrupt the attack animation.
+    }
+  };
+
   const animateFlight = (card: Card, flaming = false) => {
     const progress = new Animated.Value(0);
     const id = `flight-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -1201,6 +1222,7 @@ export default function HomeScreen() {
     setFlyingAttacks((current) => [...current, flight]);
     Animated.timing(progress, { toValue: 1, duration: flaming ? FLAMING_CARD_FLIGHT_DURATION : FLYING_CARD_DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
       if (!finished) return;
+      playAttributeImpact();
       setFlyingAttacks((current) => current.filter((active) => active.id !== id));
     });
   };
