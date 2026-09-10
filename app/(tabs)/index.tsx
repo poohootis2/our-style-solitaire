@@ -375,7 +375,7 @@ function VolumeSlider({ label, value, onChange, disabled = false }: { label: str
   );
 }
 
-function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress }: { width: number; cardRatio?: number; theme: CardBackTheme; onPress: () => void }) {
+function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress, difficultyLabel }: { width: number; cardRatio?: number; theme: CardBackTheme; onPress: () => void; difficultyLabel?: string }) {
   const height = width * cardRatio;
   return (
     <Pressable
@@ -384,8 +384,9 @@ function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress }: { width: nu
       onPress={onPress}
       style={({ pressed }) => [styles.card, styles.cardBack, { width, height, backgroundColor: theme.outer, borderColor: theme.border }, pressed && styles.pressed]}
     >
-      <View style={[styles.backInner, { backgroundColor: theme.inner, borderColor: theme.border }]}>
+      <View style={[styles.backInner, { backgroundColor: theme.inner, borderColor: theme.border }]}> 
         <Text style={[styles.backMark, { color: theme.mark }]}>{theme.glyph}</Text>
+        {difficultyLabel ? <Text pointerEvents="none" style={styles.cardBackDifficulty}>{difficultyLabel}</Text> : null}
       </View>
     </Pressable>
   );
@@ -1887,15 +1888,10 @@ export default function HomeScreen() {
 
         <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
         <View style={[styles.board, { width: boardWidth }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
-        <View style={styles.difficultyStatus} accessibilityLabel={`남은 재순환 ${Math.max(0, difficulty.maxRecycles - game.recycles)}회, 유효 이동 ${countAvailableMoves(game)}회`}>
-          <Text style={styles.difficultyStatusText}>재순환 {Math.max(0, difficulty.maxRecycles - game.recycles)}회</Text>
-          <Text style={styles.difficultyStatusDivider}>·</Text>
-          <Text style={styles.difficultyStatusText}>유효 이동 {countAvailableMoves(game)}회</Text>
-        </View>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
             {game.stock.length ? (
-              <CardBack width={cardWidth} cardRatio={renderCardRatio} theme={cardBackTheme} onPress={drawStockCard} />
+              <CardBack width={cardWidth} cardRatio={renderCardRatio} theme={cardBackTheme} onPress={drawStockCard} difficultyLabel={`재순환 ${Math.max(0, difficulty.maxRecycles - game.recycles)}회\n유효 이동 ${countAvailableMoves(game)}회`} />
             ) : (
               <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label={game.waste.length ? "↻" : ""} onPress={() => applyGame(drawFromStock(game))} />
             )}
@@ -2295,6 +2291,7 @@ const styles = StyleSheet.create({
   cardBack: { borderColor: "#0C1222", backgroundColor: "#77D6C3", padding: 4 },
   backInner: { flex: 1, justifyContent: "center", alignItems: "center", borderRadius: 4, backgroundColor: "#1E3153", borderWidth: 1, borderColor: "#9BE4D5" },
   backMark: { color: "#77D6C3", fontSize: 26, fontWeight: "900" },
+  cardBackDifficulty: { position: "absolute", left: 2, right: 2, bottom: 4, paddingVertical: 2, borderRadius: 3, backgroundColor: "rgba(8, 16, 34, 0.84)", color: "#FFF3D1", fontSize: 8, lineHeight: 10, fontWeight: "900", textAlign: "center", textShadowColor: "#000", textShadowRadius: 2 },
   tableau: { flex: 1, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   tableauLandscape: { flexGrow: 0 },
   tableauColumn: { position: "relative" },
