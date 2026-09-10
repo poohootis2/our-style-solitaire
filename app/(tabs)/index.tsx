@@ -510,10 +510,10 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
     const moveRightToLeft = () => {
       if (cancelled) return;
       setFacingLeft(true);
-      Animated.timing(monsterMotion, { toValue: 0, duration: 4290, easing: Easing.inOut(Easing.sin), useNativeDriver: true }).start(({ finished }) => {
+      Animated.timing(monsterMotion, { toValue: 0, duration: 6129, easing: Easing.inOut(Easing.sin), useNativeDriver: true }).start(({ finished }) => {
         if (!finished || cancelled) return;
         setFacingLeft(false);
-        Animated.timing(monsterMotion, { toValue: 1, duration: 4290, easing: Easing.inOut(Easing.sin), useNativeDriver: true }).start(({ finished: returned }) => {
+        Animated.timing(monsterMotion, { toValue: 1, duration: 6129, easing: Easing.inOut(Easing.sin), useNativeDriver: true }).start(({ finished: returned }) => {
           if (returned && !cancelled) moveRightToLeft();
         });
       });
@@ -1455,7 +1455,7 @@ export default function HomeScreen() {
       return;
     }
     if (hammerCharges >= 10) {
-      showTimedHint("망치가 가득 찼습니다. 현재 최대 10개입니다.");
+      showTimedHint("망치가 이미 10개라 광고 보상을 받을 수 없습니다. 먼저 망치를 사용해 주세요.");
       return;
     }
     setRewardedAdError(null);
@@ -1715,7 +1715,7 @@ export default function HomeScreen() {
   // 몬스터는 stats 행의 오른쪽 전투 슬롯에서 좌우로 이동하므로, 화면 중앙이 아닌
   // 몬스터 슬롯 중심을 기준으로 목표점을 잡습니다. 펫이 좌측으로 회피하면
   // 시작점과 목표점의 차이가 자동으로 커져 카드가 몬스터 쪽으로 꺾여 날아갑니다.
-  const monsterAimCenter = safeScreenWidth * (isLandscape ? 0.70 : 0.72);
+  const monsterAimCenter = safeScreenWidth * (isLandscape ? 0.78 : 0.82);
   const monsterAimLeft = monsterAimCenter - cardWidth * 0.5;
   const flightTravelX = phoneLandscape ? 0 : monsterAimLeft - flightStartLeft;
   const monsterTargetTop = rootTopPadding + (isLandscape ? (phoneLandscape ? 116 : 82) : 152);
@@ -1945,7 +1945,7 @@ export default function HomeScreen() {
         <CompanionAnchor companion={selectedCompanion} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} onPress={() => undefined} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: bottomControlsBottom }]}> 
 
-          <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges >= 10 ? "망치가 가득 참" : "광고 시청 후 망치 하나 받기"} disabled={hammerCharges >= 10} onPress={() => { haptic.light(); void claimHammerAdReward(); }} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHammerButton, phoneLandscape && styles.bottomButtonPhoneLandscape, hammerCharges >= 10 && styles.cartoonActionButtonDisabled, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges >= 10 ? "망치가 10개라 광고 보상을 받을 수 없음" : "광고 시청 후 망치 받기"} onPress={() => { haptic.light(); void claimHammerAdReward(); }} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHammerButton, phoneLandscape && styles.bottomButtonPhoneLandscape, pressed && styles.pressed]}>
             <Image source={HAMMER_PLUS_ONE_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
           </Pressable>
           <Animated.View style={[styles.hintAttentionWrap, { opacity: hintAttention.interpolate({ inputRange: [0, 1], outputRange: [1, 0.62] }), transform: [{ scale: hintAttention.interpolate({ inputRange: [0, 1], outputRange: [1, 1.035] }) }, { rotate: hintAttention.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "-2deg"] }) }] }]}>
