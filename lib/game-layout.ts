@@ -44,10 +44,11 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const sideRailWidth = isPhoneLandscape ? clamp(Math.round(width * 0.30), 190, 248) : 0;
   // Wide devices enlarge card width by 10%; the ratio compensates so total card height grows by 15%.
   const cardRatio = isLandscape ? 1.18 : wideCardProfile ? CARD_RATIO * (1.15 / 1.10) : CARD_RATIO;
-  const outerPadding = isPhoneLandscape ? 8 : isLandscape ? 24 : isTablet ? (wideCardProfile ? 16 : 30) : isWidePortraitPhone ? 4 : isFoldedCover ? 8 : 12;
+  // Wide non-Fold4 portrait screens use exactly 15px outer margins; Fold4 keeps its legacy profile.
+  const outerPadding = wideCardProfile ? 15 : isPhoneLandscape ? 8 : isLandscape ? 24 : isTablet ? 30 : isWidePortraitPhone ? 4 : isFoldedCover ? 8 : 12;
   const baseTableauGap = isTablet ? 12 : isLandscape ? 6 : isWidePortraitPhone ? 4 : isFoldedCover ? 2 : 4;
   const tableauGap = wideCardProfile ? Math.max(1, Math.round(baseTableauGap * 1.15)) : isTablet ? 8 : baseTableauGap;
-  const maxBoardWidth = isPhoneLandscape ? Math.max(320, width - sideRailWidth - outerPadding * 2 - 8) : isTablet ? (wideCardProfile ? Math.min(width - outerPadding * 2, 820) : 680) : isLandscape ? 720 : 560;
+  const maxBoardWidth = wideCardProfile ? Math.max(260, width - 30) : isPhoneLandscape ? Math.max(320, width - sideRailWidth - outerPadding * 2 - 8) : isTablet ? 680 : isLandscape ? 720 : 560;
   const availableWidth = Math.max(260, Math.min(width - outerPadding * 2 - sideRailWidth, maxBoardWidth));
   const rawCardWidth = (availableWidth - tableauGap * TABLEAU_STEPS) / TABLEAU_COLUMNS;
   const widthCardLimit = isPhoneLandscape ? 84 : isLandscape ? (height >= 520 ? 80 : 64) : isTablet ? (wideCardProfile ? 101 : 80) : isWidePortraitPhone ? (wideCardProfile ? 95 : 74) : isFoldedCover ? 56 : 68;
@@ -62,7 +63,8 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   // The board contains a top-pile card, a gap, and the deepest seven-card tableau.
   const heightCardLimit = (usableTableauHeight - topPilesGap - TABLEAU_STEPS * minimumStackOffset) / (cardRatio * 2);
   const baseCardReduction = isLandscape || (isTablet && !isFoldedCover) ? 0.9 : 1;
-  const foldableOrLandscapeReduction = isPhoneLandscape ? 1 : wideCardProfile ? baseCardReduction * 1.10 : baseCardReduction;
+  // Do not shrink wide-screen cards after measuring the real available width.
+  const foldableOrLandscapeReduction = isPhoneLandscape ? 1 : wideCardProfile ? 1 : baseCardReduction;
   const minimumCardWidth = isLandscape ? 30 : 34;
   const cardWidth = Math.floor(clamp(Math.min(rawCardWidth, widthCardLimit, heightCardLimit) * foldableOrLandscapeReduction, minimumCardWidth, widthCardLimit));
   const cardHeight = cardWidth * cardRatio;
