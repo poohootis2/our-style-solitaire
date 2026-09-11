@@ -34,7 +34,9 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const isFold4Model = /SM-F936/.test(normalizedModel);
   const isFold5PlusModel = /SM-F946|SM-F956|SM-F966|SM-F976|SM-F986/.test(normalizedModel);
   const isFoldedCover = !isLandscape && width <= 430;
-  const isWidePortraitPhone = !isLandscape && !isTablet && width >= 390;
+  // Android reports physical phone widths in dp; Note9-class screens commonly report below 390dp.
+  // Treat standard portrait phones from 350dp upward as wide profiles, except the Fold4 model.
+  const isWidePortraitPhone = !isLandscape && !isTablet && width >= 350;
   const wideCardProfile = !isLandscape && !isFold4Model && (isWidePortraitPhone || isFold2To3Model || isFold5PlusModel);
   const isPhoneLandscape = isLandscape && !isTablet;
   const landscapeAspect = width / Math.max(1, height);
