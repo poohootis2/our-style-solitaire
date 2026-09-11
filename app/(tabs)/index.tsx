@@ -649,7 +649,10 @@ export default function HomeScreen() {
     { left: isLandscape ? 10 : cardAreaLeft, right: isLandscape ? safeScreenWidth - 10 : cardAreaRight },
   );
   const stackOffset = foldPortrait ? Math.max(16, Math.round(baseStackOffset * 0.78)) : baseStackOffset;
-  const tableauGap = foldPortrait ? Math.max(8, Math.round(baseTableauGap * 1.22)) : baseTableauGap;
+  // Keep the measured board width and the rendered tableau gap in the same coordinate budget.
+  // A separate Fold-only gap multiplier made the visible columns exceed boardWidth and
+  // could leave the wide inner display looking misaligned or clipped.
+  const tableauGap = baseTableauGap;
   const compactControls = compact || compactLandscape;
   const monsterTravelDistance = isLandscape ? Math.max(160, Math.min(310, Math.round(safeScreenWidth * 0.2) + 50)) : 94;
   const [game, setGame] = useState(createPlayableGame);
@@ -1951,7 +1954,7 @@ export default function HomeScreen() {
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
         <CompanionAnchor companion={selectedCompanion} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} onPress={() => undefined} />
-                <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: Math.max(0, bottomControlsBottom - 15) }]}> 
+                <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: Math.max(0, bottomControlsBottom - 25) }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges >= 10 ? "망치가 10개라 광고 보상을 받을 수 없음" : "광고 시청 후 망치 받기"} onPress={() => { haptic.light(); void claimHammerAdReward(); }} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHammerButton, phoneLandscape && styles.bottomButtonPhoneLandscape, pressed && styles.pressed]}>
             <Image source={HAMMER_PLUS_ONE_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
