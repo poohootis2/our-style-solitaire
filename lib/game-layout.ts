@@ -25,7 +25,7 @@ function clamp(value: number, min: number, max: number): number {
  * The vertical constraint includes the top piles plus the deepest tableau column, so the
  * final card always remains above the Android system navigation area and action controls.
  */
-export function getGameLayout(width: number, height: number, verticalEdgeInset = 0, forceLandscape = false, extraReservedHeight = 0, deviceModel = ""): GameLayout {
+export function getGameLayout(width: number, height: number, verticalEdgeInset = 0, forceLandscape = false, extraReservedHeight = 0, deviceModel = "", horizontalBounds?: { left: number; right: number }): GameLayout {
   const isLandscape = forceLandscape || width > height;
   const shortestSide = Math.min(width, height);
   const isTablet = shortestSide >= 600;
@@ -41,9 +41,11 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const sideRailWidth = isPhoneLandscape ? clamp(Math.round(width * 0.30), 190, 248) : 0;
   // Wide devices enlarge card width by 10%; the ratio compensates so total card height grows by 15%.
   const cardRatio = isLandscape ? 1.18 : CARD_RATIO;
-  // Keep only 10px on each side. The six gaps are calculated from the measured width.
+  // Use measured score/option anchors when available; otherwise keep 10px side padding.
   const outerPadding = 10;
-  const availableWidth = Math.max(260, width - outerPadding * 2 - sideRailWidth);
+  const leftBound = clamp(horizontalBounds?.left ?? outerPadding, outerPadding, Math.max(outerPadding, width - outerPadding));
+  const rightBound = clamp(horizontalBounds?.right ?? width - outerPadding, leftBound + 220, width - outerPadding);
+  const availableWidth = Math.max(260, rightBound - leftBound - sideRailWidth);
   const tableauGap = clamp(Math.round(availableWidth * 0.012), 4, 14);
   const maxBoardWidth = availableWidth;
   const rawCardWidth = (availableWidth - tableauGap * TABLEAU_STEPS) / TABLEAU_COLUMNS;

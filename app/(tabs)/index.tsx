@@ -635,6 +635,10 @@ export default function HomeScreen() {
   // In portrait, keep the banner below the action buttons while reserving the
   // system navigation inset so it never sits under the home indicator.
   const portraitBannerBottom = foldPortrait ? Math.max(0, bottomControlsBottom - 130) : Math.max(0, bottomControlsBottom - 98);
+  const [scoreAnchorX, setScoreAnchorX] = useState<number | null>(null);
+  const [optionsAnchorRight, setOptionsAnchorRight] = useState<number | null>(null);
+  const cardAreaLeft = Math.max(10, Math.min(safeScreenWidth - 10, scoreAnchorX ?? 10));
+  const cardAreaRight = Math.max(cardAreaLeft + 220, Math.min(safeScreenWidth - 10, optionsAnchorRight ?? safeScreenWidth - 10));
   const { boardWidth, cardWidth, cardRatio, compact, stackOffset: baseStackOffset, tableauGap: baseTableauGap, uiScale, sideRailWidth } = getGameLayout(
     safeScreenWidth,
     safeScreenHeight,
@@ -642,6 +646,7 @@ export default function HomeScreen() {
     isLandscape,
     layoutExtraReservedHeight,
     deviceModel,
+    { left: isLandscape ? 10 : cardAreaLeft, right: isLandscape ? safeScreenWidth - 10 : cardAreaRight },
   );
   const stackOffset = foldPortrait ? Math.max(16, Math.round(baseStackOffset * 0.78)) : baseStackOffset;
   const tableauGap = foldPortrait ? Math.max(8, Math.round(baseTableauGap * 1.22)) : baseTableauGap;
@@ -1849,7 +1854,7 @@ export default function HomeScreen() {
             </View>
           </View>
           {isLandscape ? <View style={[styles.landscapeHeaderBanner, phoneLandscape && styles.landscapeHeaderBannerPhone]}><AdBanner compact inline /></View> : null}
-          <View style={[styles.headerActions, compactControls && styles.headerActionsCompact, phoneLandscape && styles.headerActionsPhoneLandscape]}>
+          <View onLayout={(event) => { const { x, width } = event.nativeEvent.layout; const right = x + width; if (optionsAnchorRight !== right) setOptionsAnchorRight(right); }} style={[styles.headerActions, compactControls && styles.headerActionsCompact, phoneLandscape && styles.headerActionsPhoneLandscape]}>
             <Pressable accessibilityRole="button" accessibilityLabel="출석체크" disabled={lastAttendanceDate === localDateKey()} onPress={() => { haptic.light(); setShowAttendanceClaim(true); }} style={({ pressed }) => [styles.attendanceHeaderButton, compactControls && styles.iconButtonCompact, lastAttendanceDate === localDateKey() && styles.attendanceHeaderButtonDone, pressed && styles.pressed]}>
               <Animated.View pointerEvents="none" style={[styles.attendanceHeaderAnimated, { opacity: attendanceAttention.interpolate({ inputRange: [0, 1], outputRange: [1, 0.64] }), transform: [{ scale: attendanceAttention.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }, { rotate: attendanceAttention.interpolate({ inputRange: [0, 0.5, 1], outputRange: ["0deg", "-3deg", "3deg"] }) }] }]}>
                 <Image source={DAILY_CHECKIN_ART} resizeMode="contain" style={[styles.attendanceHeaderImage, lastAttendanceDate === localDateKey() && styles.attendanceHeaderImageDone]} />
@@ -1883,7 +1888,7 @@ export default function HomeScreen() {
 
         <View style={[styles.stats, styles.contentLift, narrowCover && styles.statsNarrowCover, isLandscape && styles.statsLandscape, compactLandscape && styles.statsLandscapeCompact, phoneLandscape && styles.statsPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
           <View style={[styles.statsSummary, phoneLandscape && styles.statsSummaryPhoneLandscape]}>
-            <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.score}</Text><Text style={styles.statLabel}>점수</Text></View>
+            <View onLayout={(event) => { const { x } = event.nativeEvent.layout; if (scoreAnchorX !== x) setScoreAnchorX(x); }}><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.score}</Text><Text style={styles.statLabel}>점수</Text></View>
             <View style={styles.statDivider} />
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.moves}</Text><Text style={styles.statLabel}>이동</Text></View>
             <View style={styles.statDivider} />
@@ -1893,7 +1898,7 @@ export default function HomeScreen() {
         </View>
 
         <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ translateY: -19 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
-        <View style={[styles.board, { width: boardWidth }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
+        <View style={[styles.board, { width: boardWidth, alignSelf: "flex-start", marginLeft: isLandscape ? 10 : cardAreaLeft }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
             {game.stock.length ? (
