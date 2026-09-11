@@ -589,7 +589,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
         {defeatVisible ? <Animated.View pointerEvents="none" style={[styles.defeatBurst, { opacity: defeatOpacity, transform: [{ scale: defeatScale }] }]}>{Array.from({ length: 12 }, (_, index) => <Text key={index} style={[styles.defeatSpark, { transform: [{ rotate: `${index * 30}deg` }, { translateY: -24 }] }]}>{index % 2 ? "✦" : "•"}</Text>)}</Animated.View> : null}
       </Animated.View>
       <View style={[styles.monsterInfo, { width: infoWidth }, compact && styles.monsterInfoCompact, isBoss && styles.monsterInfoBoss, !landscape && styles.monsterInfoPortrait]}>
-        <View style={styles.monsterNameRow}><Text style={styles.monsterName} numberOfLines={2}>{monster.name.toUpperCase()}</Text></View>
+        <View style={styles.monsterNameRow}><Text style={styles.monsterName} numberOfLines={1} ellipsizeMode="tail">{monster.name.toUpperCase()}</Text></View>
         <View style={styles.monsterBar}><View style={[styles.monsterBarFill, { width: `${Math.max(0, Math.min(100, hp))}%` }]} /><Animated.View pointerEvents="none" style={[styles.monsterHpFlash, { opacity: hpFlashOpacity }]} /></View>
         <Text style={styles.monsterHp}>{Math.round(hp)}%</Text>
       </View>
@@ -1827,7 +1827,7 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
-        <Animated.View ref={rootRef} style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: [{ translateY: -19 }, { translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }] }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
+        <Animated.View ref={rootRef} style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: [{ translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }] }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
         <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
         {showBossPrepReward ? <View style={styles.bossPrepRewardPopup}><Text style={styles.bossPrepRewardTitle}>보스 준비 보너스 획득!</Text><Text style={styles.bossPrepRewardCopy}>망치 +1</Text></View> : null}
@@ -1838,7 +1838,7 @@ export default function HomeScreen() {
         {hammerImpactBurstTarget ? <Animated.View pointerEvents="none" style={[styles.hammerImpactBurst, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.5, height: cardWidth * 1.5, transform: [{ translateX: hammerImpactBurstTarget.dx }, { translateY: hammerImpactBurstTarget.dy }, { scale: hammerImpactBurst.interpolate({ inputRange: [0, 0.28, 1], outputRange: [0.35, 1.25, 0.1] }) }, { rotate: hammerImpactBurst.interpolate({ inputRange: [0, 1], outputRange: ["-8deg", "18deg"] }) }], opacity: hammerImpactBurst.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 1, 0] }) }]}><Image source={HAMMER_IMPACT_ART} resizeMode="contain" style={styles.hammerImpactBurstImage} /></Animated.View> : null}
         {showAttendanceRewardFlight ? <Animated.View pointerEvents="none" style={[styles.attendanceRewardFlight, { left: Math.max(0, safeScreenWidth * 0.5 - 30), top: Math.max(80, safeScreenHeight * 0.58), opacity: attendanceRewardOpacity, transform: [{ translateX: attendanceRewardTranslateX }, { translateY: attendanceRewardTranslateY }, { scale: attendanceRewardScale }, { rotate: attendanceRewardFlight.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) }] }]}><Image source={HAMMER_ICON_ART} resizeMode="contain" style={styles.attendanceRewardFlightImage} /></Animated.View> : null}
         <VictoryFireworks visible={showFireworks} />
-          <View style={[styles.header, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact, phoneLandscape && styles.headerPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
+          <View style={[styles.header, styles.contentLift, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact, phoneLandscape && styles.headerPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
             <View style={phoneLandscape && styles.headerTitlePhoneLandscape}>
             <Text style={[styles.eyebrow, narrowCover && styles.eyebrowNarrow]}>OUR STYLE</Text>
             <View style={styles.titleLine}>
@@ -1869,17 +1869,17 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {showPreviewAttackTools ? <View style={styles.previewTools}>
+        {showPreviewAttackTools ? <View style={[styles.previewTools, styles.contentLift]}>
           <Pressable accessibilityRole="button" accessibilityLabel="콤보 공격 미리보기" onPress={playPreviewCombo} style={({ pressed }) => [styles.previewToolButton, pressed && styles.pressed]}><Text style={styles.previewToolText}>콤보 공격</Text></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="파운데이션 불꽃 카드 공격 미리보기" onPress={playPreviewFoundationAttack} style={({ pressed }) => [styles.previewToolButton, pressed && styles.pressed]}><Text style={styles.previewToolText}>파운데이션 공격</Text></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="펫 속성별 공격 카드 보기" onPress={() => setShowAttackCardPreview((visible) => !visible)} style={({ pressed }) => [styles.previewToolButton, pressed && styles.pressed]}><Text style={styles.previewToolText}>속성 카드 보기</Text></Pressable>
         </View> : null}
-        {showPreviewAttackTools && showAttackCardPreview ? <View style={styles.attackCardPreviewPanel}>
+        {showPreviewAttackTools && showAttackCardPreview ? <View style={[styles.attackCardPreviewPanel, styles.contentLift]}>
           <View style={styles.attackCardPreviewHeader}><Text style={styles.attackCardPreviewTitle}>펫 속성별 공격 카드</Text><Pressable accessibilityRole="button" accessibilityLabel="속성 카드 미리보기 닫기" onPress={() => setShowAttackCardPreview(false)}><Text style={styles.attackCardPreviewClose}>×</Text></Pressable></View>
           <View style={styles.attackCardPreviewRow}>{ATTACK_CARD_PREVIEW_ITEMS.map((item) => <View key={item.style} style={[styles.attackCardPreviewItem, item.style === companionAttackStyle && styles.attackCardPreviewItemActive]}><Image source={item.source} resizeMode="contain" style={styles.attackCardPreviewImage} /><Text style={styles.attackCardPreviewLabel}>{item.label}</Text></View>)}</View>
         </View> : null}
 
-        <View style={[styles.stats, narrowCover && styles.statsNarrowCover, isLandscape && styles.statsLandscape, compactLandscape && styles.statsLandscapeCompact, phoneLandscape && styles.statsPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
+        <View style={[styles.stats, styles.contentLift, narrowCover && styles.statsNarrowCover, isLandscape && styles.statsLandscape, compactLandscape && styles.statsLandscapeCompact, phoneLandscape && styles.statsPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
           <View style={[styles.statsSummary, phoneLandscape && styles.statsSummaryPhoneLandscape]}>
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.score}</Text><Text style={styles.statLabel}>점수</Text></View>
             <View style={styles.statDivider} />
@@ -1890,7 +1890,7 @@ export default function HomeScreen() {
           <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={monsterTravelDistance} motionValue={monsterMotion} onCenterLayout={setMonsterImageCenterX} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
-        <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
+        <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ translateY: -19 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
         <View style={[styles.board, { width: boardWidth }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
@@ -2195,8 +2195,9 @@ const styles = StyleSheet.create({
   attackCardPreviewItemActive: { borderColor: "#77D6C3", backgroundColor: "rgba(119, 214, 195, 0.14)" },
   attackCardPreviewImage: { width: "100%", height: 74 },
   attackCardPreviewLabel: { color: "#D6E2F4", fontSize: 10, fontWeight: "800", marginTop: 2 },
-  stats: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 8, marginBottom: 14 },
-  statsNarrowCover: { paddingVertical: 7, marginBottom: 12 },
+  contentLift: { transform: [{ translateY: -19 }] },
+  stats: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 7, marginBottom: 12 },
+  statsNarrowCover: { paddingVertical: 6.3, marginBottom: 10.8 },
   statsSummary: { flexDirection: "row", alignItems: "center", justifyContent: "flex-start" },
   statsSummaryPhoneLandscape: { width: "100%" },
   attributeBadge: { flexDirection: "row", alignItems: "center", gap: 4, marginLeft: 8, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 10, backgroundColor: "rgba(19, 31, 58, 0.9)", borderWidth: 1, borderColor: "#4A638A" },
@@ -2204,9 +2205,9 @@ const styles = StyleSheet.create({
   attributeBadgeDot: { width: 7, height: 7, borderRadius: 4 },
   attributeBadgeLabel: { color: "#A6B4CE", fontSize: 9, fontWeight: "800" },
   attributeBadgeValue: { fontSize: 11, fontWeight: "900" },
-  statsLandscape: { paddingVertical: 3, marginBottom: 6 },
-  statsLandscapeCompact: { paddingVertical: 1, marginBottom: 4 },
-  statsPhoneLandscape: { position: "absolute", left: 0, top: 128, flexDirection: "column", alignItems: "stretch", justifyContent: "flex-start", paddingVertical: 6, marginBottom: 0, zIndex: 5 },
+  statsLandscape: { paddingVertical: 2.7, marginBottom: 5.4 },
+  statsLandscapeCompact: { paddingVertical: 0.9, marginBottom: 3.6 },
+  statsPhoneLandscape: { position: "absolute", left: 0, top: 128, flexDirection: "column", alignItems: "stretch", justifyContent: "flex-start", paddingVertical: 5.4, marginBottom: 0, zIndex: 5 },
   statValue: { color: "#FFFDF8", fontSize: 15, fontWeight: "800", textAlign: "center", fontVariant: ["tabular-nums"] },
   statLabel: { color: "#A6B4CE", fontSize: 9, fontWeight: "700", marginTop: 1, textAlign: "center" },
   statDivider: { width: 1, height: 22, marginHorizontal: 10, backgroundColor: "#2E4163" },
@@ -2228,14 +2229,14 @@ const styles = StyleSheet.create({
   monsterSpriteCompact: { width: 34, height: 38 },
   monsterImageLayer: { alignItems: "center", justifyContent: "center" },
   bossCardShine: { position: "absolute", top: "-45%", bottom: "-45%", left: "-12%", width: 11, backgroundColor: "rgba(255, 246, 180, 0.92)", shadowColor: "#FFFFFF", shadowOpacity: 1, shadowRadius: 8, elevation: 8 },
-  monsterInfo: { width: 68, alignItems: "flex-start", position: "relative", right: -62 },
-  monsterInfoCompact: { width: 54, position: "relative", right: -62 },
-  monsterInfoBoss: { width: 92 },
-  monsterInfoPortrait: { position: "relative", right: -62 },
+  monsterInfo: { width: 92, alignItems: "flex-start", position: "absolute", right: -62, top: 8 },
+  monsterInfoCompact: { width: 72, position: "absolute", right: -50, top: 6 },
+  monsterInfoBoss: { width: 104 },
+  monsterInfoPortrait: { position: "absolute", right: -62, top: 8, width: 96 },
   companionSprite: { width: 34, height: 38, marginHorizontal: 1 },
   companionSpriteCompact: { width: 27, height: 31 },
-  monsterNameRow: { flexDirection: "row", alignItems: "flex-start", gap: 3, width: "100%" },
-  monsterName: { flex: 1, color: "#F3C969", fontSize: 12, lineHeight: 14, fontWeight: "900", letterSpacing: 0.5 },
+  monsterNameRow: { flexDirection: "row", alignItems: "center", gap: 3, width: "100%", height: 16, overflow: "hidden" },
+  monsterName: { flex: 1, flexShrink: 1, color: "#F3C969", fontSize: 12, lineHeight: 14, fontWeight: "900", letterSpacing: 0.5 },
   bossBadge: { minWidth: 42, color: "#11182C", backgroundColor: "#F3C969", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, fontSize: 10, lineHeight: 12, fontWeight: "900", textAlign: "center", letterSpacing: 0.4 },
   monsterBar: { width: "100%", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
