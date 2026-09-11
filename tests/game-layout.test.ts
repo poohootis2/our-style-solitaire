@@ -93,4 +93,16 @@ describe("반응형 게임 테이블 레이아웃", () => {
     expect(layout.boardWidth).toBeLessThanOrEqual(748);
     expect(layout.boardWidth).toBeGreaterThan(700);
   });
+
+  it.each([
+    { name: "일반 태블릿 세로", width: 600, height: 1024, inset: 52, landscape: false, maxBoard: 580 },
+    { name: "Fold 펼침 세로", width: 768, height: 1812, inset: 52, landscape: false, maxBoard: 748 },
+    { name: "태블릿 가로", width: 1024, height: 768, inset: 52, landscape: true, maxBoard: 1004 },
+    { name: "일반 휴대폰 가로", width: 800, height: 360, inset: 60, landscape: true, maxBoard: 540 },
+  ])("$name에서도 카드 보드가 사용 가능한 가로폭 안에 들어간다", ({ width, height, inset, landscape, maxBoard }) => {
+    const layout = getGameLayout(width, height, inset, landscape);
+    expect(layout.boardWidth).toBeLessThanOrEqual(maxBoard);
+    expect(layout.cardWidth).toBeGreaterThanOrEqual(landscape ? 30 : 34);
+    expect(layout.boardWidth).toBeGreaterThan(layout.cardWidth * 6);
+  });
 });
