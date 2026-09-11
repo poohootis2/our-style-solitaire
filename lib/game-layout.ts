@@ -28,6 +28,7 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const shortestSide = Math.min(width, height);
   const isTablet = shortestSide >= 600;
   const isFoldedCover = !isLandscape && width <= 430;
+  const isWidePortraitPhone = !isLandscape && !isTablet && width >= 390;
   const isPhoneLandscape = isLandscape && !isTablet;
   const landscapeAspect = width / Math.max(1, height);
   // Narrow phone-landscape windows need tighter tableau overlap to keep the cards readable.
@@ -35,12 +36,12 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const phoneLandscapeOverlap = isPhoneLandscape ? clamp(landscapeAspect / 2.2, 0.78, 1) : 1;
   const sideRailWidth = isPhoneLandscape ? clamp(Math.round(width * 0.30), 190, 248) : 0;
   const cardRatio = isLandscape ? 1.18 : CARD_RATIO;
-  const outerPadding = isPhoneLandscape ? 8 : isLandscape ? 24 : isTablet ? 30 : isFoldedCover ? 8 : 12;
-  const tableauGap = isTablet ? 8 : isLandscape ? 6 : isFoldedCover ? 2 : 4;
+  const outerPadding = isPhoneLandscape ? 8 : isLandscape ? 24 : isTablet ? 30 : isWidePortraitPhone ? 4 : isFoldedCover ? 8 : 12;
+  const tableauGap = isTablet ? 8 : isLandscape ? 6 : isWidePortraitPhone ? 0 : isFoldedCover ? 2 : 4;
   const maxBoardWidth = isPhoneLandscape ? Math.max(320, width - sideRailWidth - outerPadding * 2 - 8) : isTablet ? 680 : isLandscape ? 720 : 560;
   const availableWidth = Math.max(260, Math.min(width - outerPadding * 2 - sideRailWidth, maxBoardWidth));
   const rawCardWidth = (availableWidth - tableauGap * TABLEAU_STEPS) / TABLEAU_COLUMNS;
-  const widthCardLimit = isPhoneLandscape ? 84 : isLandscape ? (height >= 520 ? 80 : 64) : isTablet ? 80 : isFoldedCover ? 56 : 68;
+  const widthCardLimit = isPhoneLandscape ? 84 : isLandscape ? (height >= 520 ? 80 : 64) : isTablet ? 80 : isWidePortraitPhone ? 74 : isFoldedCover ? 56 : 68;
 
   // In landscape the compact HUD, controls, and optional ad banner are reserved before
   // cards are measured. This avoids using the full physical window height beneath a
