@@ -619,6 +619,7 @@ export default function HomeScreen() {
   const phoneLandscape = isLandscape && !isTablet;
   const safeScreenWidth = Math.max(260, screenWidth - insets.left - insets.right);
   const safeScreenHeight = Math.max(220, screenHeight - insets.top - insets.bottom);
+  const deviceModel = Platform.OS === "android" ? String((Platform.constants as { Model?: string }).Model ?? "") : "";
   const compactLandscape = isLandscape && safeScreenHeight <= 460;
   const foldPortrait = !isLandscape && isTablet;
   const narrowCover = !isLandscape && safeScreenWidth <= 390;
@@ -640,6 +641,7 @@ export default function HomeScreen() {
     rootTopPadding + rootBottomPadding,
     isLandscape,
     layoutExtraReservedHeight,
+    deviceModel,
   );
   const stackOffset = foldPortrait ? Math.max(16, Math.round(baseStackOffset * 0.78)) : baseStackOffset;
   const tableauGap = foldPortrait ? Math.max(8, Math.round(baseTableauGap * 1.22)) : baseTableauGap;
