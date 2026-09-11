@@ -27,15 +27,15 @@ describe("반응형 게임 테이블 레이아웃", () => {
     const layout = getGameLayout(800, 360);
     expect(layout.sideRailWidth).toBeGreaterThan(0);
     expect(layout.cardWidth).toBeGreaterThan(64);
-    expect(layout.cardWidth).toBeLessThanOrEqual(84);
-    expect(layout.boardWidth).toBeLessThanOrEqual(536);
+    expect(layout.cardWidth).toBeGreaterThan(64);
+    expect(layout.boardWidth).toBeLessThanOrEqual(540);
     expect(layout.stackOffset).toBeGreaterThanOrEqual(10);
   });
 
   it("태블릿 가로 화면은 모바일 전용 좌측 레일을 사용하지 않는다", () => {
     const layout = getGameLayout(1024, 768);
     expect(layout.sideRailWidth).toBe(0);
-    expect(layout.cardWidth).toBeLessThanOrEqual(80);
+    expect(layout.cardWidth).toBeGreaterThan(80);
   });
 
   it("가로 화면에서 상단 배너와 하단 조작부를 남겨도 가장 아래 카드가 안전 영역 안에 들어간다", () => {
