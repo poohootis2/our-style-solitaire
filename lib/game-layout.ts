@@ -49,7 +49,10 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const tableauGap = clamp(Math.round(availableWidth * 0.012), 4, 14);
   const maxBoardWidth = availableWidth;
   const rawCardWidth = (availableWidth - tableauGap * TABLEAU_STEPS) / TABLEAU_COLUMNS;
-  const widthCardLimit = isLandscape ? 180 : 160;
+  // Portrait card width is governed by the measured horizontal anchors. The vertical
+  // stack is allowed to overlap more on wide phones/foldables instead of shrinking
+  // every card and leaving unused horizontal space.
+  const widthCardLimit = isLandscape ? 180 : isTablet ? 220 : 180;
 
   // In landscape the compact HUD, controls, and optional ad banner are reserved before
   // cards are measured. This avoids using the full physical window height beneath a
@@ -63,7 +66,8 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   // The measured width is already the final usable width; do not apply model-specific shrink factors.
   const foldableOrLandscapeReduction = 1;
   const minimumCardWidth = isLandscape ? 30 : 34;
-  const cardWidth = Math.floor(clamp(Math.min(rawCardWidth, widthCardLimit, heightCardLimit) * foldableOrLandscapeReduction, minimumCardWidth, widthCardLimit));
+  const horizontalCardWidth = clamp(rawCardWidth * foldableOrLandscapeReduction, minimumCardWidth, widthCardLimit);
+  const cardWidth = Math.floor(isLandscape ? Math.min(horizontalCardWidth, heightCardLimit) : horizontalCardWidth);
   const cardHeight = cardWidth * cardRatio;
   const availableStackOffset = (usableTableauHeight - topPilesGap - cardHeight * 2) / TABLEAU_STEPS;
   const stackOffset = Math.floor(clamp(availableStackOffset, minimumStackOffset, cardWidth * (isLandscape ? 0.62 * phoneLandscapeOverlap : 0.74)));
