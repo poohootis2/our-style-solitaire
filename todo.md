@@ -849,4 +849,4 @@
 - [x] Fold 펼침 하단 배너 광고 상단 10px 안전 여백 확보
 - [x] Fold 펼침 카드 스택 하단 공간과 펫 겹침·레이어 보정
 - [x] Fold 펼침 7열 간격을 실제 화면 폭에 균등 배분
-- [ ] Fold 전용 회귀 검증 및 GitHub main PUSH
+- [x] Fold 전용 회귀 검증 및 GitHub main PUSH
