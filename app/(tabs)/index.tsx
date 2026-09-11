@@ -622,19 +622,23 @@ export default function HomeScreen() {
   const deviceModel = Platform.OS === "android" ? String((Platform.constants as { Model?: string }).Model ?? "") : "";
   const compactLandscape = isLandscape && safeScreenHeight <= 460;
   const foldPortrait = !isLandscape && isTablet;
+  // Fold inner displays report a wide portrait window rather than landscape.
+  // Keep this profile separate so ordinary tablets retain their existing layout.
+  const wideFoldPortrait = !isLandscape && safeScreenWidth >= 700 && safeScreenWidth <= 900;
   const narrowCover = !isLandscape && safeScreenWidth <= 390;
   const rootTopPadding = isLandscape ? 4 : Math.max(0, PHYSICAL_EDGE_INSET - 15);
   // Some edge-to-edge Android devices report a zero bottom inset while the
   // persistent home or three-button bar still overlays the game window.
   const systemBottomInset = Platform.OS !== "web" ? Math.max(insets.bottom, isLandscape ? 48 : 36) : insets.bottom;
-  const rootBottomPadding = isLandscape ? systemBottomInset + 8 : PHYSICAL_EDGE_INSET + 62;
+  const rootBottomPadding = isLandscape ? systemBottomInset + 8 : PHYSICAL_EDGE_INSET + 62 + (wideFoldPortrait ? 76 : 0);
   // Reserve the additional header spacing used by the inline landscape banner.
   // This keeps the banner, title, and action buttons on separate visual lanes.
   const layoutExtraReservedHeight = isLandscape ? (phoneLandscape ? 16 : 18) : 58;
   const bottomControlsBottom = isLandscape ? systemBottomInset + 4 : Math.max(77, systemBottomInset + 13) + (foldPortrait ? 18 : 0);
   // In portrait, keep the banner below the action buttons while reserving the
   // system navigation inset so it never sits under the home indicator.
-  const portraitBannerBottom = foldPortrait ? Math.max(0, bottomControlsBottom - 130) : Math.max(0, bottomControlsBottom - 98);
+  // The banner is 60px tall; leave at least 10px between its top edge and controls.
+  const portraitBannerBottom = wideFoldPortrait ? Math.max(0, bottomControlsBottom - 60) : foldPortrait ? Math.max(0, bottomControlsBottom - 130) : Math.max(0, bottomControlsBottom - 98);
   const [scoreAnchorX, setScoreAnchorX] = useState<number | null>(null);
   const [optionsAnchorRight, setOptionsAnchorRight] = useState<number | null>(null);
   const cardAreaLeft = Math.max(10, Math.min(safeScreenWidth - 10, scoreAnchorX ?? 10));
@@ -1711,7 +1715,7 @@ export default function HomeScreen() {
   const companionAttackColor = companionAttackColors[companionAttackStyle];
   const companionSize = Math.max(61, Math.round(cardWidth * 1.64 * 0.9 * 1.3));
   const companionBaseLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
-  const companionBottom = bottomControlsBottom + 27 + (!isLandscape ? 1 : 0);
+  const companionBottom = bottomControlsBottom + (wideFoldPortrait ? 102 : 27) + (!isLandscape ? 1 : 0);
   const renderCardRatio = !isLandscape ? Math.max(0.76, cardRatio * 0.9) : cardRatio;
   const activeShuffleStep: 0 | 1 | 2 = twoTouchOpensUsed === 0 ? 0 : rewardedRevealUsed < 10 ? 1 : 2;
   const shuffleHelpTitle = activeShuffleStep === 0 ? "무료 망치" : `광고 보상 망치 +${activeShuffleStep}`;
@@ -1900,7 +1904,7 @@ export default function HomeScreen() {
           <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={monsterTravelDistance} motionValue={monsterMotion} onCenterLayout={setMonsterImageCenterX} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
-        <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ translateY: -19 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
+        <Animated.View style={[styles.boardTransition, wideFoldPortrait && { zIndex: 60, elevation: 60 }, { opacity: layoutTransition, transform: [{ translateY: -19 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
         <View style={[styles.board, { width: boardWidth, alignSelf: "flex-start", marginLeft: isLandscape ? 10 : cardAreaLeft }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
@@ -1953,8 +1957,8 @@ export default function HomeScreen() {
         </Animated.View>
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
-        <CompanionAnchor companion={selectedCompanion} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} onPress={() => undefined} />
-                <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: Math.max(0, bottomControlsBottom - 25) }]}> 
+        <View style={wideFoldPortrait && { zIndex: 22, elevation: 22 }}><CompanionAnchor companion={selectedCompanion} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} onPress={() => undefined} /></View>
+                <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: wideFoldPortrait ? bottomControlsBottom + 10 : Math.max(0, bottomControlsBottom - 25) }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges >= 10 ? "망치가 10개라 광고 보상을 받을 수 없음" : "광고 시청 후 망치 받기"} onPress={() => { haptic.light(); void claimHammerAdReward(); }} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHammerButton, phoneLandscape && styles.bottomButtonPhoneLandscape, pressed && styles.pressed]}>
             <Image source={HAMMER_PLUS_ONE_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
