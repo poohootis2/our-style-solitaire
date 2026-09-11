@@ -490,7 +490,7 @@ function AttributeImpactBurst({ attackStyle, progress, size }: { attackStyle: Co
   </Animated.View>;
 }
 
-function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo, compact = false, landscape = false, phoneLandscape = false, travelDistance = 24, monster, isBoss, cardSize, motionValue, onCenterLayout }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; attackStyle: CompanionAttackStyle; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; travelDistance?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; onCenterLayout?: (centerX: number) => void }) {
+function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo, compact = false, landscape = false, phoneLandscape = false, widePortrait = false, travelDistance = 24, monster, isBoss, cardSize, motionValue, onCenterLayout }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; attackStyle: CompanionAttackStyle; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; widePortrait?: boolean; travelDistance?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; onCenterLayout?: (centerX: number) => void }) {
   const internalMonsterMotion = useRef(new Animated.Value(1)).current;
   const monsterMotion = motionValue ?? internalMonsterMotion;
   const attackProgress = useRef(new Animated.Value(0)).current;
@@ -573,12 +573,12 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const defeatOpacity = defeatProgress.interpolate({ inputRange: [0, 0.45, 1], outputRange: [1, 1, 0] });
   const attackColors: Record<AttackKind, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
   const attackSymbols: Record<AttackKind, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
-  const spriteSize = Math.max(34, Math.round(cardSize * 0.9 * 1.3));
-  const companionSize = Math.max(24, Math.round(cardSize * 0.62));
+  const spriteSize = Math.max(34, Math.round(cardSize * 0.9 * (widePortrait ? 0.93 : 1.3)));
+  const companionSize = Math.max(24, Math.round(cardSize * (widePortrait ? 0.44 : 0.62)));
   const infoWidth = Math.max(54, Math.round(cardSize * 1.02));
 
   return (
-    <View onLayout={({ nativeEvent }) => onCenterLayout?.(nativeEvent.layout.x + spriteSize * 0.5)} style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
+    <View onLayout={({ nativeEvent }) => onCenterLayout?.(nativeEvent.layout.x + spriteSize * 0.5)} style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, widePortrait && styles.monsterBattleWidePortrait, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
       <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, transform: [{ translateX: monsterTranslate }, { translateY: bossEntranceTranslateY }, { scale: bossEntranceScale }] }]}>
         <Animated.View style={[styles.monsterImageLayer, { width: spriteSize, height: spriteSize, transform: [{ scale: monsterScale }, { scaleX: facingLeft ? -1 : 1 }] }]}>
           <Image source={monster.image} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, defeatVisible && styles.monsterDefeated]} accessibilityLabel={monster.name} />
@@ -624,7 +624,8 @@ export default function HomeScreen() {
   const foldPortrait = !isLandscape && isTablet;
   // Fold inner displays report a wide portrait window rather than landscape.
   // Keep this profile separate so ordinary tablets retain their existing layout.
-  const wideFoldPortrait = !isLandscape && safeScreenWidth >= 700 && safeScreenWidth <= 900;
+  const isFoldDevice = Platform.OS === "android" && (/SM-F/i.test(deviceModel) || /FOLD/i.test(deviceModel));
+  const wideFoldPortrait = !isLandscape && isFoldDevice && safeScreenWidth >= 700 && safeScreenWidth <= 900;
   const narrowCover = !isLandscape && safeScreenWidth <= 390;
   const rootTopPadding = isLandscape ? 4 : Math.max(0, PHYSICAL_EDGE_INSET - 15);
   // Some edge-to-edge Android devices report a zero bottom inset while the
@@ -643,7 +644,7 @@ export default function HomeScreen() {
   const [optionsAnchorRight, setOptionsAnchorRight] = useState<number | null>(null);
   const cardAreaLeft = Math.max(10, Math.min(safeScreenWidth - 10, scoreAnchorX ?? 10));
   const cardAreaRight = Math.max(cardAreaLeft + 220, Math.min(safeScreenWidth - 10, optionsAnchorRight ?? safeScreenWidth - 10));
-  const { boardWidth, cardWidth, cardRatio, compact, stackOffset: baseStackOffset, tableauGap: baseTableauGap, uiScale, sideRailWidth } = getGameLayout(
+  const { boardWidth: measuredBoardWidth, cardWidth: measuredCardWidth, cardRatio, compact, stackOffset: baseStackOffset, tableauGap: baseTableauGap, uiScale, sideRailWidth } = getGameLayout(
     safeScreenWidth,
     safeScreenHeight,
     rootTopPadding + rootBottomPadding,
@@ -652,11 +653,13 @@ export default function HomeScreen() {
     deviceModel,
     { left: isLandscape ? 10 : cardAreaLeft, right: isLandscape ? safeScreenWidth - 10 : cardAreaRight },
   );
-  const stackOffset = foldPortrait ? Math.max(16, Math.round(baseStackOffset * 0.78)) : baseStackOffset;
+  const boardWidth = measuredBoardWidth;
+  const cardWidth = wideFoldPortrait ? Math.max(30, Math.round(measuredCardWidth * 0.7)) : measuredCardWidth;
+  const stackOffset = wideFoldPortrait ? Math.max(10, Math.round(baseStackOffset * 0.7)) : foldPortrait ? Math.max(16, Math.round(baseStackOffset * 0.78)) : baseStackOffset;
   // Keep the measured board width and the rendered tableau gap in the same coordinate budget.
   // A separate Fold-only gap multiplier made the visible columns exceed boardWidth and
   // could leave the wide inner display looking misaligned or clipped.
-  const tableauGap = baseTableauGap;
+  const tableauGap = wideFoldPortrait ? Math.max(baseTableauGap, Math.floor((measuredBoardWidth - cardWidth * 7) / 6)) : baseTableauGap;
   const compactControls = compact || compactLandscape;
   const monsterTravelDistance = isLandscape ? Math.max(160, Math.min(310, Math.round(safeScreenWidth * 0.2) + 50)) : 94;
   const [game, setGame] = useState(createPlayableGame);
@@ -1713,7 +1716,7 @@ export default function HomeScreen() {
   const bossWarningScale = bossIntroProgress.interpolate({ inputRange: [0, 0.22, 0.82, 1], outputRange: [0.82, 1, 1.04, 0.94] });
   const companionAttackStyle = selectedCompanion.id.startsWith("pet-") ? getPetAttackStyle(selectedCompanion.id) : getCompanionAttackStyle(selectedCompanion);
   const companionAttackColor = companionAttackColors[companionAttackStyle];
-  const companionSize = Math.max(61, Math.round(cardWidth * 1.64 * 0.9 * 1.3));
+  const companionSize = Math.max(wideFoldPortrait ? 30 : 61, Math.round(cardWidth * 1.64 * 0.9 * (wideFoldPortrait ? 0.93 : 1.3)));
   const companionBaseLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
   const companionBottom = bottomControlsBottom + (wideFoldPortrait ? 102 : 27) + (!isLandscape ? 1 : 0);
   const renderCardRatio = !isLandscape ? Math.max(0.76, cardRatio * 0.9) : cardRatio;
@@ -1901,7 +1904,7 @@ export default function HomeScreen() {
             <View style={styles.statDivider} />
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
           </View>
-          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} travelDistance={monsterTravelDistance} motionValue={monsterMotion} onCenterLayout={setMonsterImageCenterX} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
+          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} widePortrait={wideFoldPortrait} travelDistance={monsterTravelDistance} motionValue={monsterMotion} onCenterLayout={setMonsterImageCenterX} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
         <Animated.View style={[styles.boardTransition, wideFoldPortrait && { zIndex: 60, elevation: 60 }, { opacity: layoutTransition, transform: [{ translateY: -19 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
@@ -2236,6 +2239,7 @@ const styles = StyleSheet.create({
   monsterBattle: { flex: 1.4, minWidth: 154, maxWidth: 236, marginLeft: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, overflow: "visible" },
   monsterBattleLandscape: { flex: 1, minWidth: 250, maxWidth: 9999 },
   monsterBattleCompact: { flex: 1.1, minWidth: 82, maxWidth: 128, marginLeft: 4, gap: 3 },
+  monsterBattleWidePortrait: { flex: 0, minWidth: 190, maxWidth: 320, height: 76, marginLeft: 6, gap: 3, overflow: "visible" },
   monsterBattlePhoneLandscape: { flex: 0, width: "100%", minWidth: 0, maxWidth: 9999, marginLeft: 0, marginTop: 12, justifyContent: "flex-start", gap: 6 },
   monsterSpriteWrap: { width: 50, height: 54, alignItems: "center", justifyContent: "center", position: "relative" },
   monsterSpriteWrapCompact: { width: 32, height: 38 },
