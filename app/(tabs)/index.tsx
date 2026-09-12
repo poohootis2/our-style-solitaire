@@ -281,6 +281,7 @@ function CardFace({
   const isRoyal = card.rank >= 11;
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bossShine = useRef(new Animated.Value(-1)).current;
+  const cardPressScale = useRef(new Animated.Value(1)).current;
   const dragEndRef = useRef(onDragEnd);
   dragEndRef.current = onDragEnd;
   const panResponder = useRef(PanResponder.create({
@@ -305,6 +306,10 @@ function CardFace({
 
   const shineTranslateX = bossShine.interpolate({ inputRange: [-1, 1], outputRange: [-width * 1.4, width * 1.4] });
 
+  const animateCardPress = (toValue: number, duration: number) => {
+    Animated.timing(cardPressScale, { toValue, duration, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+  };
+
   const handlePress = () => {
     if (!onDoublePress) {
       onPress?.();
@@ -323,26 +328,32 @@ function CardFace({
   };
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${cardLabel(card)} 카드`}
-      onPress={handlePress}
-      {...(onDragEnd ? panResponder.panHandlers : {})}
-      style={({ pressed }) => [
-        styles.card,
-        { width, height, borderColor: selected ? "#FF7A66" : "#F1EEE6" },
-        selected && styles.cardSelected,
-        isBoss && styles.cardBoss,
-        pressed && styles.pressed,
-      ]}
-    >
+    <Animated.View style={{ transform: [{ scale: cardPressScale }] }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${cardLabel(card)} 카드`}
+        onPress={handlePress}
+        onPressIn={() => animateCardPress(0.975, 70)}
+        onPressOut={() => animateCardPress(1, 140)}
+        onHoverIn={() => animateCardPress(0.99, 100)}
+        onHoverOut={() => animateCardPress(1, 140)}
+        {...(onDragEnd ? panResponder.panHandlers : {})}
+        style={({ pressed }) => [
+          styles.card,
+          { width, height, borderColor: selected ? "#FF7A66" : "#F1EEE6" },
+          selected && styles.cardSelected,
+          isBoss && styles.cardBoss,
+          pressed && styles.cardTouching,
+        ]}
+      >
       <Text style={[styles.rankTop, { color, top: markInset, left: markInset, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
       <Text style={[styles.suitTop, { color, top: markInset, right: Math.max(2, Math.round(markInset * 0.45)), fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
       {isRoyal ? <RoyalPortrait rank={card.rank as 11 | 12 | 13} chapter={chapter} /> : <Text style={[styles.suitCenter, { color, fontSize: centerSize }]}>{suitSymbols[card.suit]}</Text>}
       <Text style={[styles.rankBottom, { color, right: markInset, bottom: markInset * 0.65, fontSize: rankSize, lineHeight: rankSize + 1 }]}>{rankLabels[card.rank]}</Text>
       <Text style={[styles.suitBottom, { color, left: markInset, bottom: markInset * 0.65, fontSize: suitSize, lineHeight: suitSize + 1 }]}>{suitSymbols[card.suit]}</Text>
       {isBoss ? <Animated.View pointerEvents="none" style={[styles.bossCardShine, { opacity: 0.9, transform: [{ translateX: shineTranslateX }, { rotate: "18deg" }] }]} /> : null}
-    </Pressable>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -1710,7 +1721,7 @@ export default function HomeScreen() {
   const companionAttackColor = companionAttackColors[companionAttackStyle];
   const companionSize = Math.max(61, Math.round(cardWidth * 1.64 * 0.9 * 1.3));
   const companionBaseLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
-  const companionBottom = Math.max(0, bottomControlsBottom + 42 + (!isLandscape ? 1 : 0) - (Platform.OS === "android" && !isLandscape ? 24 : 0));
+  const companionBottom = Math.max(0, bottomControlsBottom + 47 + (!isLandscape ? 1 : 0) - (Platform.OS === "android" && !isLandscape ? 24 : 0));
   const renderCardRatio = !isLandscape ? Math.max(0.76, cardRatio * 0.9) : cardRatio;
   const activeShuffleStep: 0 | 1 | 2 = twoTouchOpensUsed === 0 ? 0 : rewardedRevealUsed < 10 ? 1 : 2;
   const shuffleHelpTitle = activeShuffleStep === 0 ? "무료 망치" : `광고 보상 망치 +${activeShuffleStep}`;
@@ -2293,6 +2304,7 @@ const styles = StyleSheet.create({
   slotLabel: { color: "#58739D", fontSize: 15, fontWeight: "900" },
   card: { position: "relative", overflow: "hidden", borderRadius: 7, borderWidth: 1, backgroundColor: "#FFFDF8", shadowColor: "#050912", shadowOpacity: 0.3, shadowRadius: 3, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
   cardSelected: { transform: [{ translateY: -7 }], borderWidth: 2.5, shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 8, elevation: 8 },
+  cardTouching: { opacity: 0.92 },
   cardBoss: { backgroundColor: "#D5A73A", borderColor: "#FFE39A", shadowColor: "#F3C969", shadowOpacity: 0.55, shadowRadius: 6 },
   rankTop: { position: "absolute", fontSize: 14, lineHeight: 15, fontWeight: "900" },
   suitTop: { position: "absolute", fontSize: 12, lineHeight: 13, fontWeight: "900" },
