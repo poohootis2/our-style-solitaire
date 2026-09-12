@@ -852,3 +852,6 @@
 - [x] Android SafeAreaInsets 기준으로 펫 위치를 실기기에서 더 아래로 보정
 - [x] 몬스터 이름·체력게이지를 웹 미리보기와 같은 Flex 기준 위치·폭으로 통일
 - [x] 웹·Android·좁은 화면 회귀 검증 및 체크포인트 저장
+
+- [ ] Android 실기기 반응형 보정 체크포인트를 GitHub main에 PUSH
+- [ ] 원격 GitHub SHA 반영 확인
