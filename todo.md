@@ -874,4 +874,4 @@
 
 - [x] 체력게이지 view에 고정 width와 maxWidth 지정
 - [x] 상위 몬스터 패널이 체력게이지를 늘리지 않도록 alignItems·alignSelf 보정
-- [ ] 웹·Android·Fold 회귀 검증 및 GitHub main PUSH
+- [x] 웹·Android·Fold 회귀 검증 및 GitHub main PUSH
