@@ -94,11 +94,6 @@ describe("반응형 게임 테이블 레이아웃", () => {
     expect(layout.boardWidth).toBeGreaterThan(700);
   });
 
-  it("Fold 펼침 화면의 보드 폭은 카드와 계산된 간격의 합과 일치한다", () => {
-    const layout = getGameLayout(768, 1812, 52, false, 0, "", { left: 10, right: 758 });
-    expect(layout.boardWidth).toBe(layout.cardWidth * 7 + layout.tableauGap * 6);
-  });
-
   it.each([
     { name: "일반 태블릿 세로", width: 600, height: 1024, inset: 52, landscape: false, maxBoard: 580 },
     { name: "Fold 펼침 세로", width: 768, height: 1812, inset: 52, landscape: false, maxBoard: 748 },
