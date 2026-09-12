@@ -646,7 +646,8 @@ export default function HomeScreen() {
   const safeScreenHeight = Math.max(220, screenHeight - insets.top - insets.bottom);
   const deviceModel = Platform.OS === "android" ? String((Platform.constants as { Model?: string }).Model ?? "") : "";
   const compactLandscape = isLandscape && safeScreenHeight <= 460;
-  const foldPortrait = !isLandscape && isTablet;
+  const foldDevice = Platform.OS === "android" && /^SM-F/i.test(deviceModel);
+  const foldPortrait = !isLandscape && isTablet && foldDevice;
   const narrowCover = !isLandscape && safeScreenWidth <= 390;
   const rootTopPadding = isLandscape ? 4 : Math.max(0, PHYSICAL_EDGE_INSET - 15);
   // Some edge-to-edge Android devices report a zero bottom inset while the
@@ -664,7 +665,7 @@ export default function HomeScreen() {
   const [optionsAnchorRight, setOptionsAnchorRight] = useState<number | null>(null);
   const cardAreaLeft = Math.max(10, Math.min(safeScreenWidth - 10, scoreAnchorX ?? 10));
   const cardAreaRight = Math.max(cardAreaLeft + 220, Math.min(safeScreenWidth - 10, optionsAnchorRight ?? safeScreenWidth - 10));
-  const { boardWidth, cardWidth, cardRatio, compact, stackOffset: baseStackOffset, tableauGap: baseTableauGap, uiScale, sideRailWidth } = getGameLayout(
+  const { boardWidth, cardWidth, cardRatio, compact, stackOffset: baseStackOffset, tableauGap: baseTableauGap, uiScale, sideRailWidth, foldUltraWide } = getGameLayout(
     safeScreenWidth,
     safeScreenHeight,
     rootTopPadding + rootBottomPadding,
@@ -1731,7 +1732,9 @@ export default function HomeScreen() {
   const bossWarningScale = bossIntroProgress.interpolate({ inputRange: [0, 0.22, 0.82, 1], outputRange: [0.82, 1, 1.04, 0.94] });
   const companionAttackStyle = selectedCompanion.id.startsWith("pet-") ? getPetAttackStyle(selectedCompanion.id) : getCompanionAttackStyle(selectedCompanion);
   const companionAttackColor = companionAttackColors[companionAttackStyle];
-  const companionSize = Math.max(61, Math.round(cardWidth * 1.64 * 0.9 * 1.3));
+  // Fold ultra-wide cards shrink by 30%, but the companion keeps its established baseline size.
+  const companionBaseCardWidth = foldUltraWide ? Math.round(cardWidth / 0.7) : cardWidth;
+  const companionSize = Math.max(61, Math.round(companionBaseCardWidth * 1.64 * 0.9 * 1.3));
   const companionBaseLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
   const companionBottom = Math.max(0, bottomControlsBottom + 47 + (!isLandscape ? 1 : 0) - (Platform.OS === "android" && !isLandscape ? 24 : 0));
   const renderCardRatio = !isLandscape ? Math.max(0.76, cardRatio * 0.9) : cardRatio;
@@ -1911,7 +1914,7 @@ export default function HomeScreen() {
           <View style={styles.attackCardPreviewRow}>{ATTACK_CARD_PREVIEW_ITEMS.map((item) => <View key={item.style} style={[styles.attackCardPreviewItem, item.style === companionAttackStyle && styles.attackCardPreviewItemActive]}><Image source={item.source} resizeMode="contain" style={styles.attackCardPreviewImage} /><Text style={styles.attackCardPreviewLabel}>{item.label}</Text></View>)}</View>
         </View> : null}
 
-        <View style={[styles.stats, styles.contentLift, narrowCover && styles.statsNarrowCover, isLandscape && styles.statsLandscape, compactLandscape && styles.statsLandscapeCompact, phoneLandscape && styles.statsPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
+        <View style={[styles.stats, styles.contentLift, narrowCover && styles.statsNarrowCover, foldUltraWide && styles.statsFoldUltraWide, isLandscape && styles.statsLandscape, compactLandscape && styles.statsLandscapeCompact, phoneLandscape && styles.statsPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
           <View style={[styles.statsSummary, phoneLandscape && styles.statsSummaryPhoneLandscape]}>
             <View onLayout={(event) => { const { x } = event.nativeEvent.layout; if (scoreAnchorX !== x) setScoreAnchorX(x); }}><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.score}</Text><Text style={styles.statLabel}>점수</Text></View>
             <View style={styles.statDivider} />
@@ -2230,6 +2233,7 @@ const styles = StyleSheet.create({
   contentLift: { transform: [{ translateY: -19 }] },
   stats: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 6, marginBottom: 10 },
   statsNarrowCover: { paddingVertical: 6.3, marginBottom: 10.8 },
+  statsFoldUltraWide: { paddingVertical: 4.2, marginBottom: 7.6 },
   statsSummary: { flex: 0, flexDirection: "row", alignItems: "center", justifyContent: "flex-start" },
   statsSummaryPhoneLandscape: { width: "100%" },
   attributeBadge: { flexDirection: "row", alignItems: "center", gap: 4, marginLeft: 8, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 10, backgroundColor: "rgba(19, 31, 58, 0.9)", borderWidth: 1, borderColor: "#4A638A" },

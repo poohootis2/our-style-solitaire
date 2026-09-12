@@ -87,6 +87,15 @@ describe("반응형 게임 테이블 레이아웃", () => {
     expect(deepestColumnHeight).toBeLessThanOrEqual(1812 - 52 - 250);
   });
 
+  it("갤럭시 폴드 초광폭 화면만 카드·UI 축소 프로필을 사용한다", () => {
+    const fold = getGameLayout(768, 1812, 52, false, 0, "SM-F936N", { left: 10, right: 758 });
+    const tablet = getGameLayout(768, 1812, 52, false, 0, "iPad13,4", { left: 10, right: 758 });
+    expect(fold.foldUltraWide).toBe(true);
+    expect(tablet.foldUltraWide).toBe(false);
+    expect(fold.cardWidth).toBeLessThan(tablet.cardWidth);
+    expect(fold.uiScale).toBeLessThan(tablet.uiScale);
+  });
+
   it("측정된 점수-옵션 기준점 사이 폭을 세로 화면 카드 7열에 우선 배분한다", () => {
     const layout = getGameLayout(768, 1812, 52, false, 0, "", { left: 10, right: 758 });
     expect(layout.cardWidth).toBeGreaterThanOrEqual(99);

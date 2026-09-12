@@ -10,6 +10,7 @@ export type GameLayout = {
   wideCardProfile: boolean;
   /** Width reserved for the compact phone-landscape control rail. */
   sideRailWidth: number;
+  foldUltraWide: boolean;
 };
 
 const CARD_RATIO = 1.42;
@@ -31,6 +32,8 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const isTablet = shortestSide >= 600;
   // Device models are intentionally ignored: the actual reported window size is the source of truth.
   const isFoldedCover = !isLandscape && width <= 430;
+  const isFoldDevice = /^SM-F/i.test(deviceModel);
+  const foldUltraWide = !isLandscape && isTablet && isFoldDevice && width >= 600;
   const isWidePortraitPhone = !isLandscape && !isTablet && width >= 350;
   const wideCardProfile = true;
   const isPhoneLandscape = isLandscape && !isTablet;
@@ -66,7 +69,7 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   // The measured width is already the final usable width; do not apply model-specific shrink factors.
   const foldableOrLandscapeReduction = 1;
   const minimumCardWidth = isLandscape ? 30 : 34;
-  const horizontalCardWidth = clamp(rawCardWidth * foldableOrLandscapeReduction, minimumCardWidth, widthCardLimit);
+  const horizontalCardWidth = clamp(rawCardWidth * foldableOrLandscapeReduction * (foldUltraWide ? 0.7 : 1), minimumCardWidth, widthCardLimit);
   const cardWidth = Math.floor(isLandscape ? Math.min(horizontalCardWidth, heightCardLimit) : horizontalCardWidth);
   const cardHeight = cardWidth * cardRatio;
   const availableStackOffset = (usableTableauHeight - topPilesGap - cardHeight * 2) / TABLEAU_STEPS;
@@ -78,9 +81,10 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
     cardRatio,
     tableauGap,
     stackOffset,
-    uiScale: isTablet ? 1.22 : width >= 420 ? 1.08 : 1,
+    uiScale: foldUltraWide ? 0.85 : isTablet ? 1.22 : width >= 420 ? 1.08 : 1,
     compact: width <= 430,
     wideCardProfile,
     sideRailWidth,
+    foldUltraWide,
   };
 }
