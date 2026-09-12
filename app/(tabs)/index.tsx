@@ -566,7 +566,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const comboImpactScale = comboImpactProgress.interpolate({ inputRange: [0, 0.2, 0.72, 1], outputRange: [0.45, 1, 1.12, 0.72] });
   const comboImpactRotate = comboImpactProgress.interpolate({ inputRange: [0, 1], outputRange: ["-12deg", "16deg"] });
   const hpFlashOpacity = hpFlash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.92] });
-  const bossEntranceScale = bossEntrance.interpolate({ inputRange: [0, 0.45, 1], outputRange: [2.6, 1.25, 1] });
+  const bossEntranceScale = bossEntrance.interpolate({ inputRange: [0, 0.45, 1], outputRange: [1.8, 1.15, 1] });
   const bossEntranceTranslateY = bossEntrance.interpolate({ inputRange: [0, 1], outputRange: [-86, 0] });
   const bossEntranceOpacity = bossEntrance.interpolate({ inputRange: [0, 0.16, 1], outputRange: [0, 1, 1] });
   const defeatScale = defeatProgress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0.3, 1.6, 2.8] });
@@ -576,6 +576,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const spriteSize = Math.max(34, Math.round(cardSize * 0.9 * 1.3));
   const companionSize = Math.max(24, Math.round(cardSize * 0.62));
   const infoWidth = Math.max(54, Math.round(cardSize * 1.02));
+  const monsterBarWidth = Math.max(42, infoWidth - 12);
 
   return (
     <View onLayout={({ nativeEvent }) => onCenterLayout?.(nativeEvent.layout.x + spriteSize * 0.5)} style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
@@ -590,7 +591,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
       </Animated.View>
       <View style={[styles.monsterInfo, { width: infoWidth }, compact && styles.monsterInfoCompact, isBoss && styles.monsterInfoBoss, !landscape && styles.monsterInfoPortrait]}>
         <View style={styles.monsterNameRow}><Text style={styles.monsterName} numberOfLines={1} ellipsizeMode="tail">{monster.name.toUpperCase()}</Text></View>
-        <View style={styles.monsterBar}><View style={[styles.monsterBarFill, { width: `${Math.max(0, Math.min(100, hp))}%` }]} /><Animated.View pointerEvents="none" style={[styles.monsterHpFlash, { opacity: hpFlashOpacity }]} /></View>
+        <View style={[styles.monsterBar, { width: monsterBarWidth }]}><View style={[styles.monsterBarFill, { width: `${Math.max(0, Math.min(100, hp))}%` }]} /><Animated.View pointerEvents="none" style={[styles.monsterHpFlash, { opacity: hpFlashOpacity }]} /></View>
         <Text style={styles.monsterHp}>{Math.round(hp)}%</Text>
       </View>
     </View>
@@ -1898,7 +1899,7 @@ export default function HomeScreen() {
         </View>
 
         <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ translateY: -19 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
-        <View style={[styles.board, { width: boardWidth, alignSelf: "flex-start", marginLeft: isLandscape ? 10 : cardAreaLeft }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
+        <View style={[styles.board, { width: boardWidth, alignSelf: "flex-start", marginLeft: Math.max(0, (isLandscape ? 10 : cardAreaLeft) - 10) }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
             {game.stock.length ? (
@@ -1951,7 +1952,7 @@ export default function HomeScreen() {
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
         <CompanionAnchor companion={selectedCompanion} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} onPress={() => undefined} />
-                <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: Math.max(0, bottomControlsBottom - 15) }]}> 
+                <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: Math.max(0, bottomControlsBottom - 5) }]}> 
 
           <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges >= 10 ? "망치가 10개라 광고 보상을 받을 수 없음" : "광고 시청 후 망치 받기"} onPress={() => { haptic.light(); void claimHammerAdReward(); }} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHammerButton, phoneLandscape && styles.bottomButtonPhoneLandscape, pressed && styles.pressed]}>
             <Image source={HAMMER_PLUS_ONE_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
@@ -2203,7 +2204,7 @@ const styles = StyleSheet.create({
   attackCardPreviewImage: { width: "100%", height: 74 },
   attackCardPreviewLabel: { color: "#D6E2F4", fontSize: 10, fontWeight: "800", marginTop: 2 },
   contentLift: { transform: [{ translateY: -19 }] },
-  stats: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 7, marginBottom: 12 },
+  stats: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 6, marginBottom: 10 },
   statsNarrowCover: { paddingVertical: 6.3, marginBottom: 10.8 },
   statsSummary: { flexDirection: "row", alignItems: "center", justifyContent: "flex-start" },
   statsSummaryPhoneLandscape: { width: "100%" },
