@@ -882,4 +882,4 @@
 
 - [x] 몬스터 정보 패널의 absolute top/right 및 고정 폭 의존성 제거
 - [x] 통계·몬스터 행을 flex row/space-between으로 전환하고 몬스터 정보를 우측 정렬
-- [ ] 웹·Android·Fold 회귀 검증·체크포인트 저장 및 GitHub main PUSH
+- [x] 웹·Android·Fold 회귀 검증·체크포인트 저장 및 GitHub main PUSH
