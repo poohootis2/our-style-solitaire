@@ -674,7 +674,8 @@ export default function HomeScreen() {
     deviceModel,
     { left: isLandscape ? 10 : cardAreaLeft, right: isLandscape ? safeScreenWidth - 10 : cardAreaRight },
   );
-  const stackOffset = foldPortrait ? Math.max(16, Math.round(baseStackOffset * 0.78)) : baseStackOffset;
+  // Fold tableau cards expose more of each rank/suit mark instead of stacking too tightly.
+  const stackOffset = foldPortrait ? Math.max(16, Math.round(baseStackOffset * 0.78) + 10) : baseStackOffset;
   const tableauGap = foldPortrait ? Math.max(8, Math.round(baseTableauGap * 1.22)) : baseTableauGap;
   const compactControls = compact || compactLandscape;
   const monsterTravelDistance = isLandscape ? Math.max(160, Math.min(310, Math.round(safeScreenWidth * 0.2) + 50)) : 94;
@@ -1734,7 +1735,8 @@ export default function HomeScreen() {
   const companionAttackColor = companionAttackColors[companionAttackStyle];
   // Fold ultra-wide cards shrink by 30%, but the companion keeps its established baseline size.
   const companionBaseCardWidth = foldUltraWide ? Math.round(cardWidth / 0.7) : cardWidth;
-  const companionSize = Math.max(61, Math.round(companionBaseCardWidth * 1.64 * 0.9 * 1.3));
+  // The previous card-size multipliers made the idle pet visually oversized; keep combo scaling separate.
+  const companionSize = Math.max(30, Math.round(companionBaseCardWidth * 1.64 * 0.9 * 1.3 * 0.5));
   const companionBaseLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
   const companionBottom = Math.max(0, bottomControlsBottom + 47 + (!isLandscape ? 1 : 0) - (Platform.OS === "android" && !isLandscape ? 24 : 0));
   const renderCardRatio = !isLandscape ? Math.max(0.76, cardRatio * 0.9) : cardRatio;
