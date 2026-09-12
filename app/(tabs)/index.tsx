@@ -587,8 +587,8 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const spriteSize = Math.max(34, Math.round(cardSize * 0.9 * 1.3));
   const companionSize = Math.max(24, Math.round(cardSize * 0.62));
   const infoWidth = androidPortrait ? Math.min(110, Math.max(84, Math.round(safeWidth * 0.25))) : Math.max(54, Math.round(cardSize * 1.02));
-  const monsterBarWidth = Math.max(42, infoWidth - (androidPortrait ? 4 : 4));
-  const monsterInfoRight = androidPortrait ? -Math.max(34, Math.round(safeWidth * 0.1)) - 20 : -82;
+  const monsterBarWidth = Math.max(34, Math.round((infoWidth - 4) * 0.85));
+  const monsterInfoRight = androidPortrait ? -Math.max(34, Math.round(safeWidth * 0.1)) - 35 : -97;
 
   return (
     <View onLayout={({ nativeEvent }) => onCenterLayout?.(nativeEvent.layout.x + spriteSize * 0.5)} style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
