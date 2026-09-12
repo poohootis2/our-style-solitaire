@@ -878,4 +878,4 @@
 
 - [x] 옵션 아이콘 실제 중앙 X 좌표를 측정
 - [x] 체력게이지 오른쪽 끝을 옵션 아이콘 중앙 X에 정렬
-- [ ] 웹·Android·Fold 회귀 검증·체크포인트 저장 및 GitHub main PUSH
+- [x] 웹·Android·Fold 회귀 검증·체크포인트 저장 및 GitHub main PUSH
