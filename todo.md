@@ -870,4 +870,4 @@
 
 - [x] 체력게이지 폭을 화면 비율 대신 고정 dp·절대 폭으로 제한
 - [x] 웹·Android·Fold에서 게이지 폭 회귀 검증
-- [ ] 체크포인트 저장 및 GitHub main PUSH
+- [x] 체크포인트 저장 및 GitHub main PUSH
