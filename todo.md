@@ -855,3 +855,7 @@
 
 - [ ] Android 실기기 반응형 보정 체크포인트를 GitHub main에 PUSH
 - [ ] 원격 GitHub SHA 반영 확인
+
+- [x] 몬스터 이름·체력게이지를 20px 오른쪽으로 이동
+- [x] 펫을 15px 위로 이동
+- [x] 웹·Android·Fold 회귀 검증 및 체크포인트 저장

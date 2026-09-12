@@ -577,7 +577,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const companionSize = Math.max(24, Math.round(cardSize * 0.62));
   const infoWidth = androidPortrait ? Math.min(110, Math.max(84, Math.round(safeWidth * 0.25))) : Math.max(54, Math.round(cardSize * 1.02));
   const monsterBarWidth = Math.max(42, infoWidth - (androidPortrait ? 4 : 4));
-  const monsterInfoRight = androidPortrait ? -Math.max(34, Math.round(safeWidth * 0.1)) : -62;
+  const monsterInfoRight = androidPortrait ? -Math.max(34, Math.round(safeWidth * 0.1)) - 20 : -82;
 
   return (
     <View onLayout={({ nativeEvent }) => onCenterLayout?.(nativeEvent.layout.x + spriteSize * 0.5)} style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
@@ -1710,7 +1710,7 @@ export default function HomeScreen() {
   const companionAttackColor = companionAttackColors[companionAttackStyle];
   const companionSize = Math.max(61, Math.round(cardWidth * 1.64 * 0.9 * 1.3));
   const companionBaseLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
-  const companionBottom = Math.max(0, bottomControlsBottom + 27 + (!isLandscape ? 1 : 0) - (Platform.OS === "android" && !isLandscape ? 24 : 0));
+  const companionBottom = Math.max(0, bottomControlsBottom + 42 + (!isLandscape ? 1 : 0) - (Platform.OS === "android" && !isLandscape ? 24 : 0));
   const renderCardRatio = !isLandscape ? Math.max(0.76, cardRatio * 0.9) : cardRatio;
   const activeShuffleStep: 0 | 1 | 2 = twoTouchOpensUsed === 0 ? 0 : rewardedRevealUsed < 10 ? 1 : 2;
   const shuffleHelpTitle = activeShuffleStep === 0 ? "무료 망치" : `광고 보상 망치 +${activeShuffleStep}`;
