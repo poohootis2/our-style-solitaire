@@ -588,7 +588,8 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const companionSize = Math.max(24, Math.round(cardSize * 0.62));
   // Android portrait uses fixed React Native dp values so physical devices do not stretch the bar from safeWidth.
   const infoWidth = androidPortrait ? 112 : Math.max(54, Math.round(cardSize * 1.02));
-  const monsterBarWidth = androidPortrait ? 96 : Math.max(34, Math.round((infoWidth - 4) * 0.85));
+  // Keep the gauge independent from the parent panel width on every platform.
+  const monsterBarWidth = 80;
   const monsterInfoRight = androidPortrait ? -Math.max(34, Math.round(safeWidth * 0.1)) - 35 : -97;
 
   return (
@@ -2250,7 +2251,7 @@ const styles = StyleSheet.create({
   monsterSpriteCompact: { width: 34, height: 38 },
   monsterImageLayer: { alignItems: "center", justifyContent: "center" },
   bossCardShine: { position: "absolute", top: "-45%", bottom: "-45%", left: "-12%", width: 11, backgroundColor: "rgba(255, 246, 180, 0.92)", shadowColor: "#FFFFFF", shadowOpacity: 1, shadowRadius: 8, elevation: 8 },
-  monsterInfo: { width: 92, alignItems: "flex-start", position: "absolute", right: -62, top: 8 },
+  monsterInfo: { width: 92, alignItems: "flex-start", alignSelf: "flex-start", position: "absolute", right: -62, top: 8 },
   monsterInfoCompact: { width: 72, position: "absolute", right: -50, top: 6 },
   monsterInfoBoss: { width: 104 },
   monsterInfoPortrait: { position: "absolute", right: -62, top: 8, width: 96 },
@@ -2259,7 +2260,7 @@ const styles = StyleSheet.create({
   monsterNameRow: { flexDirection: "row", alignItems: "center", gap: 3, width: "100%", height: 16, overflow: "hidden" },
   monsterName: { flex: 1, flexShrink: 1, color: "#F3C969", fontSize: 12, lineHeight: 14, fontWeight: "900", letterSpacing: 0.5 },
   bossBadge: { minWidth: 42, color: "#11182C", backgroundColor: "#F3C969", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, fontSize: 10, lineHeight: 12, fontWeight: "900", textAlign: "center", letterSpacing: 0.4 },
-  monsterBar: { width: "100%", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
+  monsterBar: { width: 80, maxWidth: 80, alignSelf: "flex-start", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
   monsterHpFlash: { position: "absolute", left: 0, top: 0, right: 0, bottom: 0, borderRadius: 3, backgroundColor: "#FF1F3D" },
   monsterRedFlash: { position: "absolute", left: "8%", top: "8%", width: "84%", height: "84%", borderRadius: 999, backgroundColor: "#FF1F3D" },
