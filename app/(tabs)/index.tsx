@@ -576,7 +576,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const spriteSize = Math.max(34, Math.round(cardSize * 0.9 * 1.3));
   const companionSize = Math.max(24, Math.round(cardSize * 0.62));
   const infoWidth = Math.max(54, Math.round(cardSize * 1.02));
-  const monsterBarWidth = Math.max(42, infoWidth - 12);
+  const monsterBarWidth = Math.max(42, infoWidth - 4);
 
   return (
     <View onLayout={({ nativeEvent }) => onCenterLayout?.(nativeEvent.layout.x + spriteSize * 0.5)} style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
@@ -1899,7 +1899,7 @@ export default function HomeScreen() {
         </View>
 
         <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ translateY: -19 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
-        <View style={[styles.board, { width: boardWidth, alignSelf: "flex-start", marginLeft: Math.max(0, (isLandscape ? 10 : cardAreaLeft) - 10) }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
+        <View style={[styles.board, { width: boardWidth, alignSelf: "flex-start", marginLeft: Math.max(0, (isLandscape ? 10 : cardAreaLeft) - 6) }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
             {game.stock.length ? (
