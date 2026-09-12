@@ -501,7 +501,7 @@ function AttributeImpactBurst({ attackStyle, progress, size }: { attackStyle: Co
   </Animated.View>;
 }
 
-function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo, compact = false, landscape = false, phoneLandscape = false, androidPortrait = false, safeWidth = 360, travelDistance = 24, monster, isBoss, cardSize, motionValue, onCenterLayout, onFrameLayout, optionsAnchorCenterX, containerX, containerWidth }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; attackStyle: CompanionAttackStyle; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; androidPortrait?: boolean; safeWidth?: number; travelDistance?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; onCenterLayout?: (centerX: number) => void; onFrameLayout?: (frame: { x: number; width: number }) => void; optionsAnchorCenterX?: number | null; containerX?: number; containerWidth?: number }) {
+function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo, compact = false, landscape = false, phoneLandscape = false, androidPortrait = false, safeWidth = 360, travelDistance = 24, monster, isBoss, cardSize, motionValue, onCenterLayout }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; attackStyle: CompanionAttackStyle; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; androidPortrait?: boolean; safeWidth?: number; travelDistance?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; onCenterLayout?: (centerX: number) => void }) {
   const internalMonsterMotion = useRef(new Animated.Value(1)).current;
   const monsterMotion = motionValue ?? internalMonsterMotion;
   const attackProgress = useRef(new Animated.Value(0)).current;
@@ -590,13 +590,9 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const infoWidth = androidPortrait ? 112 : Math.max(54, Math.round(cardSize * 1.02));
   // Keep the gauge independent from the parent panel width on every platform.
   const monsterBarWidth = 80;
-  const optionAlignedRight = optionsAnchorCenterX != null && containerX != null && containerWidth != null
-    ? Math.round(containerX + containerWidth - infoWidth + monsterBarWidth - optionsAnchorCenterX)
-    : null;
-  const monsterInfoRight = optionAlignedRight ?? (androidPortrait ? -Math.max(34, Math.round(safeWidth * 0.1)) - 35 : -97);
 
   return (
-    <View onLayout={({ nativeEvent }) => { onCenterLayout?.(nativeEvent.layout.x + spriteSize * 0.5); onFrameLayout?.({ x: nativeEvent.layout.x, width: nativeEvent.layout.width }); }} style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
+    <View onLayout={({ nativeEvent }) => { onCenterLayout?.(nativeEvent.layout.x + spriteSize * 0.5); }} style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
       <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, transform: [{ translateX: monsterTranslate }, { translateY: bossEntranceTranslateY }, { scale: bossEntranceScale }] }]}>
         <Animated.View style={[styles.monsterImageLayer, { width: spriteSize, height: spriteSize, transform: [{ scale: monsterScale }, { scaleX: facingLeft ? -1 : 1 }] }]}>
           <Image source={monster.image} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, defeatVisible && styles.monsterDefeated]} accessibilityLabel={monster.name} />
@@ -606,7 +602,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
         {damageVisible ? <Animated.Text style={[styles.damageText, { opacity: damageOpacity, transform: [{ translateY: damageTranslateY }] }]}>−{damage}</Animated.Text> : null}
         {defeatVisible ? <Animated.View pointerEvents="none" style={[styles.defeatBurst, { opacity: defeatOpacity, transform: [{ scale: defeatScale }] }]}>{Array.from({ length: 12 }, (_, index) => <Text key={index} style={[styles.defeatSpark, { transform: [{ rotate: `${index * 30}deg` }, { translateY: -24 }] }]}>{index % 2 ? "✦" : "•"}</Text>)}</Animated.View> : null}
       </Animated.View>
-      <View style={[styles.monsterInfo, { width: infoWidth, right: optionAlignedRight != null || !landscape ? monsterInfoRight : undefined }, compact && styles.monsterInfoCompact, isBoss && styles.monsterInfoBoss, !landscape && styles.monsterInfoPortrait]}>
+      <View style={[styles.monsterInfo, compact && styles.monsterInfoCompact, isBoss && styles.monsterInfoBoss, !landscape && styles.monsterInfoPortrait]}>
         <View style={styles.monsterNameRow}><Text style={styles.monsterName} numberOfLines={1} ellipsizeMode="tail">{monster.name.toUpperCase()}</Text></View>
         <View style={[styles.monsterBar, { width: monsterBarWidth }]}><View style={[styles.monsterBarFill, { width: `${Math.max(0, Math.min(100, hp))}%` }]} /><Animated.View pointerEvents="none" style={[styles.monsterHpFlash, { opacity: hpFlashOpacity }]} /></View>
         <Text style={styles.monsterHp}>{Math.round(hp)}%</Text>
@@ -655,8 +651,6 @@ export default function HomeScreen() {
   const portraitBannerBottom = foldPortrait ? Math.max(0, bottomControlsBottom - 130) : Math.max(0, bottomControlsBottom - 98);
   const [scoreAnchorX, setScoreAnchorX] = useState<number | null>(null);
   const [optionsAnchorRight, setOptionsAnchorRight] = useState<number | null>(null);
-  const [optionsAnchorCenterX, setOptionsAnchorCenterX] = useState<number | null>(null);
-  const [monsterBattleFrame, setMonsterBattleFrame] = useState<{ x: number; width: number } | null>(null);
   const cardAreaLeft = Math.max(10, Math.min(safeScreenWidth - 10, scoreAnchorX ?? 10));
   const cardAreaRight = Math.max(cardAreaLeft + 220, Math.min(safeScreenWidth - 10, optionsAnchorRight ?? safeScreenWidth - 10));
   const { boardWidth, cardWidth, cardRatio, compact, stackOffset: baseStackOffset, tableauGap: baseTableauGap, uiScale, sideRailWidth } = getGameLayout(
@@ -1874,7 +1868,7 @@ export default function HomeScreen() {
             </View>
           </View>
           {isLandscape ? <View style={[styles.landscapeHeaderBanner, phoneLandscape && styles.landscapeHeaderBannerPhone]}><AdBanner compact inline /></View> : null}
-          <View onLayout={(event) => { const { x, width } = event.nativeEvent.layout; const right = x + width; const center = x + width * 0.5; if (optionsAnchorRight !== right) setOptionsAnchorRight(right); if (optionsAnchorCenterX !== center) setOptionsAnchorCenterX(center); }} style={[styles.headerActions, compactControls && styles.headerActionsCompact, phoneLandscape && styles.headerActionsPhoneLandscape]}>
+          <View onLayout={(event) => { const { x, width } = event.nativeEvent.layout; const right = x + width; if (optionsAnchorRight !== right) setOptionsAnchorRight(right); }} style={[styles.headerActions, compactControls && styles.headerActionsCompact, phoneLandscape && styles.headerActionsPhoneLandscape]}>
             <Pressable accessibilityRole="button" accessibilityLabel="출석체크" disabled={lastAttendanceDate === localDateKey()} onPress={() => { haptic.light(); setShowAttendanceClaim(true); }} style={({ pressed }) => [styles.attendanceHeaderButton, compactControls && styles.iconButtonCompact, lastAttendanceDate === localDateKey() && styles.attendanceHeaderButtonDone, pressed && styles.pressed]}>
               <Animated.View pointerEvents="none" style={[styles.attendanceHeaderAnimated, { opacity: attendanceAttention.interpolate({ inputRange: [0, 1], outputRange: [1, 0.64] }), transform: [{ scale: attendanceAttention.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }, { rotate: attendanceAttention.interpolate({ inputRange: [0, 0.5, 1], outputRange: ["0deg", "-3deg", "3deg"] }) }] }]}>
                 <Image source={DAILY_CHECKIN_ART} resizeMode="contain" style={[styles.attendanceHeaderImage, lastAttendanceDate === localDateKey() && styles.attendanceHeaderImageDone]} />
@@ -1914,7 +1908,7 @@ export default function HomeScreen() {
             <View style={styles.statDivider} />
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
           </View>
-          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} androidPortrait={Platform.OS === "android" && !isLandscape} safeWidth={safeScreenWidth} travelDistance={monsterTravelDistance} motionValue={monsterMotion} onCenterLayout={(centerX) => setMonsterImageCenterX(centerX)} onFrameLayout={setMonsterBattleFrame} optionsAnchorCenterX={optionsAnchorCenterX} containerX={monsterBattleFrame?.x} containerWidth={monsterBattleFrame?.width} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
+          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} androidPortrait={Platform.OS === "android" && !isLandscape} safeWidth={safeScreenWidth} travelDistance={monsterTravelDistance} motionValue={monsterMotion} onCenterLayout={(centerX) => setMonsterImageCenterX(centerX)} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
         <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ translateY: -19 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
@@ -2223,9 +2217,9 @@ const styles = StyleSheet.create({
   attackCardPreviewImage: { width: "100%", height: 74 },
   attackCardPreviewLabel: { color: "#D6E2F4", fontSize: 10, fontWeight: "800", marginTop: 2 },
   contentLift: { transform: [{ translateY: -19 }] },
-  stats: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 6, marginBottom: 10 },
+  stats: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 6, marginBottom: 10 },
   statsNarrowCover: { paddingVertical: 6.3, marginBottom: 10.8 },
-  statsSummary: { flexDirection: "row", alignItems: "center", justifyContent: "flex-start" },
+  statsSummary: { flex: 0, flexDirection: "row", alignItems: "center", justifyContent: "flex-start" },
   statsSummaryPhoneLandscape: { width: "100%" },
   attributeBadge: { flexDirection: "row", alignItems: "center", gap: 4, marginLeft: 8, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 10, backgroundColor: "rgba(19, 31, 58, 0.9)", borderWidth: 1, borderColor: "#4A638A" },
   attributeBadgePhoneLandscape: { marginLeft: 0, marginTop: 5, alignSelf: "flex-start" },
@@ -2246,9 +2240,9 @@ const styles = StyleSheet.create({
   statusDotReady: { backgroundColor: "#77D6C3" },
   statusDotSelected: { backgroundColor: "#FF7A66" },
   statusText: { color: "#A6B4CE", fontSize: 10, fontWeight: "600" },
-  monsterBattle: { flex: 1.4, minWidth: 154, maxWidth: 236, marginLeft: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, overflow: "visible" },
+  monsterBattle: { flex: 1, minWidth: 0, marginLeft: 10, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6, overflow: "visible" },
   monsterBattleLandscape: { flex: 1, minWidth: 250, maxWidth: 9999 },
-  monsterBattleCompact: { flex: 1.1, minWidth: 82, maxWidth: 128, marginLeft: 4, gap: 3 },
+  monsterBattleCompact: { flex: 1, minWidth: 0, marginLeft: 4, gap: 3 },
   monsterBattlePhoneLandscape: { flex: 0, width: "100%", minWidth: 0, maxWidth: 9999, marginLeft: 0, marginTop: 12, justifyContent: "flex-start", gap: 6 },
   monsterSpriteWrap: { width: 50, height: 54, alignItems: "center", justifyContent: "center", position: "relative" },
   monsterSpriteWrapCompact: { width: 32, height: 38 },
@@ -2256,16 +2250,16 @@ const styles = StyleSheet.create({
   monsterSpriteCompact: { width: 34, height: 38 },
   monsterImageLayer: { alignItems: "center", justifyContent: "center" },
   bossCardShine: { position: "absolute", top: "-45%", bottom: "-45%", left: "-12%", width: 11, backgroundColor: "rgba(255, 246, 180, 0.92)", shadowColor: "#FFFFFF", shadowOpacity: 1, shadowRadius: 8, elevation: 8 },
-  monsterInfo: { width: 92, alignItems: "flex-start", alignSelf: "flex-start", position: "absolute", right: -62, top: 8 },
-  monsterInfoCompact: { width: 72, position: "absolute", right: -50, top: 6 },
-  monsterInfoBoss: { width: 104 },
-  monsterInfoPortrait: { position: "absolute", right: -62, top: 8, width: 96 },
+  monsterInfo: { flex: 1, alignItems: "flex-end", alignSelf: "flex-end", position: "relative" },
+  monsterInfoCompact: { flex: 1, alignItems: "flex-end", alignSelf: "flex-end", position: "relative" },
+  monsterInfoBoss: { flex: 1 },
+  monsterInfoPortrait: { flex: 1, alignItems: "flex-end", alignSelf: "flex-end", position: "relative" },
   companionSprite: { width: 34, height: 38, marginHorizontal: 1 },
   companionSpriteCompact: { width: 27, height: 31 },
   monsterNameRow: { flexDirection: "row", alignItems: "center", gap: 3, width: "100%", height: 16, overflow: "hidden" },
   monsterName: { flex: 1, flexShrink: 1, color: "#F3C969", fontSize: 12, lineHeight: 14, fontWeight: "900", letterSpacing: 0.5 },
   bossBadge: { minWidth: 42, color: "#11182C", backgroundColor: "#F3C969", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, fontSize: 10, lineHeight: 12, fontWeight: "900", textAlign: "center", letterSpacing: 0.4 },
-  monsterBar: { width: 80, maxWidth: 80, alignSelf: "flex-start", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
+  monsterBar: { width: 80, maxWidth: 80, alignSelf: "flex-end", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
   monsterHpFlash: { position: "absolute", left: 0, top: 0, right: 0, bottom: 0, borderRadius: 3, backgroundColor: "#FF1F3D" },
   monsterRedFlash: { position: "absolute", left: "8%", top: "8%", width: "84%", height: "84%", borderRadius: 999, backgroundColor: "#FF1F3D" },
