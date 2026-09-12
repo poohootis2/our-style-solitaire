@@ -586,8 +586,9 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const attackSymbols: Record<AttackKind, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
   const spriteSize = Math.max(34, Math.round(cardSize * 0.9 * 1.3));
   const companionSize = Math.max(24, Math.round(cardSize * 0.62));
-  const infoWidth = androidPortrait ? Math.min(110, Math.max(84, Math.round(safeWidth * 0.25))) : Math.max(54, Math.round(cardSize * 1.02));
-  const monsterBarWidth = Math.max(34, Math.round((infoWidth - 4) * 0.85));
+  // Android portrait uses fixed React Native dp values so physical devices do not stretch the bar from safeWidth.
+  const infoWidth = androidPortrait ? 112 : Math.max(54, Math.round(cardSize * 1.02));
+  const monsterBarWidth = androidPortrait ? 96 : Math.max(34, Math.round((infoWidth - 4) * 0.85));
   const monsterInfoRight = androidPortrait ? -Math.max(34, Math.round(safeWidth * 0.1)) - 35 : -97;
 
   return (
