@@ -928,3 +928,8 @@
 - [x] 점수·이동·시간 통계 영역과 몬스터 정보 영역을 별도 Flex 영역으로 분리
 - [x] 몬스터 패널이 시간 영역 오른쪽에서만 시작하도록 겹침 방지
 - [x] 좁은 Android·웹·Fold 회귀 검증 및 GitHub main PUSH
+
+- [x] 점수·이동·시간 통계 패널을 고정 폭 Flex 영역으로 분리
+- [x] 몬스터 정보 패널의 absolute·left 의존성 제거
+- [x] 시간 끝점부터 몬스터 이름 시작점까지 이동 슬롯 재계산
+- [ ] 좁은 Android·웹·Fold 회귀 검증 및 GitHub main PUSH
