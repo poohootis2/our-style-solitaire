@@ -43,7 +43,7 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const phoneLandscapeOverlap = isPhoneLandscape ? clamp(landscapeAspect / 2.2, 0.78, 1) : 1;
   const sideRailWidth = isPhoneLandscape ? clamp(Math.round(width * 0.30), 190, 248) : 0;
   // Wide devices enlarge card width by 10%; the ratio compensates so total card height grows by 15%.
-  const cardRatio = foldUltraWide ? CARD_RATIO * 0.9 : isLandscape ? 1.18 : CARD_RATIO;
+  const cardRatio = isLandscape ? 1.18 : CARD_RATIO;
   // Use measured score/option anchors when available; otherwise keep 10px side padding.
   const outerPadding = 10;
   const leftBound = clamp(horizontalBounds?.left ?? outerPadding, outerPadding, Math.max(outerPadding, width - outerPadding));
@@ -69,7 +69,7 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   // The measured width is already the final usable width; do not apply model-specific shrink factors.
   const foldableOrLandscapeReduction = 1;
   const minimumCardWidth = isLandscape ? 30 : 34;
-  const horizontalCardWidth = clamp(rawCardWidth * foldableOrLandscapeReduction * (foldUltraWide ? 0.63 : 1), minimumCardWidth, widthCardLimit);
+  const horizontalCardWidth = clamp(rawCardWidth * foldableOrLandscapeReduction * (foldUltraWide ? 0.7 : 1), minimumCardWidth, widthCardLimit);
   const cardWidth = Math.floor(isLandscape ? Math.min(horizontalCardWidth, heightCardLimit) : horizontalCardWidth);
   const cardHeight = cardWidth * cardRatio;
   const availableStackOffset = (usableTableauHeight - topPilesGap - cardHeight * 2) / TABLEAU_STEPS;
