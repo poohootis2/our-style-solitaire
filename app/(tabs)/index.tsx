@@ -581,11 +581,12 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const spriteSize = Math.max(34, Math.round(cardSize * 0.9 * 1.3));
   const infoWidth = androidPortrait ? 112 : Math.max(54, Math.round(cardSize * 1.02));
   const localTimeBoundary = Math.max(0, timeBoundaryX - battleLeft);
+  const monsterMovementStart = localTimeBoundary + 100;
   const boundedTravelDistance = battleWidth > 0
-    ? Math.min(travelDistance, Math.max(0, Math.floor(battleWidth - localTimeBoundary - infoWidth - spriteSize - 12)))
+    ? Math.min(travelDistance, Math.max(0, Math.floor(battleWidth - monsterMovementStart - infoWidth - spriteSize - 12)))
     : travelDistance;
-  // The motion slot starts at the measured right edge of the time statistics, never at the header's left edge.
-  const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [localTimeBoundary, localTimeBoundary + boundedTravelDistance] });
+  // Keep the leftmost monster position 100px inside the time-side boundary.
+  const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [monsterMovementStart, monsterMovementStart + boundedTravelDistance] });
   const monsterScale = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [1.5, 1] });
   const projectileTranslate = attackProgress.interpolate({ inputRange: [0, 1], outputRange: [0, 92] });
   const projectileScale = attackProgress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.5, 1.15, 0.2] });
@@ -621,7 +622,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
         {defeatVisible ? <Animated.View pointerEvents="none" style={[styles.defeatBurst, { opacity: defeatOpacity, transform: [{ scale: defeatScale }] }]}>{Array.from({ length: 12 }, (_, index) => <Text key={index} style={[styles.defeatSpark, { transform: [{ rotate: `${index * 30}deg` }, { translateY: -24 }] }]}>{index % 2 ? "✦" : "•"}</Text>)}</Animated.View> : null}
       </Animated.View>
       <View style={[styles.monsterInfo, compact && styles.monsterInfoCompact, isBoss && styles.monsterInfoBoss, !landscape && styles.monsterInfoPortrait]}>
-          <View style={[styles.monsterNameRow, { width: monster.name.length > 8 ? monsterBarWidth + 16 : monsterBarWidth, alignSelf: "flex-end" }]}><Text style={[styles.monsterName, monster.name.length > 8 ? styles.monsterNameLong : styles.monsterNameCentered]} numberOfLines={1} ellipsizeMode="tail">{monster.name.toUpperCase()}</Text></View>
+          <View style={[styles.monsterNameRow, { width: monster.name.length > 8 ? monsterBarWidth + 16 : monsterBarWidth, alignSelf: "flex-start", marginBottom: 2 }]}><Text style={[styles.monsterName, monster.name.length > 8 ? styles.monsterNameLong : styles.monsterNameCentered]} numberOfLines={1} ellipsizeMode="tail">{monster.name.toUpperCase()}</Text></View>
         <View style={[styles.monsterBar, { width: monsterBarWidth }]}><View style={[styles.monsterBarFill, { width: `${currentHealth}%`, backgroundColor: currentHealthColor }]} /><Animated.View pointerEvents="none" style={[styles.monsterHpFlash, { opacity: hpFlashOpacity }]} /></View>
         <Text style={styles.monsterHp}>{Math.round(hp)}%</Text>
       </View>
@@ -2287,7 +2288,7 @@ const styles = StyleSheet.create({
   monsterNameCentered: { flex: 0, width: "100%", textAlign: "center" },
   monsterNameLong: { flex: 0, width: "100%", textAlign: "left", fontSize: 10 },
   bossBadge: { minWidth: 42, color: "#11182C", backgroundColor: "#F3C969", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, fontSize: 10, lineHeight: 12, fontWeight: "900", textAlign: "center", letterSpacing: 0.4 },
-  monsterBar: { width: 80, maxWidth: 80, alignSelf: "flex-end", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
+  monsterBar: { width: 80, maxWidth: 80, alignSelf: "flex-start", height: 7, marginTop: 3, overflow: "hidden", borderRadius: 4, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   monsterBarFill: { height: "100%", borderRadius: 3, backgroundColor: "#FF6F8A" },
   monsterHpFlash: { position: "absolute", left: 0, top: 0, right: 0, bottom: 0, borderRadius: 3, backgroundColor: "#FF1F3D" },
   monsterRedFlash: { position: "absolute", left: "8%", top: "8%", width: "84%", height: "84%", borderRadius: 999, backgroundColor: "#FF1F3D" },
@@ -2295,7 +2296,7 @@ const styles = StyleSheet.create({
   comboImpactImage: { width: "100%", height: "100%" },
   attributeImpactBurst: { position: "absolute", left: 0, top: 0, alignItems: "center", justifyContent: "center", zIndex: 12 },
   attributeImpactParticle: { position: "absolute", fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 7 },
-  monsterHp: { color: "#BCEAE2", fontSize: 11, fontWeight: "800", marginTop: 2 },
+  monsterHp: { alignSelf: "flex-start", color: "#BCEAE2", fontSize: 11, fontWeight: "800", marginTop: 2 },
   monsterProjectile: { position: "absolute", left: 8, top: 12, fontSize: 24, fontWeight: "900", textShadowColor: "#FFFFFF", textShadowRadius: 7 },
   companionAnchor: { position: "absolute", zIndex: 22, alignItems: "center", justifyContent: "center" },
   companionPressTarget: { width: "100%", height: "100%" },
