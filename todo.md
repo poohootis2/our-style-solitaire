@@ -910,4 +910,4 @@
 - [x] 시간 영역의 실제 오른쪽 기준점 측정
 - [x] 몬스터 스프라이트를 시간과 몬스터 정보 패널 사이에서만 이동하도록 제한
 - [x] 몬스터 이름·체력게이지가 항상 보이도록 정보 패널 폭·레이어 보정
-- [ ] 웹·Android·Fold 회귀 검증 및 GitHub main PUSH
+- [x] 웹·Android·Fold 회귀 검증 및 GitHub main PUSH
