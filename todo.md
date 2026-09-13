@@ -936,4 +936,4 @@
 
 - [x] 체력게이지 오른쪽 끝을 옵션 아이콘 중앙 X 좌표에 정렬
 - [x] 몬스터 이름을 세로 Flex·노란색·zIndex 10으로 항상 표시
-- [ ] 웹·Android·Fold 회귀 검증 및 GitHub main PUSH
+- [x] 웹·Android·Fold 회귀 검증 및 GitHub main PUSH
