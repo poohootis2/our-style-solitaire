@@ -581,7 +581,9 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const spriteSize = Math.max(34, Math.round(cardSize * 0.9 * 1.3));
   const infoWidth = androidPortrait ? 112 : Math.max(54, Math.round(cardSize * 1.02));
   const localTimeBoundary = Math.max(0, timeBoundaryX - battleLeft);
-  const monsterMovementStart = localTimeBoundary + 100;
+  const desiredMovementStart = localTimeBoundary + 100;
+  const maxMovementStart = Math.max(localTimeBoundary, battleWidth - infoWidth - spriteSize - 12);
+  const monsterMovementStart = battleWidth > 0 ? Math.min(desiredMovementStart, maxMovementStart) : desiredMovementStart;
   const boundedTravelDistance = battleWidth > 0
     ? Math.min(travelDistance, Math.max(0, Math.floor(battleWidth - monsterMovementStart - infoWidth - spriteSize - 12)))
     : travelDistance;
@@ -2280,7 +2282,7 @@ const styles = StyleSheet.create({
   monsterInfo: { flex: 1, minWidth: 80, flexDirection: "column", alignItems: "flex-end", alignSelf: "flex-end", justifyContent: "flex-start", position: "relative", zIndex: 3 },
   monsterInfoCompact: { flex: 1, minWidth: 80, flexDirection: "column", alignItems: "flex-end", alignSelf: "flex-end", justifyContent: "flex-start", position: "relative", zIndex: 3 },
   monsterInfoBoss: { flex: 1 },
-  monsterInfoPortrait: { flex: 1, alignItems: "flex-end", alignSelf: "flex-end", position: "relative" },
+  monsterInfoPortrait: { flex: 0, width: 112, minWidth: 112, alignItems: "flex-start", alignSelf: "center", justifyContent: "flex-start", position: "relative" },
   companionSprite: { width: 34, height: 38, marginHorizontal: 1 },
   companionSpriteCompact: { width: 27, height: 31 },
   monsterNameRow: { flexDirection: "row", alignItems: "center", gap: 3, width: "100%", height: 16, overflow: "visible" },
