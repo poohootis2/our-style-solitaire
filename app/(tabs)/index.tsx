@@ -524,6 +524,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const hpFlash = useRef(new Animated.Value(0)).current;
   const defeatProgress = useRef(new Animated.Value(0)).current;
   const bossEntrance = useRef(new Animated.Value(isBoss ? 0 : 1)).current;
+  const [battleWidth, setBattleWidth] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -576,7 +577,12 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
     }
   }, [defeatProgress, hp]);
 
-  const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-travelDistance, travelDistance] });
+  const spriteSize = Math.max(34, Math.round(cardSize * 0.9 * 1.3));
+  const infoWidth = androidPortrait ? 112 : Math.max(54, Math.round(cardSize * 1.02));
+  const boundedTravelDistance = battleWidth > 0
+    ? Math.min(travelDistance, Math.max(0, Math.floor((battleWidth - infoWidth - spriteSize - 12) * 0.5)))
+    : travelDistance;
+  const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-boundedTravelDistance, boundedTravelDistance] });
   const monsterScale = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [1.5, 1] });
   const projectileTranslate = attackProgress.interpolate({ inputRange: [0, 1], outputRange: [0, 92] });
   const projectileScale = attackProgress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.5, 1.15, 0.2] });
@@ -593,17 +599,15 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const defeatOpacity = defeatProgress.interpolate({ inputRange: [0, 0.45, 1], outputRange: [1, 1, 0] });
   const attackColors: Record<AttackKind, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
   const attackSymbols: Record<AttackKind, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
-  const spriteSize = Math.max(34, Math.round(cardSize * 0.9 * 1.3));
   const companionSize = Math.max(24, Math.round(cardSize * 0.62));
   // Android portrait uses fixed React Native dp values so physical devices do not stretch the bar from safeWidth.
-  const infoWidth = androidPortrait ? 112 : Math.max(54, Math.round(cardSize * 1.02));
   // Keep the gauge independent from the parent panel width on every platform.
   const monsterBarWidth = 80;
   const currentHealth = Math.max(0, Math.min(100, hp));
   const currentHealthColor = healthBarColor(currentHealth);
 
   return (
-    <View onLayout={({ nativeEvent }) => { onCenterLayout?.(nativeEvent.layout.x + spriteSize * 0.5); }} style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
+    <View onLayout={({ nativeEvent }) => { setBattleWidth(nativeEvent.layout.width); onCenterLayout?.(nativeEvent.layout.x + spriteSize * 0.5); }} style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
       <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, transform: [{ translateX: monsterTranslate }, { translateY: bossEntranceTranslateY }, { scale: bossEntranceScale }] }]}>
         <Animated.View style={[styles.monsterImageLayer, { width: spriteSize, height: spriteSize, transform: [{ scale: monsterScale }, { scaleX: facingLeft ? -1 : 1 }] }]}>
           <Image source={monster.image} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, defeatVisible && styles.monsterDefeated]} accessibilityLabel={monster.name} />
@@ -1928,7 +1932,7 @@ export default function HomeScreen() {
         </View>
 
         <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ translateY: -19 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
-        <View style={[styles.board, { width: boardWidth, alignSelf: "flex-start", marginLeft: Math.max(0, (isLandscape ? 10 : cardAreaLeft) - 6) }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
+        <View style={[styles.board, { width: boardWidth, alignSelf: "flex-start", marginLeft: foldUltraWide && !isLandscape ? Math.max(0, (safeScreenWidth - boardWidth) * 0.5) : Math.max(0, (isLandscape ? 10 : cardAreaLeft) - 6) }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
             {game.stock.length ? (
