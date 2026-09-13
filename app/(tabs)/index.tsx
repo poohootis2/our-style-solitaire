@@ -580,14 +580,11 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
 
   const spriteSize = Math.max(34, Math.round(cardSize * 0.9 * 1.3));
   const infoWidth = androidPortrait ? 112 : Math.max(54, Math.round(cardSize * 1.02));
-  const localTimeBoundary = Math.max(0, timeBoundaryX - battleLeft);
-  const desiredMovementStart = localTimeBoundary + 100;
-  const maxMovementStart = Math.max(localTimeBoundary, battleWidth - infoWidth - spriteSize - 12);
-  const monsterMovementStart = battleWidth > 0 ? Math.min(desiredMovementStart, maxMovementStart) : desiredMovementStart;
-  const boundedTravelDistance = battleWidth > 0
-    ? Math.min(travelDistance, Math.max(0, Math.floor(battleWidth - monsterMovementStart - infoWidth - spriteSize - 12)))
-    : travelDistance;
-  // Keep the leftmost monster position 100px inside the time-side boundary.
+  // MonsterBattle is already a sibling placed after statsSummary in the parent row.
+  // Do not add the parent-relative time coordinate a second time, or the sprite/info panel will overlap the time text.
+  const monsterMovementStart = 0;
+  const availableBattleWidth = battleWidth > 0 ? battleWidth : safeWidth;
+  const boundedTravelDistance = Math.min(travelDistance, Math.max(0, Math.floor(availableBattleWidth - infoWidth - spriteSize - 12)));
   const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [monsterMovementStart, monsterMovementStart + boundedTravelDistance] });
   const monsterScale = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [1.5, 1] });
   const projectileTranslate = attackProgress.interpolate({ inputRange: [0, 1], outputRange: [0, 92] });
@@ -2248,7 +2245,7 @@ const styles = StyleSheet.create({
   stats: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 6, marginBottom: 10 },
   statsNarrowCover: { paddingVertical: 6.3, marginBottom: 10.8 },
   statsFoldUltraWide: { paddingVertical: 4.2, marginBottom: 7.6 },
-  statsSummary: { flex: 0, flexDirection: "row", alignItems: "center", justifyContent: "flex-start" },
+  statsSummary: { flex: 0, flexShrink: 0, flexDirection: "row", alignItems: "center", justifyContent: "flex-start" },
   statsSummaryPhoneLandscape: { width: "100%" },
   attributeBadge: { flexDirection: "row", alignItems: "center", gap: 4, marginLeft: 8, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 10, backgroundColor: "rgba(19, 31, 58, 0.9)", borderWidth: 1, borderColor: "#4A638A" },
   attributeBadgePhoneLandscape: { marginLeft: 0, marginTop: 5, alignSelf: "flex-start" },
