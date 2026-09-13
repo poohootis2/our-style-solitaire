@@ -582,7 +582,9 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const boundedTravelDistance = battleWidth > 0
     ? Math.min(travelDistance, Math.max(0, Math.floor((battleWidth - infoWidth - spriteSize - 12) * 0.5)))
     : travelDistance;
-  const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-boundedTravelDistance, boundedTravelDistance] });
+  // MonsterBattle starts immediately after the score/move/time summary. Keep motion inside this slot:
+  // value 0 is the time-side boundary, value 1 approaches the monster info panel.
+  const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [0, boundedTravelDistance] });
   const monsterScale = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [1.5, 1] });
   const projectileTranslate = attackProgress.interpolate({ inputRange: [0, 1], outputRange: [0, 92] });
   const projectileScale = attackProgress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.5, 1.15, 0.2] });
@@ -2262,7 +2264,7 @@ const styles = StyleSheet.create({
   statusDotReady: { backgroundColor: "#77D6C3" },
   statusDotSelected: { backgroundColor: "#FF7A66" },
   statusText: { color: "#A6B4CE", fontSize: 10, fontWeight: "600" },
-  monsterBattle: { flex: 1, minWidth: 0, marginLeft: 10, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6, overflow: "visible" },
+  monsterBattle: { flex: 1, minWidth: 0, marginLeft: 10, flexDirection: "row", alignItems: "center", justifyContent: "flex-start", gap: 6, overflow: "visible" },
   monsterBattleLandscape: { flex: 1, minWidth: 250, maxWidth: 9999 },
   monsterBattleCompact: { flex: 1, minWidth: 0, marginLeft: 4, gap: 3 },
   monsterBattlePhoneLandscape: { flex: 0, width: "100%", minWidth: 0, maxWidth: 9999, marginLeft: 0, marginTop: 12, justifyContent: "flex-start", gap: 6 },
@@ -2272,13 +2274,13 @@ const styles = StyleSheet.create({
   monsterSpriteCompact: { width: 34, height: 38 },
   monsterImageLayer: { alignItems: "center", justifyContent: "center" },
   bossCardShine: { position: "absolute", top: "-45%", bottom: "-45%", left: "-12%", width: 11, backgroundColor: "rgba(255, 246, 180, 0.92)", shadowColor: "#FFFFFF", shadowOpacity: 1, shadowRadius: 8, elevation: 8 },
-  monsterInfo: { flex: 1, alignItems: "flex-end", alignSelf: "flex-end", position: "relative" },
-  monsterInfoCompact: { flex: 1, alignItems: "flex-end", alignSelf: "flex-end", position: "relative" },
+  monsterInfo: { flex: 1, alignItems: "flex-end", alignSelf: "flex-end", position: "relative", zIndex: 3 },
+  monsterInfoCompact: { flex: 1, alignItems: "flex-end", alignSelf: "flex-end", position: "relative", zIndex: 3 },
   monsterInfoBoss: { flex: 1 },
   monsterInfoPortrait: { flex: 1, alignItems: "flex-end", alignSelf: "flex-end", position: "relative" },
   companionSprite: { width: 34, height: 38, marginHorizontal: 1 },
   companionSpriteCompact: { width: 27, height: 31 },
-  monsterNameRow: { flexDirection: "row", alignItems: "center", gap: 3, width: "100%", height: 16, overflow: "hidden" },
+  monsterNameRow: { flexDirection: "row", alignItems: "center", gap: 3, width: "100%", height: 16, overflow: "visible" },
   monsterName: { flex: 1, flexShrink: 1, color: "#F3C969", fontSize: 12, lineHeight: 14, fontWeight: "900", letterSpacing: 0.5 },
   monsterNameCentered: { flex: 0, width: "100%", textAlign: "center" },
   monsterNameLong: { flex: 0, width: "100%", textAlign: "left", fontSize: 10 },
