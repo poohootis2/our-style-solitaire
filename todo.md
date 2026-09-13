@@ -919,4 +919,4 @@
 
 - [x] 몬스터 이름을 체력게이지 좌측 상단에 배치
 - [x] 몬스터 이동 범위의 좌측 끝점을 현재보다 100px 오른쪽으로 이동
-- [ ] 웹·Android·Fold 회귀 검증 및 GitHub main PUSH
+- [x] 웹·Android·Fold 회귀 검증 및 GitHub main PUSH
