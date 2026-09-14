@@ -53,6 +53,7 @@ type ActiveFlight = {
   startBottom: number;
   travelX: number;
   travelY: number;
+  motionStartOffset: number;
   flightColor?: string;
   flamingArt?: ImageSourcePropType;
 };
@@ -401,11 +402,14 @@ function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress }: { width: nu
   );
 }
 
-function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, reverseLaunchX = 0, travelY = -180, startLeft = 16, startBottom = 44, flightColor, flamingArt = FLAMING_CARD_ART, flaming = false, monsterMotion, monsterMotionLeftDistance = 0, monsterMotionRightDistance = 0 }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; reverseLaunchX?: number; travelY?: number; startLeft?: number; startBottom?: number; flightColor?: string; flamingArt?: ImageSourcePropType; flaming?: boolean; monsterMotion?: Animated.Value; monsterMotionLeftDistance?: number; monsterMotionRightDistance?: number }) {
+function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, reverseLaunchX = 0, travelY = -180, startLeft = 16, startBottom = 44, flightColor, flamingArt = FLAMING_CARD_ART, flaming = false, monsterMotion, monsterMotionLeftDistance = 0, monsterMotionRightDistance = 0, monsterMotionStartOffset = 0 }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; reverseLaunchX?: number; travelY?: number; startLeft?: number; startBottom?: number; flightColor?: string; flamingArt?: ImageSourcePropType; flaming?: boolean; monsterMotion?: Animated.Value; monsterMotionLeftDistance?: number; monsterMotionRightDistance?: number; monsterMotionStartOffset?: number }) {
   const glow: Record<Suit, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
   const glowColor = flightColor ?? glow[card.suit];
   const translateX = progress.interpolate({ inputRange: [0, 0.22, 1], outputRange: [0, reverseLaunchX, travelX] });
-  const targetFollow = monsterMotion ? monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-monsterMotionLeftDistance, monsterMotionRightDistance] }) : null;
+  const targetFollowAbsolute = monsterMotion ? monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-monsterMotionLeftDistance, monsterMotionRightDistance] }) : null;
+  // 발사 시점의 몬스터 위치를 기준으로 삼아, 그 이후 이동한 거리만 카드에 더합니다.
+  // 절대 이동값을 그대로 더하면 발사 순간부터 카드가 먼 곳으로 튀는 문제가 발생합니다.
+  const targetFollow = targetFollowAbsolute ? Animated.add(targetFollowAbsolute, -monsterMotionStartOffset) : null;
   const followedTranslateX = targetFollow ? Animated.add(translateX, Animated.multiply(progress, targetFollow)) : translateX;
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY] });
   const scale = progress.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0.05, 0.6, 0.05] });
@@ -760,6 +764,11 @@ export default function HomeScreen() {
   const elapsedSecondsRef = useRef(elapsedSeconds);
   const flightProgress = useRef(new Animated.Value(0)).current;
   const monsterMotion = useRef(new Animated.Value(1)).current;
+  const monsterMotionValueRef = useRef(1);
+  useEffect(() => {
+    const listenerId = monsterMotion.addListener(({ value }) => { monsterMotionValueRef.current = value; });
+    return () => monsterMotion.removeListener(listenerId);
+  }, [monsterMotion]);
   const [monsterImageCenterX, setMonsterImageCenterX] = useState<number | null>(null);
   const [monsterImageCenterY, setMonsterImageCenterY] = useState<number | null>(null);
   const comboCompanionScale = useRef(new Animated.Value(1)).current;
@@ -1265,6 +1274,10 @@ export default function HomeScreen() {
 
   const animateFlight = (card: Card, flaming = false) => {
     const progress = new Animated.Value(0);
+    const motionStartValue = Math.max(0, Math.min(1, monsterMotionValueRef.current));
+    const motionLeftDistance = monsterTravelDistance + 100;
+    const motionRightDistance = monsterTravelDistance;
+    const motionStartOffset = -motionLeftDistance + (motionLeftDistance + motionRightDistance) * motionStartValue;
     const id = `flight-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const flight: ActiveFlight = {
       id,
@@ -1273,8 +1286,9 @@ export default function HomeScreen() {
       progress,
       startLeft: flightStartLeft,
       startBottom: flightStartBottom,
-      travelX: flightTravelX,
+      travelX: flightTravelX + motionStartOffset,
       travelY: flightTravelY,
+      motionStartOffset,
       flightColor: companionAttackColor,
       flamingArt: FLAMING_CARD_ART_BY_STYLE[companionAttackStyle],
     };
@@ -1906,7 +1920,7 @@ export default function HomeScreen() {
         <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
         {showBossPrepReward ? <View style={styles.bossPrepRewardPopup}><Text style={styles.bossPrepRewardTitle}>보스 준비 보너스 획득!</Text><Text style={styles.bossPrepRewardCopy}>망치 +1</Text></View> : null}
-        {flyingAttacks.map((flight) => <FlyingCard key={flight.id} card={flight.card} width={cardWidth} cardRatio={renderCardRatio} progress={flight.progress} travelX={flight.travelX} travelY={flight.travelY} startLeft={flight.startLeft} startBottom={flight.startBottom} flightColor={flight.flightColor} flamingArt={flight.flamingArt} flaming={flight.variant === "flaming"} monsterMotion={monsterMotion} reverseLaunchX={REVERSE_ATTACK_LAUNCH ? reverseLaunchX : 0} monsterMotionLeftDistance={monsterTravelDistance + 100} monsterMotionRightDistance={monsterTravelDistance} />)}
+        {flyingAttacks.map((flight) => <FlyingCard key={flight.id} card={flight.card} width={cardWidth} cardRatio={renderCardRatio} progress={flight.progress} travelX={flight.travelX} travelY={flight.travelY} startLeft={flight.startLeft} startBottom={flight.startBottom} flightColor={flight.flightColor} flamingArt={flight.flamingArt} flaming={flight.variant === "flaming"} monsterMotion={monsterMotion} reverseLaunchX={REVERSE_ATTACK_LAUNCH ? reverseLaunchX : 0} monsterMotionLeftDistance={monsterTravelDistance + 100} monsterMotionRightDistance={monsterTravelDistance} monsterMotionStartOffset={flight.motionStartOffset} />)}
         {hammerStrikeTarget ? <Animated.View pointerEvents="none" style={[styles.hammerStrike, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.08, height: cardWidth * 1.08, transform: [{ translateX: hammerStrikeTranslateX }, { translateY: hammerStrikeTranslateY }, { scale: hammerStrikeScale }, { rotate: hammerStrikeRotate }] }]}> 
           <Image source={HAMMER_ICON_ART} resizeMode="contain" style={styles.hammerStrikeImage} />
         </Animated.View> : null}
