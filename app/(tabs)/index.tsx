@@ -1774,8 +1774,12 @@ export default function HomeScreen() {
   // 몬스터는 stats 행의 오른쪽 전투 슬롯에서 좌우로 이동하므로, 화면 중앙이 아닌
   // 몬스터 슬롯 중심을 기준으로 목표점을 잡습니다. 펫이 좌측으로 회피하면
   // 시작점과 목표점의 차이가 자동으로 커져 카드가 몬스터 쪽으로 꺾여 날아갑니다.
-  const monsterAimCenter = monsterImageCenterX ?? safeScreenWidth * (isLandscape ? 0.70 : 0.72);
-  // FlyingCard의 실제 폭은 cardWidth * 2이므로 이미지 중심이 몬스터 중심에 오도록
+  const measuredMonsterCenterX = monsterImageCenterX ?? safeScreenWidth * (isLandscape ? 0.70 : 0.72);
+  // 영상에서 카드가 몬스터 왼쪽 주둥이에서 사라지는 현상을 줄이기 위해
+  // 이미지 중심보다 약간 안쪽(몸통 방향)으로 목표점을 이동합니다.
+  const monsterBodyInsetX = Math.round(cardWidth * 0.22);
+  const monsterAimCenter = measuredMonsterCenterX + monsterBodyInsetX;
+  // FlyingCard의 실제 폭은 cardWidth * 2이므로 이미지 중심이 보정된 목표점에 오도록
   // 목표 left에서 실제 렌더링 폭의 절반(cardWidth)을 차감합니다.
   const flightImageWidth = cardWidth * 2;
   const monsterAimLeft = monsterAimCenter - flightImageWidth * 0.5;
@@ -1783,7 +1787,9 @@ export default function HomeScreen() {
   const flightImageHeight = cardWidth * 1.14;
   // 이전의 고정 top 오프셋 대신 MonsterBattle의 실제 루트 기준 중심 Y를 사용합니다.
   const fallbackMonsterCenterY = rootTopPadding + (isLandscape ? (phoneLandscape ? 116 : 82) : 152) + cardWidth * 0.5;
-  const monsterTargetTop = Math.max(0, (monsterImageCenterY ?? fallbackMonsterCenterY) - flightImageHeight * 0.5);
+  const measuredMonsterCenterY = monsterImageCenterY ?? fallbackMonsterCenterY;
+  const monsterBodyInsetY = Math.round(cardWidth * 0.08);
+  const monsterTargetTop = Math.max(0, measuredMonsterCenterY + monsterBodyInsetY - flightImageHeight * 0.5);
   const flightTravelY = getAttackTravelY(safeScreenHeight, flightStartBottom, flightImageHeight, monsterTargetTop, 1.05);
   const hammerStartLeft = Math.max(0, (safeScreenWidth - boardWidth) * 0.5) + cardWidth * 2.25;
   const hammerStartTop = rootTopPadding + 132;
