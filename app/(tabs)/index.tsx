@@ -127,6 +127,7 @@ const MAX_UNDO_STEPS = 3;
 const CARD_ATTACK_FLIGHT_DURATION = 1800;
 const FLAMING_CARD_FLIGHT_DURATION = CARD_ATTACK_FLIGHT_DURATION * 2;
 const FLYING_CARD_DURATION = CARD_ATTACK_FLIGHT_DURATION;
+const REVERSE_ATTACK_HORIZONTAL_FLIGHT = true;
 const emptyRecords: Records = { wins: 0, bestScore: 0, bestTimeSeconds: null };
 
 function cardLabel(card: Card): string {
@@ -1783,7 +1784,8 @@ export default function HomeScreen() {
   // 목표 left에서 실제 렌더링 폭의 절반(cardWidth)을 차감합니다.
   const flightImageWidth = cardWidth * 2;
   const monsterAimLeft = monsterAimCenter - flightImageWidth * 0.5;
-  const flightTravelX = phoneLandscape ? 0 : monsterAimLeft - flightStartLeft;
+  const rawFlightTravelX = monsterAimLeft - flightStartLeft;
+  const flightTravelX = phoneLandscape ? 0 : (REVERSE_ATTACK_HORIZONTAL_FLIGHT ? -rawFlightTravelX : rawFlightTravelX);
   const flightImageHeight = cardWidth * 1.14;
   // 이전의 고정 top 오프셋 대신 MonsterBattle의 실제 루트 기준 중심 Y를 사용합니다.
   const fallbackMonsterCenterY = rootTopPadding + (isLandscape ? (phoneLandscape ? 116 : 82) : 152) + cardWidth * 0.5;
@@ -1901,7 +1903,7 @@ export default function HomeScreen() {
         <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
         {showBossPrepReward ? <View style={styles.bossPrepRewardPopup}><Text style={styles.bossPrepRewardTitle}>보스 준비 보너스 획득!</Text><Text style={styles.bossPrepRewardCopy}>망치 +1</Text></View> : null}
-        {flyingAttacks.map((flight) => <FlyingCard key={flight.id} card={flight.card} width={cardWidth} cardRatio={renderCardRatio} progress={flight.progress} travelX={flight.travelX} travelY={flight.travelY} startLeft={flight.startLeft} startBottom={flight.startBottom} flightColor={flight.flightColor} flamingArt={flight.flamingArt} flaming={flight.variant === "flaming"} monsterMotion={monsterMotion} monsterMotionLeftDistance={monsterTravelDistance + 100} monsterMotionRightDistance={monsterTravelDistance} />)}
+        {flyingAttacks.map((flight) => <FlyingCard key={flight.id} card={flight.card} width={cardWidth} cardRatio={renderCardRatio} progress={flight.progress} travelX={flight.travelX} travelY={flight.travelY} startLeft={flight.startLeft} startBottom={flight.startBottom} flightColor={flight.flightColor} flamingArt={flight.flamingArt} flaming={flight.variant === "flaming"} monsterMotion={monsterMotion} monsterMotionLeftDistance={REVERSE_ATTACK_HORIZONTAL_FLIGHT ? -(monsterTravelDistance + 100) : monsterTravelDistance + 100} monsterMotionRightDistance={REVERSE_ATTACK_HORIZONTAL_FLIGHT ? -monsterTravelDistance : monsterTravelDistance} />)}
         {hammerStrikeTarget ? <Animated.View pointerEvents="none" style={[styles.hammerStrike, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.08, height: cardWidth * 1.08, transform: [{ translateX: hammerStrikeTranslateX }, { translateY: hammerStrikeTranslateY }, { scale: hammerStrikeScale }, { rotate: hammerStrikeRotate }] }]}> 
           <Image source={HAMMER_ICON_ART} resizeMode="contain" style={styles.hammerStrikeImage} />
         </Animated.View> : null}
