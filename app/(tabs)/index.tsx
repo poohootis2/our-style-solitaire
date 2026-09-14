@@ -73,6 +73,12 @@ const ATTACK_IMPACT_ART_BY_STYLE: Record<CompanionAttackStyle, ImageSourcePropTy
   orange: { uri: "/manus-storage/attack-lightning-impact_764dbd72.png" },
   white: { uri: "/manus-storage/attack-shadow-impact_3ba053a9.png" },
 };
+const HIT_EXPLOSION_ART_BY_STYLE: Record<CompanionAttackStyle, ImageSourcePropType> = {
+  red: require("../../assets/images/attack-impacts/impact-red.png"),
+  blue: require("../../assets/images/attack-impacts/impact-blue.png"),
+  orange: require("../../assets/images/attack-impacts/impact-orange.png"),
+  white: require("../../assets/images/attack-impacts/impact-white.png"),
+};
 const ATTACK_CARD_PREVIEW_ITEMS: Array<{ style: CompanionAttackStyle; label: string; source: ImageSourcePropType }> = [
   { style: "red", label: "불꽃", source: FLAMING_CARD_ART_BY_STYLE.red },
   { style: "blue", label: "빙결", source: FLAMING_CARD_ART_BY_STYLE.blue },
@@ -528,6 +534,15 @@ function AttributeImpactBurst({ attackStyle, progress, size }: { attackStyle: Co
   </Animated.View>;
 }
 
+function HitExplosion({ attackStyle, progress, size }: { attackStyle: CompanionAttackStyle; progress: Animated.Value; size: number }) {
+  const scale = progress.interpolate({ inputRange: [0, 0.12, 0.34, 0.72, 1], outputRange: [0.18, 0.72, 1.18, 1.42, 1.62] });
+  const opacity = progress.interpolate({ inputRange: [0, 0.08, 0.52, 0.78, 1], outputRange: [0, 1, 1, 0.72, 0] });
+  const rotate = progress.interpolate({ inputRange: [0, 0.42, 1], outputRange: ["-14deg", "5deg", "22deg"] });
+  return <Animated.View pointerEvents="none" style={[styles.hitExplosion, { width: size, height: size, left: -size * 0.5, top: -size * 0.5, opacity, transform: [{ scale }, { rotate }] }]}>
+    <Image source={HIT_EXPLOSION_ART_BY_STYLE[attackStyle]} resizeMode="contain" style={styles.hitExplosionImage} />
+  </Animated.View>;
+}
+
 function healthBarColor(percent: number) {
   const value = Math.max(0, Math.min(100, percent));
   const from = value >= 50 ? [250, 204, 21] : [239, 68, 68];
@@ -549,6 +564,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const [impactVariant, setImpactVariant] = useState(0);
   const damageProgress = useRef(new Animated.Value(0)).current;
   const comboImpactProgress = useRef(new Animated.Value(0)).current;
+  const hitExplosionProgress = useRef(new Animated.Value(0)).current;
   const hpFlash = useRef(new Animated.Value(0)).current;
   const defeatProgress = useRef(new Animated.Value(0)).current;
   const bossEntrance = useRef(new Animated.Value(isBoss ? 0 : 1)).current;
@@ -579,14 +595,19 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
     attackProgress.setValue(0);
     damageProgress.setValue(0);
     comboImpactProgress.setValue(0);
+    hitExplosionProgress.setValue(0);
     setImpactVariant(combo ? (attackToken - 1) % COMBO_IMPACT_ARTS.length : (attackToken - 1) % COMBO_IMPACT_ARTS.length);
     hpFlash.setValue(0);
     Animated.parallel([
       Animated.timing(attackProgress, { toValue: 1, duration: combo ? 578 : 360, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       Animated.timing(damageProgress, { toValue: 1, duration: combo ? 867 : 780, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       Animated.timing(comboImpactProgress, { toValue: 1, duration: combo ? 578 : 780, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.sequence([
+        Animated.delay(combo ? 430 : 1480),
+        Animated.timing(hitExplosionProgress, { toValue: 1, duration: combo ? 620 : 760, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]),
     ]).start(() => { setAttackVisible(false); setDamageVisible(false); });
-  }, [attackToken, attackProgress, combo, comboImpactProgress, damageProgress, hpFlash]);
+  }, [attackToken, attackProgress, combo, comboImpactProgress, damageProgress, hitExplosionProgress, hpFlash]);
 
   useEffect(() => {
     bossEntrance.setValue(isBoss ? 0 : 1);
@@ -640,7 +661,10 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
     <View ref={battleRef} onLayout={({ nativeEvent }) => { setBattleWidth(nativeEvent.layout.width); }} style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
               <Animated.View ref={monsterTargetRef} style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, transform: [{ translateX: monsterTranslate }, { translateY: bossEntranceTranslateY }, { scale: bossEntranceScale }] }]}>
 
-        <Animated.View style={[styles.monsterImageLayer, { width: spriteSize, height: spriteSize, transform: [{ scale: monsterScale }, { scaleX: facingLeft ? -1 : 1 }] }]}>
+        <Animated.View pointerEvents="none" style={[styles.hitExplosionAnchor, { left: spriteSize * 0.5, top: spriteSize * 0.5, zIndex: 1 }]}>
+          <HitExplosion attackStyle={attackStyle} progress={hitExplosionProgress} size={spriteSize * 1.55} />
+        </Animated.View>
+        <Animated.View style={[styles.monsterImageLayer, { zIndex: 2, width: spriteSize, height: spriteSize, transform: [{ scale: monsterScale }, { scaleX: facingLeft ? -1 : 1 }] }]}>
           <Image source={monster.image} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, defeatVisible && styles.monsterDefeated]} accessibilityLabel={monster.name} />
           {attackVisible ? <Animated.View pointerEvents="none" style={[styles.comboImpactOverlay, { width: spriteSize * 0.9, height: spriteSize * 0.9, left: spriteSize * 0.05, top: spriteSize * 0.05, opacity: comboImpactOpacity, transform: [{ scale: comboImpactScale }, { rotate: comboImpactRotate }] }]}><Image source={ATTACK_IMPACT_ART_BY_STYLE[attackStyle]} resizeMode="contain" style={styles.comboImpactImage} /><AttributeImpactBurst attackStyle={attackStyle} progress={comboImpactProgress} size={spriteSize * 0.9} /></Animated.View> : null}
         </Animated.View>
@@ -2291,6 +2315,9 @@ const styles = StyleSheet.create({
   monsterSprite: { width: 50, height: 54 },
   monsterSpriteCompact: { width: 34, height: 38 },
   monsterImageLayer: { alignItems: "center", justifyContent: "center" },
+  hitExplosionAnchor: { position: "absolute", width: 0, height: 0, alignItems: "center", justifyContent: "center", overflow: "visible" },
+  hitExplosion: { position: "absolute", alignItems: "center", justifyContent: "center", zIndex: 1, overflow: "visible" },
+  hitExplosionImage: { width: "100%", height: "100%" },
   bossCardShine: { position: "absolute", top: "-45%", bottom: "-45%", left: "-12%", width: 11, backgroundColor: "rgba(255, 246, 180, 0.92)", shadowColor: "#FFFFFF", shadowOpacity: 1, shadowRadius: 8, elevation: 8 },
   monsterInfo: { width: 80, flexGrow: 0, flexShrink: 0, flexBasis: 80, flexDirection: "column", alignItems: "flex-end", alignSelf: "flex-end", position: "relative", zIndex: 10, elevation: 10 },
   monsterInfoCompact: { width: 80, flexGrow: 0, flexShrink: 0, flexBasis: 80, flexDirection: "column", alignItems: "flex-end", alignSelf: "flex-end", position: "relative", zIndex: 10, elevation: 10 },
