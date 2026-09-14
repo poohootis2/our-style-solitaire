@@ -532,10 +532,10 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
     const moveRightToLeft = () => {
       if (cancelled) return;
       setFacingLeft(true);
-      Animated.timing(monsterMotion, { toValue: 0, duration: 6129, easing: Easing.inOut(Easing.sin), useNativeDriver: true }).start(({ finished }) => {
+      Animated.timing(monsterMotion, { toValue: 0, duration: 12258, easing: Easing.inOut(Easing.sin), useNativeDriver: true }).start(({ finished }) => {
         if (!finished || cancelled) return;
         setFacingLeft(false);
-        Animated.timing(monsterMotion, { toValue: 1, duration: 6129, easing: Easing.inOut(Easing.sin), useNativeDriver: true }).start(({ finished: returned }) => {
+        Animated.timing(monsterMotion, { toValue: 1, duration: 12258, easing: Easing.inOut(Easing.sin), useNativeDriver: true }).start(({ finished: returned }) => {
           if (returned && !cancelled) moveRightToLeft();
         });
       });
@@ -1777,7 +1777,7 @@ export default function HomeScreen() {
   const measuredMonsterCenterX = monsterImageCenterX ?? safeScreenWidth * (isLandscape ? 0.70 : 0.72);
   // 영상에서 카드가 몬스터 왼쪽 주둥이에서 사라지는 현상을 줄이기 위해
   // 이미지 중심보다 약간 안쪽(몸통 방향)으로 목표점을 이동합니다.
-  const monsterBodyInsetX = Math.round(cardWidth * 0.22);
+  const monsterBodyInsetX = Math.round(cardWidth * 0.30);
   const monsterAimCenter = measuredMonsterCenterX + monsterBodyInsetX;
   // FlyingCard의 실제 폭은 cardWidth * 2이므로 이미지 중심이 보정된 목표점에 오도록
   // 목표 left에서 실제 렌더링 폭의 절반(cardWidth)을 차감합니다.
@@ -1788,7 +1788,7 @@ export default function HomeScreen() {
   // 이전의 고정 top 오프셋 대신 MonsterBattle의 실제 루트 기준 중심 Y를 사용합니다.
   const fallbackMonsterCenterY = rootTopPadding + (isLandscape ? (phoneLandscape ? 116 : 82) : 152) + cardWidth * 0.5;
   const measuredMonsterCenterY = monsterImageCenterY ?? fallbackMonsterCenterY;
-  const monsterBodyInsetY = Math.round(cardWidth * 0.08);
+  const monsterBodyInsetY = Math.round(cardWidth * 0.10);
   const monsterTargetTop = Math.max(0, measuredMonsterCenterY + monsterBodyInsetY - flightImageHeight * 0.5);
   const flightTravelY = getAttackTravelY(safeScreenHeight, flightStartBottom, flightImageHeight, monsterTargetTop, 1.05);
   const hammerStartLeft = Math.max(0, (safeScreenWidth - boardWidth) * 0.5) + cardWidth * 2.25;
