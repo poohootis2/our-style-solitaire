@@ -40,7 +40,6 @@ import { getBattleContent, getCompanionRoster, type BattleAsset } from "@/lib/ba
 import { PET_ROSTER } from "@/lib/pet-content";
 import { showRewardedAd } from "@/components/rewarded-ad";
 import { companionAttackColors, getCompanionAttackStyle, getPetAttackStyle, type CompanionAttackStyle } from "@/lib/companion-attack";
-import { getAttackTravelY } from "@/lib/attack-layout";
 import { isRunningInPreviewIframe } from "@/lib/_core/manus-runtime";
 
 type Selection = CardSource & { cardId: string };
@@ -51,9 +50,6 @@ type ActiveFlight = {
   progress: Animated.Value;
   startLeft: number;
   startBottom: number;
-  travelX: number;
-  travelY: number;
-  motionStartOffset: number;
   flightColor?: string;
   flamingArt?: ImageSourcePropType;
 };
@@ -128,7 +124,6 @@ const MAX_UNDO_STEPS = 3;
 const CARD_ATTACK_FLIGHT_DURATION = 1800;
 const FLAMING_CARD_FLIGHT_DURATION = CARD_ATTACK_FLIGHT_DURATION * 2;
 const FLYING_CARD_DURATION = CARD_ATTACK_FLIGHT_DURATION;
-const REVERSE_ATTACK_LAUNCH = true;
 const emptyRecords: Records = { wins: 0, bestScore: 0, bestTimeSeconds: null };
 
 function cardLabel(card: Card): string {
@@ -402,22 +397,49 @@ function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress }: { width: nu
   );
 }
 
-function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, reverseLaunchX = 0, travelY = -180, startLeft = 16, startBottom = 44, flightColor, flamingArt = FLAMING_CARD_ART, flaming = false, monsterMotion, monsterMotionLeftDistance = 0, monsterMotionRightDistance = 0, monsterMotionStartOffset = 0 }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; reverseLaunchX?: number; travelY?: number; startLeft?: number; startBottom?: number; flightColor?: string; flamingArt?: ImageSourcePropType; flaming?: boolean; monsterMotion?: Animated.Value; monsterMotionLeftDistance?: number; monsterMotionRightDistance?: number; monsterMotionStartOffset?: number }) {
+function FlyingCard({ card, width, progress, startLeft = 16, startBottom = 44, flightColor, flamingArt = FLAMING_CARD_ART, flaming = false, rootRef, monsterRef }: { card: Card; width: number; progress: Animated.Value; startLeft?: number; startBottom?: number; flightColor?: string; flamingArt?: ImageSourcePropType; flaming?: boolean; rootRef: RefObject<View | null>; monsterRef: RefObject<View | null> }) {
   const glow: Record<Suit, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
   const glowColor = flightColor ?? glow[card.suit];
-  const translateX = progress.interpolate({ inputRange: [0, 0.22, 1], outputRange: [0, reverseLaunchX, travelX] });
-  const targetFollowAbsolute = monsterMotion ? monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-monsterMotionLeftDistance, monsterMotionRightDistance] }) : null;
-  // 발사 시점의 몬스터 위치를 기준으로 삼아, 그 이후 이동한 거리만 카드에 더합니다.
-  // 절대 이동값을 그대로 더하면 발사 순간부터 카드가 먼 곳으로 튀는 문제가 발생합니다.
-  const targetFollow = targetFollowAbsolute ? Animated.add(targetFollowAbsolute, -monsterMotionStartOffset) : null;
-  const followedTranslateX = targetFollow ? Animated.add(translateX, Animated.multiply(progress, targetFollow)) : translateX;
-  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY] });
-  const scale = progress.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0.05, 0.6, 0.05] });
-  const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
   const imageHeight = width * (flaming ? 1.14 : 1);
   const imageWidth = width * 2;
+  const liveTranslateX = useRef(new Animated.Value(0)).current;
+  const liveTranslateY = useRef(new Animated.Value(0)).current;
+  const progressValue = useRef(0);
+
+  useEffect(() => {
+    const progressListener = progress.addListener(({ value }) => { progressValue.current = value; });
+    let frameId: number | null = null;
+    let stopped = false;
+    const measureOnEveryFrame = () => {
+      if (stopped) return;
+      const root = rootRef.current;
+      const monster = monsterRef.current;
+      if (root && monster && typeof root.measureInWindow === "function" && typeof monster.measureInWindow === "function") {
+        root.measureInWindow((rootX, rootY, rootWidth, rootHeight) => {
+          monster.measureInWindow((monsterX, monsterY, monsterWidth, monsterHeight) => {
+            const targetLeft = monsterX + monsterWidth * 0.5 - rootX - imageWidth * 0.5;
+            const targetTop = monsterY + monsterHeight * 0.5 - rootY - imageHeight * 0.5;
+            const startTop = rootHeight - startBottom - imageHeight;
+            const amount = Math.max(0, Math.min(1, progressValue.current));
+            liveTranslateX.setValue((targetLeft - startLeft) * amount);
+            liveTranslateY.setValue((targetTop - startTop) * amount);
+          });
+        });
+      }
+      frameId = requestAnimationFrame(measureOnEveryFrame);
+    };
+    measureOnEveryFrame();
+    return () => {
+      stopped = true;
+      progress.removeListener(progressListener);
+      if (frameId !== null) cancelAnimationFrame(frameId);
+    };
+  }, [imageHeight, imageWidth, monsterRef, progress, rootRef, startBottom, startLeft, liveTranslateX, liveTranslateY]);
+
+  const scale = progress.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0.05, 0.6, 0.05] });
+  const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
   return (
-    <Animated.View pointerEvents="none" style={[styles.attributeFlyingCard, { left: startLeft, bottom: startBottom, width: imageWidth, height: imageHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX: followedTranslateX }, { translateY }, { scale }] }]}> 
+    <Animated.View pointerEvents="none" style={[styles.attributeFlyingCard, { left: startLeft, bottom: startBottom, width: imageWidth, height: imageHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX: liveTranslateX }, { translateY: liveTranslateY }, { scale }] }]}> 
       <Image source={flamingArt} resizeMode="stretch" style={[styles.attributeFlyingCardImage, { transform: [{ scaleX: 0.92 }, { scaleY: 0.82 }] }]} />
     </Animated.View>
   );
@@ -515,7 +537,7 @@ function healthBarColor(percent: number) {
   return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
 }
 
-function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo, compact = false, landscape = false, phoneLandscape = false, androidPortrait = false, safeWidth = 360, travelDistance = 24, monster, isBoss, cardSize, motionValue, rootRef, onCenterLayout }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; attackStyle: CompanionAttackStyle; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; androidPortrait?: boolean; safeWidth?: number; travelDistance?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; rootRef?: RefObject<View | null>; onCenterLayout?: (centerX: number, centerY: number) => void }) {
+function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo, compact = false, landscape = false, phoneLandscape = false, androidPortrait = false, safeWidth = 360, travelDistance = 24, monster, isBoss, cardSize, motionValue, rootRef, monsterTargetRef }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; attackStyle: CompanionAttackStyle; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; androidPortrait?: boolean; safeWidth?: number; travelDistance?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; rootRef?: RefObject<View | null>; monsterTargetRef: RefObject<View | null> }) {
   const battleRef = useRef<View | null>(null);
   const internalMonsterMotion = useRef(new Animated.Value(1)).current;
   const monsterMotion = motionValue ?? internalMonsterMotion;
@@ -615,21 +637,9 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const currentHealthColor = healthBarColor(currentHealth);
 
   return (
-    <View ref={battleRef} onLayout={({ nativeEvent }) => {
-      setBattleWidth(nativeEvent.layout.width);
-      const fallbackCenterX = nativeEvent.layout.x + spriteSize * 0.5;
-      const fallbackCenterY = nativeEvent.layout.y + spriteSize * 0.5;
-      const root = rootRef?.current;
-      const battle = battleRef.current;
-      if (root && battle && typeof battle.measureLayout === "function") {
-        battle.measureLayout(root, (x, y, width, height) => {
-          onCenterLayout?.(x + spriteSize * 0.5, y + spriteSize * 0.5);
-        }, () => onCenterLayout?.(fallbackCenterX, fallbackCenterY));
-      } else {
-        onCenterLayout?.(fallbackCenterX, fallbackCenterY);
-      }
-    }} style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
-      <Animated.View style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, transform: [{ translateX: monsterTranslate }, { translateY: bossEntranceTranslateY }, { scale: bossEntranceScale }] }]}>
+    <View ref={battleRef} onLayout={({ nativeEvent }) => { setBattleWidth(nativeEvent.layout.width); }} style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
+              <Animated.View ref={monsterTargetRef} style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, transform: [{ translateX: monsterTranslate }, { translateY: bossEntranceTranslateY }, { scale: bossEntranceScale }] }]}>
+
         <Animated.View style={[styles.monsterImageLayer, { width: spriteSize, height: spriteSize, transform: [{ scale: monsterScale }, { scaleX: facingLeft ? -1 : 1 }] }]}>
           <Image source={monster.image} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, defeatVisible && styles.monsterDefeated]} accessibilityLabel={monster.name} />
           {attackVisible ? <Animated.View pointerEvents="none" style={[styles.comboImpactOverlay, { width: spriteSize * 0.9, height: spriteSize * 0.9, left: spriteSize * 0.05, top: spriteSize * 0.05, opacity: comboImpactOpacity, transform: [{ scale: comboImpactScale }, { rotate: comboImpactRotate }] }]}><Image source={ATTACK_IMPACT_ART_BY_STYLE[attackStyle]} resizeMode="contain" style={styles.comboImpactImage} /><AttributeImpactBurst attackStyle={attackStyle} progress={comboImpactProgress} size={spriteSize * 0.9} /></Animated.View> : null}
@@ -755,6 +765,7 @@ export default function HomeScreen() {
   const newGameStarted = useRef(false);
   const suppressNextShufflePromptRef = useRef(false);
   const rootRef = useRef<View | null>(null);
+  const monsterTargetRef = useRef<View | null>(null);
   const tableauBottomCardRefs = useRef<Array<View | null>>(Array.from({ length: 7 }, () => null));
   const companionAvoidanceShift = useRef(new Animated.Value(0)).current;
   const companionAvoidanceTargetRef = useRef(0);
@@ -764,13 +775,6 @@ export default function HomeScreen() {
   const elapsedSecondsRef = useRef(elapsedSeconds);
   const flightProgress = useRef(new Animated.Value(0)).current;
   const monsterMotion = useRef(new Animated.Value(1)).current;
-  const monsterMotionValueRef = useRef(1);
-  useEffect(() => {
-    const listenerId = monsterMotion.addListener(({ value }) => { monsterMotionValueRef.current = value; });
-    return () => monsterMotion.removeListener(listenerId);
-  }, [monsterMotion]);
-  const [monsterImageCenterX, setMonsterImageCenterX] = useState<number | null>(null);
-  const [monsterImageCenterY, setMonsterImageCenterY] = useState<number | null>(null);
   const comboCompanionScale = useRef(new Animated.Value(1)).current;
   const hammerShine = useRef(new Animated.Value(0)).current;
   const hammerIdleMotion = useRef(new Animated.Value(0)).current;
@@ -1274,10 +1278,6 @@ export default function HomeScreen() {
 
   const animateFlight = (card: Card, flaming = false) => {
     const progress = new Animated.Value(0);
-    const motionStartValue = Math.max(0, Math.min(1, monsterMotionValueRef.current));
-    const motionLeftDistance = monsterTravelDistance + 100;
-    const motionRightDistance = monsterTravelDistance;
-    const motionStartOffset = -motionLeftDistance + (motionLeftDistance + motionRightDistance) * motionStartValue;
     const id = `flight-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const flight: ActiveFlight = {
       id,
@@ -1286,9 +1286,6 @@ export default function HomeScreen() {
       progress,
       startLeft: flightStartLeft,
       startBottom: flightStartBottom,
-      travelX: flightTravelX + motionStartOffset,
-      travelY: flightTravelY,
-      motionStartOffset,
       flightColor: companionAttackColor,
       flamingArt: FLAMING_CARD_ART_BY_STYLE[companionAttackStyle],
     };
@@ -1786,30 +1783,6 @@ export default function HomeScreen() {
   const companionCenterBottom = companionBottom + companionSize * 0.5 - cardWidth * renderCardRatio * 0.5;
   const flightStartLeft = companionCenterLeft;
   const flightStartBottom = companionCenterBottom;
-  // 몬스터는 stats 행의 오른쪽 전투 슬롯에서 좌우로 이동하므로, 화면 중앙이 아닌
-  // 몬스터 슬롯 중심을 기준으로 목표점을 잡습니다. 펫이 좌측으로 회피하면
-  // 시작점과 목표점의 차이가 자동으로 커져 카드가 몬스터 쪽으로 꺾여 날아갑니다.
-  const measuredMonsterCenterX = monsterImageCenterX ?? safeScreenWidth * (isLandscape ? 0.70 : 0.72);
-  // 영상에서 카드가 몬스터 왼쪽 주둥이에서 사라지는 현상을 줄이기 위해
-  // 이미지 중심보다 약간 안쪽(몸통 방향)으로 목표점을 이동합니다.
-  const monsterBodyInsetX = Math.round(cardWidth * 0.30);
-  const monsterAimCenter = measuredMonsterCenterX + monsterBodyInsetX;
-  // FlyingCard의 실제 폭은 cardWidth * 2이므로 이미지 중심이 보정된 목표점에 오도록
-  // 목표 left에서 실제 렌더링 폭의 절반(cardWidth)을 차감합니다.
-  const flightImageWidth = cardWidth * 2;
-  const monsterAimLeft = monsterAimCenter - flightImageWidth * 0.5;
-  const rawFlightTravelX = monsterAimLeft - flightStartLeft;
-  // 반전 요청은 출발 직후의 짧은 역방향 꺾임으로 표현하고, 최종점은 몬스터 중앙에 유지합니다.
-  const reverseLaunchDistance = Math.min(Math.abs(rawFlightTravelX) * 0.22, Math.max(28, cardWidth * 0.65));
-  const reverseLaunchX = rawFlightTravelX === 0 ? 0 : -Math.sign(rawFlightTravelX) * reverseLaunchDistance;
-  const flightTravelX = phoneLandscape ? 0 : rawFlightTravelX;
-  const flightImageHeight = cardWidth * 1.14;
-  // 이전의 고정 top 오프셋 대신 MonsterBattle의 실제 루트 기준 중심 Y를 사용합니다.
-  const fallbackMonsterCenterY = rootTopPadding + (isLandscape ? (phoneLandscape ? 116 : 82) : 152) + cardWidth * 0.5;
-  const measuredMonsterCenterY = monsterImageCenterY ?? fallbackMonsterCenterY;
-  const monsterBodyInsetY = Math.round(cardWidth * 0.10);
-  const monsterTargetTop = Math.max(0, measuredMonsterCenterY + monsterBodyInsetY - flightImageHeight * 0.5);
-  const flightTravelY = getAttackTravelY(safeScreenHeight, flightStartBottom, flightImageHeight, monsterTargetTop, 1.05);
   const hammerStartLeft = Math.max(0, (safeScreenWidth - boardWidth) * 0.5) + cardWidth * 2.25;
   const hammerStartTop = rootTopPadding + 132;
   const hammerStrikeTranslateX = hammerStrike.interpolate({ inputRange: [0, 0.86, 1], outputRange: [0, hammerStrikeTarget?.dx ?? 0, hammerStrikeTarget?.dx ?? 0] });
@@ -1920,7 +1893,7 @@ export default function HomeScreen() {
         <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
         {showBossPrepReward ? <View style={styles.bossPrepRewardPopup}><Text style={styles.bossPrepRewardTitle}>보스 준비 보너스 획득!</Text><Text style={styles.bossPrepRewardCopy}>망치 +1</Text></View> : null}
-        {flyingAttacks.map((flight) => <FlyingCard key={flight.id} card={flight.card} width={cardWidth} cardRatio={renderCardRatio} progress={flight.progress} travelX={flight.travelX} travelY={flight.travelY} startLeft={flight.startLeft} startBottom={flight.startBottom} flightColor={flight.flightColor} flamingArt={flight.flamingArt} flaming={flight.variant === "flaming"} monsterMotion={monsterMotion} reverseLaunchX={REVERSE_ATTACK_LAUNCH ? reverseLaunchX : 0} monsterMotionLeftDistance={monsterTravelDistance + 100} monsterMotionRightDistance={monsterTravelDistance} monsterMotionStartOffset={flight.motionStartOffset} />)}
+        {flyingAttacks.map((flight) => <FlyingCard key={flight.id} card={flight.card} width={cardWidth} progress={flight.progress} startLeft={flight.startLeft} startBottom={flight.startBottom} flightColor={flight.flightColor} flamingArt={flight.flamingArt} flaming={flight.variant === "flaming"} rootRef={rootRef} monsterRef={monsterTargetRef} />)}
         {hammerStrikeTarget ? <Animated.View pointerEvents="none" style={[styles.hammerStrike, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.08, height: cardWidth * 1.08, transform: [{ translateX: hammerStrikeTranslateX }, { translateY: hammerStrikeTranslateY }, { scale: hammerStrikeScale }, { rotate: hammerStrikeRotate }] }]}> 
           <Image source={HAMMER_ICON_ART} resizeMode="contain" style={styles.hammerStrikeImage} />
         </Animated.View> : null}
@@ -1976,7 +1949,7 @@ export default function HomeScreen() {
             <View style={styles.statDivider} />
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
           </View>
-          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} androidPortrait={Platform.OS === "android" && !isLandscape} safeWidth={safeScreenWidth} travelDistance={monsterTravelDistance} motionValue={monsterMotion} rootRef={rootRef} onCenterLayout={(centerX, centerY) => { setMonsterImageCenterX(centerX); setMonsterImageCenterY(centerY); }} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
+          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} androidPortrait={Platform.OS === "android" && !isLandscape} safeWidth={safeScreenWidth} travelDistance={monsterTravelDistance} motionValue={monsterMotion} rootRef={rootRef} monsterTargetRef={monsterTargetRef} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
         <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ translateY: -19 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 

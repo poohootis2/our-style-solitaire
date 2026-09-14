@@ -941,3 +941,8 @@
 - [x] 공격카드가 발사 시점 기준으로 이동 중 몬스터 중앙을 추적하도록 구조 보정
 - [x] 고정 목표·반전 꺾임·카드 폭 보정 충돌 제거 및 TypeScript·Vitest 검증
 - [x] 체크포인트 저장·GitHub main PUSH 예정
+
+- [x] 렌더링된 몬스터 이미지의 Screen Absolute centerX·centerY 측정
+- [x] 공격카드 비행 중 매 프레임 몬스터 절대 중심을 목표로 갱신
+- [x] 기존 보간값 합산·발사 Offset 의존 제거 및 카드 중심 보정
+- [x] Android·웹 코드 회귀 검증 완료; 체크포인트·GitHub PUSH 진행
