@@ -903,4 +903,4 @@
 
 - [x] 몬스터 이름을 체력게이지 바로 위에 배치
 - [x] 이름·체력게이지를 공통 80dp 세로 Flex 패널로 정렬
-- [ ] 웹·Android·Fold 회귀 검증·체크포인트 저장 및 GitHub main PUSH
+- [x] 웹·Android·Fold 회귀 검증·체크포인트 저장 및 GitHub main PUSH
