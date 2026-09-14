@@ -582,7 +582,9 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const boundedTravelDistance = battleWidth > 0
     ? Math.min(travelDistance, Math.max(0, Math.floor((battleWidth - infoWidth - spriteSize - 12) * 0.5)))
     : travelDistance;
-  const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-boundedTravelDistance, boundedTravelDistance] });
+  // Extend only the left side of the sprite path by 100dp; the name/health panel remains fixed on the right.
+  const leftTravelDistance = boundedTravelDistance + 100;
+  const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-leftTravelDistance, boundedTravelDistance] });
   const monsterScale = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [1.5, 1] });
   const projectileTranslate = attackProgress.interpolate({ inputRange: [0, 1], outputRange: [0, 92] });
   const projectileScale = attackProgress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.5, 1.15, 0.2] });
