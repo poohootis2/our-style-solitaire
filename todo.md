@@ -907,4 +907,4 @@
 
 - [x] 몬스터 이미지의 좌측 이동 범위를 현재보다 100px 확대
 - [x] 이름·체력 패널 고정 및 시간 영역 비침범 확인
-- [ ] 웹·Android·Fold 회귀 검증·체크포인트 저장 및 GitHub main PUSH
+- [x] 웹·Android·Fold 회귀 검증·체크포인트 저장 및 GitHub main PUSH
