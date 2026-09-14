@@ -400,11 +400,11 @@ function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress }: { width: nu
   );
 }
 
-function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, travelY = -180, startLeft = 16, startBottom = 44, flightColor, flamingArt = FLAMING_CARD_ART, flaming = false, monsterMotion, monsterTravelDistance = 0 }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; travelY?: number; startLeft?: number; startBottom?: number; flightColor?: string; flamingArt?: ImageSourcePropType; flaming?: boolean; monsterMotion?: Animated.Value; monsterTravelDistance?: number }) {
+function FlyingCard({ card, width, cardRatio = CARD_RATIO, progress, travelX = 0, travelY = -180, startLeft = 16, startBottom = 44, flightColor, flamingArt = FLAMING_CARD_ART, flaming = false, monsterMotion, monsterMotionLeftDistance = 0, monsterMotionRightDistance = 0 }: { card: Card; width: number; cardRatio?: number; progress: Animated.Value; travelX?: number; travelY?: number; startLeft?: number; startBottom?: number; flightColor?: string; flamingArt?: ImageSourcePropType; flaming?: boolean; monsterMotion?: Animated.Value; monsterMotionLeftDistance?: number; monsterMotionRightDistance?: number }) {
   const glow: Record<Suit, string> = { clubs: "#77D6C3", diamonds: "#FF6F8A", hearts: "#FF9AD5", spades: "#B9C9FF" };
   const glowColor = flightColor ?? glow[card.suit];
   const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelX] });
-  const targetFollow = monsterMotion ? monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-monsterTravelDistance, monsterTravelDistance] }) : null;
+  const targetFollow = monsterMotion ? monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-monsterMotionLeftDistance, monsterMotionRightDistance] }) : null;
   const followedTranslateX = targetFollow ? Animated.add(translateX, Animated.multiply(progress, targetFollow)) : translateX;
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, travelY] });
   const scale = progress.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0.05, 0.6, 0.05] });
@@ -1874,7 +1874,7 @@ export default function HomeScreen() {
         <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
         {showBossPrepReward ? <View style={styles.bossPrepRewardPopup}><Text style={styles.bossPrepRewardTitle}>보스 준비 보너스 획득!</Text><Text style={styles.bossPrepRewardCopy}>망치 +1</Text></View> : null}
-        {flyingAttacks.map((flight) => <FlyingCard key={flight.id} card={flight.card} width={cardWidth} cardRatio={renderCardRatio} progress={flight.progress} travelX={flight.travelX} travelY={flight.travelY} startLeft={flight.startLeft} startBottom={flight.startBottom} flightColor={flight.flightColor} flamingArt={flight.flamingArt} flaming={flight.variant === "flaming"} monsterMotion={monsterMotion} monsterTravelDistance={monsterTravelDistance} />)}
+        {flyingAttacks.map((flight) => <FlyingCard key={flight.id} card={flight.card} width={cardWidth} cardRatio={renderCardRatio} progress={flight.progress} travelX={flight.travelX} travelY={flight.travelY} startLeft={flight.startLeft} startBottom={flight.startBottom} flightColor={flight.flightColor} flamingArt={flight.flamingArt} flaming={flight.variant === "flaming"} monsterMotion={monsterMotion} monsterMotionLeftDistance={monsterTravelDistance + 100} monsterMotionRightDistance={monsterTravelDistance} />)}
         {hammerStrikeTarget ? <Animated.View pointerEvents="none" style={[styles.hammerStrike, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.08, height: cardWidth * 1.08, transform: [{ translateX: hammerStrikeTranslateX }, { translateY: hammerStrikeTranslateY }, { scale: hammerStrikeScale }, { rotate: hammerStrikeRotate }] }]}> 
           <Image source={HAMMER_ICON_ART} resizeMode="contain" style={styles.hammerStrikeImage} />
         </Animated.View> : null}
