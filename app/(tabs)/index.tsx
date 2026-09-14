@@ -2164,9 +2164,14 @@ export default function HomeScreen() {
                     {companionRoster.map((companion) => {
                       const unlocked = unlockedPetIds.includes(companion.id);
                       const selected = unlocked && companion.id === selectedCompanionId;
+                      const companionStyle = companion.id.startsWith("pet-") ? getPetAttackStyle(companion.id) : getCompanionAttackStyle(companion);
                       return <Pressable key={companion.id} accessibilityRole="radio" accessibilityState={{ selected, disabled: !unlocked }} disabled={!unlocked} onPress={() => { setSelectedCompanionId(companion.id); haptic.light(); }} style={({ pressed }) => [styles.companionChoice, selected && styles.companionChoiceSelected, !unlocked && styles.companionChoiceLocked, pressed && styles.pressed]}>
                         <Image source={companion.image} resizeMode="contain" style={[styles.companionChoiceImage, !unlocked && styles.companionChoiceSilhouette]} accessibilityLabel={unlocked ? companion.name : "잠긴 펫"} />
                         <Text style={styles.companionChoiceName} numberOfLines={2}>{unlocked ? companion.name : "???"}</Text>
+                        <View accessibilityLabel={`속성 ${ATTACK_STYLE_LABELS[companionStyle]}`} style={styles.companionChoiceAttribute}>
+                          <View style={[styles.companionChoiceAttributeDot, { backgroundColor: companionAttackColors[companionStyle] }]} />
+                          <Text style={styles.companionChoiceAttributeText}>{ATTACK_STYLE_LABELS[companionStyle]}</Text>
+                        </View>
                         {selected ? <Text style={styles.companionChoiceCheck}>✓</Text> : null}
                       </Pressable>;
                     })}
@@ -2522,7 +2527,10 @@ const styles = StyleSheet.create({
   companionChoiceLocked: { backgroundColor: "#101A30", borderColor: "#263753" },
   companionChoiceImage: { width: 48, height: 52 },
   companionChoiceSilhouette: { opacity: 0.92, tintColor: "#020611" },
-  companionChoiceName: { color: "#FFFDF8", fontSize: 10, fontWeight: "800", textAlign: "center", marginTop: 6 },
+  companionChoiceName: { color: "#FFFDF8", fontSize: 10, fontWeight: "800", textAlign: "center", marginTop: 4 },
+  companionChoiceAttribute: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 3, minHeight: 16, marginTop: 2, paddingHorizontal: 5, borderRadius: 8, backgroundColor: "rgba(7, 15, 31, 0.72)" },
+  companionChoiceAttributeDot: { width: 6, height: 6, borderRadius: 3 },
+  companionChoiceAttributeText: { color: "#FFE8A8", fontSize: 9, lineHeight: 12, fontWeight: "900" },
   companionChoiceCheck: { position: "absolute", top: 6, right: 7, color: "#FFFDF8", fontSize: 16, fontWeight: "900" },
   recordGrid: { flexDirection: "row", gap: 8, marginTop: 20 },
   recordCard: { flex: 1, minHeight: 83, justifyContent: "center", alignItems: "center", borderRadius: 15, backgroundColor: "#152542", borderWidth: 1, borderColor: "#36527A", paddingHorizontal: 4 },
