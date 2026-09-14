@@ -1675,9 +1675,19 @@ export default function HomeScreen() {
     applyGame(drawnGame);
   };
 
+  const cancelHammerModeForCardAction = () => {
+    if (!hammerMode) return;
+    setHammerMode(false);
+    setShowHammerOffer(false);
+    showTimedHint("망치 사용을 취소하고 카드 동작을 실행합니다.");
+    haptic.light();
+  };
+
   const onTableauPress = (column: number, index: number, card: Card) => {
     const pile = game.tableau[column];
-    if (hammerMode) {
+    if (hammerMode && card.faceUp) {
+      cancelHammerModeForCardAction();
+    } else if (hammerMode) {
       const boardLeft = Math.max(0, (safeScreenWidth - boardWidth) * 0.5);
       const hammerLeft = boardLeft + cardWidth * 2.25;
       const targetLeft = boardLeft + column * (cardWidth + tableauGap);
@@ -1719,11 +1729,22 @@ export default function HomeScreen() {
 
   const onWastePress = () => {
     const card = game.waste.at(-1);
-    if (hammerMode) {
-      useHammerOnCard({ kind: "waste" });
+    if (hammerMode) cancelHammerModeForCardAction();
+    if (card) selectCard({ kind: "waste", cardId: card.id });
+  };
+
+  const onWasteDoublePress = () => {
+    if (hammerMode) cancelHammerModeForCardAction();
+    autoMoveToFoundation({ kind: "waste" });
+  };
+
+  const onTableauDoublePress = (column: number, index: number, card: Card) => {
+    if (hammerMode) cancelHammerModeForCardAction();
+    if (selection && selection.cardId !== card.id) {
+      selectCard({ kind: "tableau", column, index, cardId: card.id });
       return;
     }
-    if (card) selectCard({ kind: "waste", cardId: card.id });
+    autoMoveToFoundation({ kind: "tableau", column, index });
   };
 
   const playPreviewFoundationAttack = () => {
@@ -1976,7 +1997,7 @@ export default function HomeScreen() {
           <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} androidPortrait={Platform.OS === "android" && !isLandscape} safeWidth={safeScreenWidth} travelDistance={monsterTravelDistance} motionValue={monsterMotion} rootRef={rootRef} monsterTargetRef={monsterTargetRef} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
-        <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ translateY: -19 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
+        <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ translateY: -24 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
         <View style={[styles.board, { width: boardWidth, alignSelf: "flex-start", marginLeft: foldUltraWide && !isLandscape ? Math.max(0, (safeScreenWidth - boardWidth) * 0.5) : Math.max(0, (isLandscape ? 10 : cardAreaLeft) - 6) }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
@@ -1986,7 +2007,7 @@ export default function HomeScreen() {
               <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label={game.waste.length ? "↻" : ""} onPress={() => applyGame(drawFromStock(game))} />
             )}
             {game.waste.at(-1) ? (
-              <CardFace card={game.waste.at(-1)!} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.kind === "waste"} onPress={onWastePress} onDoublePress={() => autoMoveToFoundation({ kind: "waste" })} />
+              <CardFace card={game.waste.at(-1)!} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.kind === "waste"} onPress={onWastePress} onDoublePress={onWasteDoublePress} />
             ) : (
               <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label="" />
             )}
@@ -2016,7 +2037,7 @@ export default function HomeScreen() {
               {pile.map((card, index) => (
                 <View ref={index === pile.length - 1 ? (node) => { tableauBottomCardRefs.current[column] = node; } : undefined} key={card.id} style={{ position: "absolute", top: index * stackOffset, left: 0, zIndex: 100 + index, elevation: 100 + index }}>
                   {card.faceUp ? (
-                    <CardFace card={card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => { if (selection && selection.cardId !== card.id) { selectCard({ kind: "tableau", column, index, cardId: card.id }); return; } autoMoveToFoundation({ kind: "tableau", column, index }); }} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
+                    <CardFace card={card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => onTableauDoublePress(column, index, card)} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
                   ) : (
                     <CardBack width={cardWidth} cardRatio={renderCardRatio} theme={cardBackTheme} onPress={() => onTableauPress(column, index, card)} />
                   )}
@@ -2286,7 +2307,7 @@ const styles = StyleSheet.create({
   attackCardPreviewItemActive: { borderColor: "#77D6C3", backgroundColor: "rgba(119, 214, 195, 0.14)" },
   attackCardPreviewImage: { width: "100%", height: 74 },
   attackCardPreviewLabel: { color: "#D6E2F4", fontSize: 10, fontWeight: "800", marginTop: 2 },
-  contentLift: { transform: [{ translateY: -19 }] },
+  contentLift: { transform: [{ translateY: -24 }] },
   stats: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 6, marginBottom: 10 },
   statsNarrowCover: { paddingVertical: 6.3, marginBottom: 10.8 },
   statsFoldUltraWide: { paddingVertical: 4.2, marginBottom: 7.6 },
