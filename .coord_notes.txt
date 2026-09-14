@@ -1,0 +1,7 @@
+Current findings:
+- MonsterBattle currently reports `nativeEvent.layout.x + spriteSize * 0.5` via onCenterLayout, which is parent-relative.
+- Main screen uses that value as root-relative `monsterImageCenterX` for flightTravelX.
+- Main screen computes `monsterAimLeft = monsterAimCenter - cardWidth * 0.5` and vertical target from hardcoded rootTopPadding offsets.
+- Main root has rootRef and flying cards render as absolute children of root.
+- Flying attribute image width is `cardWidth * 2`, so target-left compensation currently uses only cardWidth/2.
+Planned fix: measure MonsterBattle in the same root coordinate system, return centerX/centerY, target by actual rendered flight width, and use measured centerY instead of hardcoded target top with a safe fallback.
