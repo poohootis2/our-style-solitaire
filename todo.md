@@ -985,3 +985,7 @@
 - [x] 게임 초기화 완료 후 중앙에 펫 도감 보존 알림 표시
 - [x] 웨이스트 영역 근처에 망치 5개 소모 툴팁 표시
 - [x] TypeScript·Vitest·반응형 UI 검증 완료; 체크포인트·GitHub main PUSH 진행
+
+- [x] 속성카드 보기 패널을 카드 스택 위에 표시
+- [x] 선택된 카드 테두리를 더 진하고 두껍게 강화
+- [x] TypeScript·Vitest·레이어·터치 회귀 검증 완료; 체크포인트·GitHub main PUSH 진행

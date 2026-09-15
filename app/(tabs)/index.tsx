@@ -346,7 +346,7 @@ function CardFace({
         {...(onDragEnd ? panResponder.panHandlers : {})}
         style={({ pressed }) => [
           styles.card,
-          { width, height, borderColor: selected ? "#FF7A66" : "#F1EEE6" },
+          { width, height, borderColor: selected ? "#FF4B3E" : "#F1EEE6" },
           selected && styles.cardSelected,
           isBoss && styles.cardBoss,
           pressed && styles.cardTouching,
@@ -2329,7 +2329,7 @@ const styles = StyleSheet.create({
   previewTools: { position: "absolute", top: 86, left: 12, right: 12, zIndex: 60, flexDirection: "row", justifyContent: "center", gap: 8 },
   previewToolButton: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: "#F3C969", backgroundColor: "rgba(24, 39, 68, 0.94)" },
   previewToolText: { color: "#FFF3D1", fontSize: 10, fontWeight: "900" },
-  attackCardPreviewPanel: { position: "absolute", top: 126, left: 12, right: 12, zIndex: 61, padding: 10, borderRadius: 14, backgroundColor: "rgba(14, 28, 53, 0.97)", borderWidth: 1, borderColor: "#F3C969", shadowColor: "#000000", shadowOpacity: 0.35, shadowRadius: 10, elevation: 14 },
+  attackCardPreviewPanel: { position: "absolute", top: 126, left: 12, right: 12, zIndex: 150, padding: 10, borderRadius: 14, backgroundColor: "rgba(14, 28, 53, 0.99)", borderWidth: 2, borderColor: "#F3C969", shadowColor: "#000000", shadowOpacity: 0.5, shadowRadius: 14, elevation: 40 },
   attackCardPreviewHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
   attackCardPreviewTitle: { color: "#FFF3D1", fontSize: 12, fontWeight: "900" },
   attackCardPreviewClose: { color: "#FFD86B", fontSize: 24, lineHeight: 22, fontWeight: "700", paddingHorizontal: 5 },
@@ -2432,7 +2432,7 @@ const styles = StyleSheet.create({
   slot: { borderRadius: 7, borderWidth: 1.5, borderStyle: "dashed", borderColor: "#3C557D", alignItems: "center", justifyContent: "center", backgroundColor: "#182744" },
   slotLabel: { color: "#58739D", fontSize: 15, fontWeight: "900" },
   card: { position: "relative", overflow: "hidden", borderRadius: 7, borderWidth: 1, backgroundColor: "#FFFDF8", shadowColor: "#050912", shadowOpacity: 0.3, shadowRadius: 3, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
-  cardSelected: { transform: [{ translateY: -7 }], borderWidth: 2.5, shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 8, elevation: 8 },
+  cardSelected: { transform: [{ translateY: -7 }], borderWidth: 4, borderColor: "#FF4B3E", shadowColor: "#FF4B3E", shadowOpacity: 1, shadowRadius: 10, elevation: 12 },
   cardTouching: { opacity: 0.92 },
   cardBoss: { backgroundColor: "#D5A73A", borderColor: "#FFE39A", shadowColor: "#F3C969", shadowOpacity: 0.55, shadowRadius: 6 },
   rankTop: { position: "absolute", fontSize: 14, lineHeight: 15, fontWeight: "900" },
