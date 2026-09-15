@@ -447,8 +447,10 @@ function FlyingCard({ card, width, progress, startLeft = 16, startBottom = 44, f
   const scale = progress.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0.05, 0.6, 0.05] });
   const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
   return (
-    <Animated.View pointerEvents="none" style={[styles.attributeFlyingCard, { left: startLeft, bottom: startBottom, width: imageWidth, height: imageHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ scale }, { translateX: liveTranslateX }, { translateY: liveTranslateY }] }]}> 
-      <Image source={flamingArt} resizeMode="stretch" style={[styles.attributeFlyingCardImage, { transform: [{ scaleX: 0.92 }, { scaleY: 0.82 }] }]} />
+    <Animated.View pointerEvents="none" style={[styles.attributeFlyingCard, { left: startLeft, bottom: startBottom, width: imageWidth, height: imageHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX: liveTranslateX }, { translateY: liveTranslateY }] }]}> 
+      <Animated.View style={{ width: imageWidth, height: imageHeight, transform: [{ scale }] }}>
+        <Image source={flamingArt} resizeMode="stretch" style={[styles.attributeFlyingCardImage, { transform: [{ scaleX: 0.92 }, { scaleY: 0.82 }] }]} />
+      </Animated.View>
     </Animated.View>
   );
 }
@@ -554,7 +556,7 @@ function healthBarColor(percent: number) {
   return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
 }
 
-function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo, compact = false, landscape = false, phoneLandscape = false, androidPortrait = false, safeWidth = 360, travelDistance = 24, monster, isBoss, cardSize, motionValue, rootRef, monsterTargetRef }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; attackStyle: CompanionAttackStyle; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; androidPortrait?: boolean; safeWidth?: number; travelDistance?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; rootRef?: RefObject<View | null>; monsterTargetRef: RefObject<View | null> }) {
+function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo, compact = false, landscape = false, phoneLandscape = false, androidPortrait = false, safeWidth = 360, travelDistance = 24, leftTravelExtension = 100, monster, isBoss, cardSize, motionValue, rootRef, monsterTargetRef }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; attackStyle: CompanionAttackStyle; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; androidPortrait?: boolean; safeWidth?: number; travelDistance?: number; leftTravelExtension?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; rootRef?: RefObject<View | null>; monsterTargetRef: RefObject<View | null> }) {
   const battleRef = useRef<View | null>(null);
   const internalMonsterMotion = useRef(new Animated.Value(1)).current;
   const monsterMotion = motionValue ?? internalMonsterMotion;
@@ -634,10 +636,10 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
     ? Math.min(travelDistance, Math.max(0, Math.floor((battleWidth - infoWidth - spriteSize - 12) * 0.5)))
     : travelDistance;
   // Extend only the left side of the sprite path by 100dp; the name/health panel remains fixed on the right.
-  const leftTravelDistance = boundedTravelDistance + 100;
+  const leftTravelDistance = boundedTravelDistance + leftTravelExtension;
   const monsterTranslate = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [-leftTravelDistance, boundedTravelDistance] });
   const monsterScale = monsterMotion.interpolate({ inputRange: [0, 1], outputRange: [1.5, 1] });
-  const projectileTranslate = attackProgress.interpolate({ inputRange: [0, 1], outputRange: [0, 92] });
+  const projectileTranslate = attackProgress.interpolate({ inputRange: [0, 1], outputRange: combo ? [0, 0] : [0, 92] });
   const projectileScale = attackProgress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.5, 1.15, 0.2] });
   const damageTranslateY = damageProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
   const damageOpacity = damageProgress.interpolate({ inputRange: [0, 0.65, 1], outputRange: [0, 1, 0] });
@@ -736,7 +738,8 @@ export default function HomeScreen() {
     { left: isLandscape ? 10 : cardAreaLeft, right: isLandscape ? safeScreenWidth - 10 : cardAreaRight },
   );
   // Fold tableau cards expose more of each rank/suit mark instead of stacking too tightly.
-  const stackOffset = foldPortrait ? Math.max(16, Math.round(baseStackOffset * 0.78) + 10) : baseStackOffset;
+  const tabletStackOffset = foldPortrait ? Math.max(16, Math.round(baseStackOffset * 0.78) + 10) : baseStackOffset;
+  const stackOffset = isTablet ? Math.max(8, Math.round(tabletStackOffset * 0.9)) : tabletStackOffset;
   const tableauGap = foldPortrait ? Math.max(8, Math.round(baseTableauGap * 1.22)) : baseTableauGap;
   const compactControls = compact || compactLandscape;
   const monsterTravelDistance = isLandscape ? Math.max(160, Math.min(310, Math.round(safeScreenWidth * 0.2) + 50)) : 94;
@@ -1737,6 +1740,7 @@ export default function HomeScreen() {
 
   const onWasteDoublePress = () => {
     if (hammerMode) cancelHammerModeForCardAction();
+    setSelection(null);
     autoMoveToFoundation({ kind: "waste" });
   };
 
@@ -1996,11 +2000,11 @@ export default function HomeScreen() {
             <View style={styles.statDivider} />
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
           </View>
-          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} androidPortrait={Platform.OS === "android" && !isLandscape} safeWidth={safeScreenWidth} travelDistance={monsterTravelDistance} motionValue={monsterMotion} rootRef={rootRef} monsterTargetRef={monsterTargetRef} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
+          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} androidPortrait={Platform.OS === "android" && !isLandscape} safeWidth={safeScreenWidth} travelDistance={monsterTravelDistance} leftTravelExtension={isTablet ? 130 : 100} motionValue={monsterMotion} rootRef={rootRef} monsterTargetRef={monsterTargetRef} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
         <Animated.View style={[styles.boardTransition, styles.boardTransitionFront, { opacity: layoutTransition, transform: [{ translateY: -24 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
-        <View style={[styles.board, { width: boardWidth, alignSelf: "flex-start", marginLeft: foldUltraWide && !isLandscape ? Math.max(0, (safeScreenWidth - boardWidth) * 0.5) : Math.max(0, (isLandscape ? 10 : cardAreaLeft) - 6) }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
+        <View style={[styles.board, { width: boardWidth, alignSelf: "flex-start", marginLeft: isTablet && !isLandscape ? Math.max(0, (safeScreenWidth - boardWidth) * 0.5) : foldUltraWide && !isLandscape ? Math.max(0, (safeScreenWidth - boardWidth) * 0.5) : Math.max(0, (isLandscape ? 10 : cardAreaLeft) - 6) }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
             {game.stock.length ? (
