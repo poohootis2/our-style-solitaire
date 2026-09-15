@@ -258,6 +258,7 @@ function CardFace({
   onDragEnd,
   chapter = 1,
   isBoss = false,
+  markScale = 1,
 }: {
   card: Card;
   width: number;
@@ -268,10 +269,11 @@ function CardFace({
   onDragEnd?: (dx: number, dy: number) => void;
   chapter?: number;
   isBoss?: boolean;
+  markScale?: number;
 }) {
   const height = width * cardRatio;
   const color = playingCardColor(card);
-  const narrowMarkScale = width <= 60 ? 0.82 : width <= 68 ? 0.9 : 1;
+  const narrowMarkScale = (width <= 60 ? 0.82 : width <= 68 ? 0.9 : 1) * markScale;
   // 숫자·알파벳은 기존 최소 크기(8px)를 유지하고, 작은 문양만
   // 카드 폭과 숫자 크기에 맞춰 자동으로 줄여 상단 모서리 겹침을 방지합니다.
   const rankSize = Math.max(8, Math.round(width * 0.26 * narrowMarkScale));
@@ -445,7 +447,7 @@ function FlyingCard({ card, width, progress, startLeft = 16, startBottom = 44, f
   const scale = progress.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0.05, 0.6, 0.05] });
   const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
   return (
-    <Animated.View pointerEvents="none" style={[styles.attributeFlyingCard, { left: startLeft, bottom: startBottom, width: imageWidth, height: imageHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX: liveTranslateX }, { translateY: liveTranslateY }, { scale }] }]}> 
+    <Animated.View pointerEvents="none" style={[styles.attributeFlyingCard, { left: startLeft, bottom: startBottom, width: imageWidth, height: imageHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ scale }, { translateX: liveTranslateX }, { translateY: liveTranslateY }] }]}> 
       <Image source={flamingArt} resizeMode="stretch" style={[styles.attributeFlyingCardImage, { transform: [{ scaleX: 0.92 }, { scaleY: 0.82 }] }]} />
     </Animated.View>
   );
@@ -1997,7 +1999,7 @@ export default function HomeScreen() {
           <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} androidPortrait={Platform.OS === "android" && !isLandscape} safeWidth={safeScreenWidth} travelDistance={monsterTravelDistance} motionValue={monsterMotion} rootRef={rootRef} monsterTargetRef={monsterTargetRef} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
-        <Animated.View style={[styles.boardTransition, { opacity: layoutTransition, transform: [{ translateY: -24 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
+        <Animated.View style={[styles.boardTransition, styles.boardTransitionFront, { opacity: layoutTransition, transform: [{ translateY: -24 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
         <View style={[styles.board, { width: boardWidth, alignSelf: "flex-start", marginLeft: foldUltraWide && !isLandscape ? Math.max(0, (safeScreenWidth - boardWidth) * 0.5) : Math.max(0, (isLandscape ? 10 : cardAreaLeft) - 6) }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <View style={styles.stockWasteGroup}>
@@ -2007,7 +2009,7 @@ export default function HomeScreen() {
               <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label={game.waste.length ? "↻" : ""} onPress={() => applyGame(drawFromStock(game))} />
             )}
             {game.waste.at(-1) ? (
-              <CardFace card={game.waste.at(-1)!} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.kind === "waste"} onPress={onWastePress} onDoublePress={onWasteDoublePress} />
+              <CardFace card={game.waste.at(-1)!} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} markScale={isTablet ? 0.9 : 1} selected={selection?.kind === "waste"} onPress={onWastePress} onDoublePress={onWasteDoublePress} />
             ) : (
               <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label="" />
             )}
@@ -2022,7 +2024,7 @@ export default function HomeScreen() {
             {SUITS.map((suit) => {
               const card = game.foundations[suit].at(-1);
               return card ? (
-                <CardFace key={suit} card={card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.kind === "foundation" && selection.suit === suit} onPress={() => onFoundationPress(suit)} onDragEnd={(dx, dy) => dragMoveCard({ kind: "foundation", suit }, dx, dy)} />
+                <CardFace key={suit} card={card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} markScale={isTablet ? 0.9 : 1} selected={selection?.kind === "foundation" && selection.suit === suit} onPress={() => onFoundationPress(suit)} onDragEnd={(dx, dy) => dragMoveCard({ kind: "foundation", suit }, dx, dy)} />
               ) : (
                 <EmptySlot key={suit} width={cardWidth} cardRatio={renderCardRatio} label={suitSymbols[suit]} onPress={() => onFoundationPress(suit)} />
               );
@@ -2037,7 +2039,7 @@ export default function HomeScreen() {
               {pile.map((card, index) => (
                 <View ref={index === pile.length - 1 ? (node) => { tableauBottomCardRefs.current[column] = node; } : undefined} key={card.id} style={{ position: "absolute", top: index * stackOffset, left: 0, zIndex: 100 + index, elevation: 100 + index }}>
                   {card.faceUp ? (
-                    <CardFace card={card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => onTableauDoublePress(column, index, card)} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
+                    <CardFace card={card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} markScale={isTablet ? 0.9 : 1} selected={selection?.cardId === card.id} onPress={() => onTableauPress(column, index, card)} onDoublePress={() => onTableauDoublePress(column, index, card)} onDragEnd={(dx, dy) => dragMoveCard({ kind: "tableau", column, index }, dx, dy)} />
                   ) : (
                     <CardBack width={cardWidth} cardRatio={renderCardRatio} theme={cardBackTheme} onPress={() => onTableauPress(column, index, card)} />
                   )}
@@ -2386,6 +2388,7 @@ const styles = StyleSheet.create({
   monsterDefeated: { opacity: 0.28 },
   defeatBurst: { position: "absolute", width: 8, height: 8, left: 22, top: 24, alignItems: "center", justifyContent: "center" },
   defeatSpark: { position: "absolute", color: "#FFD66E", fontSize: 19, fontWeight: "900", textShadowColor: "#FF6F8A", textShadowRadius: 8 },
+  boardTransitionFront: { zIndex: 70, elevation: 70 },
   boardTransition: { flex: 1, alignItems: "center" },
   board: { alignSelf: "center" },
   boardLandscape: { flex: 1, justifyContent: "flex-start" },

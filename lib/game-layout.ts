@@ -69,7 +69,8 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   // The measured width is already the final usable width; do not apply model-specific shrink factors.
   const foldableOrLandscapeReduction = 1;
   const minimumCardWidth = isLandscape ? 30 : 34;
-  const horizontalCardWidth = clamp(rawCardWidth * foldableOrLandscapeReduction * (foldUltraWide ? 0.7 : 1), minimumCardWidth, widthCardLimit);
+  const tabletCardScale = foldUltraWide ? 0.7 : isTablet ? 0.8 : 1;
+  const horizontalCardWidth = clamp(rawCardWidth * foldableOrLandscapeReduction * tabletCardScale, minimumCardWidth, widthCardLimit);
   const cardWidth = Math.floor(isLandscape ? Math.min(horizontalCardWidth, heightCardLimit) : horizontalCardWidth);
   const cardHeight = cardWidth * cardRatio;
   const availableStackOffset = (usableTableauHeight - topPilesGap - cardHeight * 2) / TABLEAU_STEPS;

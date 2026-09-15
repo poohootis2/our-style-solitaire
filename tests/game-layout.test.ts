@@ -98,9 +98,10 @@ describe("반응형 게임 테이블 레이아웃", () => {
 
   it("측정된 점수-옵션 기준점 사이 폭을 세로 화면 카드 7열에 우선 배분한다", () => {
     const layout = getGameLayout(768, 1812, 52, false, 0, "", { left: 10, right: 758 });
-    expect(layout.cardWidth).toBeGreaterThanOrEqual(99);
-    expect(layout.boardWidth).toBeLessThanOrEqual(748);
-    expect(layout.boardWidth).toBeGreaterThan(700);
+    expect(layout.cardWidth).toBeGreaterThanOrEqual(79);
+    expect(layout.cardWidth).toBeLessThan(99);
+    expect(layout.boardWidth).toBeLessThanOrEqual(650);
+    expect(layout.boardWidth).toBeGreaterThan(layout.cardWidth * 6);
   });
 
   it.each([
