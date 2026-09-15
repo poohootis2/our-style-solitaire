@@ -767,6 +767,7 @@ export default function HomeScreen() {
   const [flyingCard, setFlyingCard] = useState<Card | null>(null);
   const [showFireworks, setShowFireworks] = useState(false);
   const [hintMessage, setHintMessage] = useState<string | null>(null);
+  const [petPreservationNotice, setPetPreservationNotice] = useState(false);
   const [attackKind, setAttackKind] = useState<AttackKind>("clubs");
   const [lastDamage, setLastDamage] = useState(0);
   const [attackToken, setAttackToken] = useState(0);
@@ -801,6 +802,7 @@ export default function HomeScreen() {
   const companionAvoidanceTargetRef = useRef(0);
   const [companionAvoidanceTarget, setCompanionAvoidanceTarget] = useState(0);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const petPreservationNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gameRef = useRef(game);
   const elapsedSecondsRef = useRef(elapsedSeconds);
   const flightProgress = useRef(new Animated.Value(0)).current;
@@ -998,6 +1000,7 @@ export default function HomeScreen() {
 
   useEffect(() => () => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    if (petPreservationNoticeTimerRef.current) clearTimeout(petPreservationNoticeTimerRef.current);
     if (autoFinishTimerRef.current) clearTimeout(autoFinishTimerRef.current);
     if (previewComboTimerRef.current) clearTimeout(previewComboTimerRef.current);
     stopHintAttention();
@@ -1222,6 +1225,11 @@ export default function HomeScreen() {
     setSheet(null);
     setShowNewGameConfirm(false);
     setHintMessage(null);
+    if (manualReset) {
+      if (petPreservationNoticeTimerRef.current) clearTimeout(petPreservationNoticeTimerRef.current);
+      setPetPreservationNotice(true);
+      petPreservationNoticeTimerRef.current = setTimeout(() => setPetPreservationNotice(false), 2400);
+    }
     setShowNoMovesPopup(false);
     setUndoStack([]);
     setShowTwoTouch(false);
@@ -2023,11 +2031,16 @@ export default function HomeScreen() {
             ) : (
               <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label={game.waste.length ? "↻" : ""} onPress={() => applyGame(drawFromStock(game))} />
             )}
-            {game.waste.at(-1) ? (
-              <CardFace card={game.waste.at(-1)!} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} markScale={isTablet ? 0.9 : 1} selected={selection?.kind === "waste"} onPress={onWastePress} onDoublePress={onWasteDoublePress} />
-            ) : (
-              <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label="" />
-            )}
+            <View style={styles.wastePileWithHint}>
+              {game.waste.at(-1) ? (
+                <CardFace card={game.waste.at(-1)!} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} markScale={isTablet ? 0.9 : 1} selected={selection?.kind === "waste"} onPress={onWastePress} onDoublePress={onWasteDoublePress} />
+              ) : (
+                <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label="" />
+              )}
+              <View pointerEvents="none" style={[styles.wasteHammerTooltip, hammerMode && styles.wasteHammerTooltipActive]}>
+                <Text style={styles.wasteHammerTooltipText}>{hammerMode ? "웨이스트 파괴 · 망치 5개" : "망치 사용 시 웨이스트 5개"}</Text>
+              </View>
+            </View>
           </View>
           <Animated.View style={[styles.hammerPilesAnimated, { width: cardWidth, height: cardWidth * renderCardRatio }, { opacity: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) : 0.72 }, { transform: [{ translateX: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: [-4, 4] }) }, { rotate: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: ["-5deg", "5deg"] }) }, { scale: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) : 1 }] }]}> 
             <Pressable accessibilityRole="button" accessibilityLabel={`망치 ${hammerCharges}개 남음`} onPress={() => beginHammerMode()} style={({ pressed }) => [styles.hammerPilesButton, { width: cardWidth, height: cardWidth * renderCardRatio }, hammerCharges > 0 && styles.hammerPilesButtonReady, pressed && styles.pressed]}>
@@ -2083,6 +2096,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
         {hintMessage ? <View style={[styles.hintToast, isLandscape && styles.hintToastLandscape, phoneLandscape && { left: 8, right: undefined, width: Math.max(160, sideRailWidth - 16), bottom: 160 }]}><Text style={styles.hintToastText}>{hintMessage}</Text></View> : null}
+        {petPreservationNotice ? <View pointerEvents="none" style={styles.petPreservationNotice}><Text style={styles.petPreservationNoticeText}>펫 도감은 안전하게 보존되었습니다</Text></View> : null}
         
 
 
@@ -2467,6 +2481,12 @@ const styles = StyleSheet.create({
   hintToast: { position: "absolute", left: 16, right: 16, bottom: 51, zIndex: 20, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 13, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   hintToastLandscape: { bottom: 55 },
   hintToastText: { color: "#BCEAE2", fontSize: 12, fontWeight: "700", textAlign: "center" },
+  petPreservationNotice: { position: "absolute", top: "44%", left: 24, right: 24, zIndex: 90, alignItems: "center", justifyContent: "center", paddingHorizontal: 18, paddingVertical: 13, borderRadius: 16, backgroundColor: "rgba(20, 44, 73, 0.96)", borderWidth: 2, borderColor: "#77D6C3", shadowColor: "#77D6C3", shadowOpacity: 0.75, shadowRadius: 14, elevation: 18 },
+  petPreservationNoticeText: { color: "#E7FFF8", fontSize: 15, fontWeight: "900", textAlign: "center" },
+  wastePileWithHint: { position: "relative", alignItems: "center" },
+  wasteHammerTooltip: { position: "absolute", top: "100%", marginTop: 5, minWidth: 118, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: "rgba(22, 35, 60, 0.94)", borderWidth: 1, borderColor: "#64799D", zIndex: 10 },
+  wasteHammerTooltipActive: { backgroundColor: "rgba(90, 41, 26, 0.98)", borderColor: "#F3A85D" },
+  wasteHammerTooltipText: { color: "#FFF3D1", fontSize: 10, fontWeight: "900", textAlign: "center" },
   hammerModeHint: { position: "absolute", left: 18, right: 18, top: "44%", zIndex: 62, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 13, backgroundColor: "rgba(90, 41, 26, 0.96)", borderWidth: 2, borderColor: "#F3A85D", shadowColor: "#FFB86B", shadowOpacity: 0.75, shadowRadius: 11, elevation: 16, transform: [{ translateY: 5 }] },
   hammerModeHintText: { color: "#FFF3D1", fontSize: 12, fontWeight: "900", textAlign: "center" },
   flyingCard: { position: "absolute", left: 16, bottom: 44, zIndex: 30, overflow: "hidden", borderRadius: 8, backgroundColor: "#FFFDF8", borderWidth: 2, borderColor: "#FF7A66", shadowColor: "#FF7A66", shadowOpacity: 0.8, shadowRadius: 9, elevation: 12 },

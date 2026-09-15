@@ -981,3 +981,7 @@
 - [x] 게임 리셋과 펫 도감·업적 영구 저장 분리
 - [x] Fold 펼침·태블릿 카드 크기 10% 추가 축소, 일반 휴대폰 유지
 - [x] TypeScript·Vitest·반응형 회귀 검증 완료; 체크포인트·GitHub main PUSH 진행
+
+- [x] 게임 초기화 완료 후 중앙에 펫 도감 보존 알림 표시
+- [x] 웨이스트 영역 근처에 망치 5개 소모 툴팁 표시
+- [x] TypeScript·Vitest·반응형 UI 검증 완료; 체크포인트·GitHub main PUSH 진행
