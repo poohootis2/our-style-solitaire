@@ -376,6 +376,15 @@ export function moveWasteToTableau(game: GameState, toColumn: number): GameState
   return withMove(next, 5);
 }
 
+export function destroyWasteWithHammer(game: GameState): GameState | null {
+  const card = game.waste.at(-1);
+  if (!card) return null;
+  const next = cloneGame(game);
+  next.waste.pop();
+  next.destroyedCards = [...(next.destroyedCards ?? []), card];
+  return withMove(next, -5);
+}
+
 export function moveFoundationToTableau(game: GameState, suit: Suit, toColumn: number): GameState | null {
   const card = game.foundations[suit].at(-1);
   if (!card || !canPlaceOnTableau(card, game.tableau[toColumn]?.at(-1))) return null;

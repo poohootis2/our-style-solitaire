@@ -27,6 +27,7 @@ import {
   moveTableauToTableau,
   moveToFoundation,
   moveWasteToTableau,
+  destroyWasteWithHammer,
   rankLabels,
   suitNames,
   suitSymbols,
@@ -122,7 +123,7 @@ const UNLOCKED_PETS_KEY = "our-style-solitaire:unlocked-pets";
 const BOSS_PREP_BONUSES_KEY = "our-style-solitaire:boss-prep-bonuses";
 const ATTENDANCE_KEY = "our-style-solitaire:attendance";
 const DAILY_AD_HAMMER_REWARD_KEY = "our-style-solitaire:daily-ad-hammer-reward";
-const MAX_DAILY_AD_HAMMER_REWARDS = 10;
+const MAX_DAILY_AD_HAMMER_REWARDS = 5;
 const INITIAL_UNLOCKED_PET_IDS = ["pet-004", "pet-005", "pet-006", "pet-007"];
 const DEFAULT_PET_ID = INITIAL_UNLOCKED_PET_IDS[0];
 const PHYSICAL_EDGE_INSET = 52;
@@ -1233,8 +1234,6 @@ export default function HomeScreen() {
       setHammerCharges(0);
       setShowHammerOffer(false);
       setHammerMode(false);
-      setUnlockedPetIds(INITIAL_UNLOCKED_PET_IDS);
-      AsyncStorage.setItem(UNLOCKED_PETS_KEY, JSON.stringify(INITIAL_UNLOCKED_PET_IDS)).catch(() => undefined);
     }
     gameRef.current = freshGame;
     elapsedSecondsRef.current = 0;
@@ -1521,14 +1520,14 @@ export default function HomeScreen() {
     }
     const nextRewardedCount = rewardedRevealUsed + 1;
     const dailyRewardNumber = Math.min(MAX_DAILY_AD_HAMMER_REWARDS, dailyAdHammerRewards + 1);
-    const rewardAmount = dailyRewardNumber >= 6 ? 2 : 1;
+    const rewardAmount = dailyRewardNumber <= 3 ? 2 : 5;
     setRewardedRevealUsed(nextRewardedCount);
     recordDailyAdHammerReward();
     setHammerCharges((charges) => Math.min(10, charges + rewardAmount));
     setShowTwoTouch(false);
     setShowNoMovesPopup(false);
     beginHammerMode(true);
-    showTimedHint(`원하는 카드를 클릭하세요 (광고 망치 ${nextRewardedCount}/10 · 오늘 ${dailyRewardNumber}/10 · 망치 +${rewardAmount})`);
+    showTimedHint(`원하는 카드를 클릭하세요 (광고 망치 ${nextRewardedCount}/10 · 오늘 ${dailyRewardNumber}/5 · 망치 +${rewardAmount})`);
   };
 
   const recordDailyAdHammerReward = () => {
@@ -1563,7 +1562,7 @@ export default function HomeScreen() {
       return;
     }
     const dailyRewardNumber = Math.min(MAX_DAILY_AD_HAMMER_REWARDS, dailyAdHammerRewards + 1);
-    const rewardAmount = dailyRewardNumber >= 6 ? 2 : 1;
+    const rewardAmount = dailyRewardNumber <= 3 ? 2 : 5;
     recordDailyAdHammerReward();
     setHammerCharges((charges) => Math.min(10, charges + rewardAmount));
     showTimedHint(`망치 +${rewardAmount} 충전 완료 (${Math.min(10, hammerCharges + rewardAmount)}/10) · 오늘 ${dailyRewardNumber}/${MAX_DAILY_AD_HAMMER_REWARDS}`);
@@ -1596,16 +1595,22 @@ export default function HomeScreen() {
     haptic.light();
   };
 
-  const useHammerOnCard = (source: CardSource, targetPosition?: { dx: number; dy: number }) => {
+  const useHammerOnCard = (source: CardSource, targetPosition?: { dx: number; dy: number }, hammerCost = 1) => {
     const target = cardFromSource(source);
-    const revealedGame = revealHiddenCardWithHammer(game, source);
+    if (hammerCharges < hammerCost) {
+      setHammerMode(false);
+      showTimedHint(`이 카드를 부수려면 망치 ${hammerCost}개가 필요합니다. 현재 ${hammerCharges}개입니다.`);
+      haptic.error();
+      return;
+    }
+    const revealedGame = source.kind === "waste" ? destroyWasteWithHammer(game) : revealHiddenCardWithHammer(game, source);
     if (!revealedGame || !target) {
       showTimedHint("망치 사용 중에는 원하는 히든카드를 탭할 수 있습니다.");
       haptic.error();
       return;
     }
     setHammerMode(false);
-    setHammerCharges((charges) => Math.max(0, charges - 1));
+    setHammerCharges((charges) => Math.max(0, charges - hammerCost));
     setShowHammerOffer(false);
     playEffect("foundationAttack");
     haptic.success();
@@ -1620,12 +1625,12 @@ export default function HomeScreen() {
         hammerImpactBurst.setValue(0);
         Animated.timing(hammerImpactBurst, { toValue: 1, duration: 360, easing: Easing.out(Easing.back(1.2)), useNativeDriver: true }).start(() => setHammerImpactBurstTarget(null));
         applyGame(revealedGame, false, target);
-        showTimedHint(`${cardLabel(target)} 카드를 공개해 웨이스트에 놓았습니다.`);
+        showTimedHint(source.kind === "waste" ? `${cardLabel(target)} 웨이스트 카드를 망치로 파괴했습니다.` : `${cardLabel(target)} 카드를 공개해 웨이스트에 놓았습니다.`);
       });
       return;
     }
     applyGame(revealedGame, false, target);
-    showTimedHint(`${cardLabel(target)} 카드를 공개해 웨이스트에 놓았습니다.`);
+    showTimedHint(source.kind === "waste" ? `${cardLabel(target)} 웨이스트 카드를 망치로 파괴했습니다.` : `${cardLabel(target)} 카드를 공개해 웨이스트에 놓았습니다.`);
   };
 
   const selectCard = (nextSelection: Selection) => {
@@ -1734,8 +1739,14 @@ export default function HomeScreen() {
 
   const onWastePress = () => {
     const card = game.waste.at(-1);
-    if (hammerMode) cancelHammerModeForCardAction();
-    if (card) selectCard({ kind: "waste", cardId: card.id });
+    if (!card) return;
+    if (hammerMode) {
+      const boardLeft = Math.max(0, (safeScreenWidth - boardWidth) * 0.5);
+      const wasteLeft = boardLeft + cardWidth * 1.08;
+      useHammerOnCard({ kind: "waste" }, { dx: wasteLeft - hammerStartLeft, dy: 0 }, 5);
+      return;
+    }
+    selectCard({ kind: "waste", cardId: card.id });
   };
 
   const onWasteDoublePress = () => {
@@ -2081,14 +2092,14 @@ export default function HomeScreen() {
               <Pressable accessibilityRole="button" accessibilityLabel="망치 안내 닫기" onPress={() => setShowHammerOffer(false)} style={({ pressed }) => [styles.noMovesPopupClose, pressed && styles.pressed]}><Text style={styles.noMovesPopupCloseText}>×</Text></Pressable>
               {dailyAdHammerRewards >= MAX_DAILY_AD_HAMMER_REWARDS ? <>
                 <Text style={styles.hammerOfferTitle}>일일 광고 보상이 소진되었습니다.</Text>
-                <Text style={styles.hammerOfferCopy}>오늘 광고 10회 보상이 모두 소진되었습니다. 1~5회차는 망치 1개, 6~10회차는 망치 2개를 받습니다. 내일이 되면 광고 보상이 다시 열리며, 현재 스테이지 진행은 유지됩니다.</Text>
+                <Text style={styles.hammerOfferCopy}>오늘 광고 5회 보상이 모두 소진되었습니다. 1~3회차는 망치 2개, 4~5회차는 망치 5개를 받습니다. 망치는 최대 10개까지 보유할 수 있으며, 내일 광고 보상이 다시 열립니다. 현재 스테이지와 펫 도감은 유지됩니다.</Text>
                 <View style={styles.noMovesPopupActions}>
                   <Pressable accessibilityRole="button" accessibilityLabel="현재 Stage 새로 시작" onPress={() => { setShowHammerOffer(false); requestCurrentStageRestart(); }} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>이 Stage 재시작</Text></Pressable>
                   <Pressable accessibilityRole="button" accessibilityLabel="Stage 1로 돌아가기" onPress={() => { setShowHammerOffer(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>Stage 1로</Text></Pressable>
                 </View>
               </> : <>
                 <Text style={styles.hammerOfferTitle}>히든 카드를 열어 길을 만들까요?</Text>
-                <Text style={styles.hammerOfferCopy}>망치로 열지 않은 카드 1장을 즉시 공개해 스톡 옆 공개 영역에 놓을 수 있습니다.</Text>
+                <Text style={styles.hammerOfferCopy}>망치로 열지 않은 카드 1장을 즉시 공개할 수 있습니다. 광고 보상은 하루 5회이며, 1~3회차는 망치 +2, 4~5회차는 망치 +5입니다. 망치는 최대 10개까지 적립됩니다.</Text>
                 <View style={styles.noMovesPopupActions}>
                   <Pressable accessibilityRole="button" accessibilityLabel="망치 사용" onPress={() => { setHammerCharges((charges) => Math.min(10, charges + 1)); beginHammerMode(true); }} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>망치 사용</Text></Pressable>
                   <Pressable accessibilityRole="button" accessibilityLabel="새로 시작" onPress={() => { setShowHammerOffer(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>새로 시작</Text></Pressable>
