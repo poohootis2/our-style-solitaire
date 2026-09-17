@@ -21,6 +21,8 @@ import {
   flipTableauCard,
   findHint,
   getChapterForStage,
+  getRemainingRecycles,
+  isFinalRecycleWarning,
   isWon,
   moveFoundationToTableau,
   moveAceToFoundation,
@@ -557,10 +559,21 @@ function healthBarColor(percent: number) {
   return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
 }
 
-function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo, compact = false, landscape = false, phoneLandscape = false, androidPortrait = false, safeWidth = 360, travelDistance = 24, leftTravelExtension = 100, monster, isBoss, cardSize, motionValue, rootRef, monsterTargetRef }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; attackStyle: CompanionAttackStyle; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; androidPortrait?: boolean; safeWidth?: number; travelDistance?: number; leftTravelExtension?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; rootRef?: RefObject<View | null>; monsterTargetRef: RefObject<View | null> }) {
+function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo, compact = false, landscape = false, phoneLandscape = false, androidPortrait = false, safeWidth = 360, travelDistance = 24, leftTravelExtension = 100, monster, isBoss, cardSize, motionValue, rootRef, monsterTargetRef, recycleWarning = false, remainingRecycles = 0 }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; attackStyle: CompanionAttackStyle; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; androidPortrait?: boolean; safeWidth?: number; travelDistance?: number; leftTravelExtension?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; rootRef?: RefObject<View | null>; monsterTargetRef: RefObject<View | null>; recycleWarning?: boolean; remainingRecycles?: number }) {
   const battleRef = useRef<View | null>(null);
   const internalMonsterMotion = useRef(new Animated.Value(1)).current;
   const monsterMotion = motionValue ?? internalMonsterMotion;
+  const threatPulse = useRef(new Animated.Value(0)).current;
+  const threatScale = recycleWarning ? Math.min(3, 3 - Math.max(0, remainingRecycles) * 0.1) : 1;
+  useEffect(() => {
+    threatPulse.stopAnimation();
+    if (!recycleWarning) { threatPulse.setValue(0); return; }
+    Animated.loop(Animated.sequence([
+      Animated.timing(threatPulse, { toValue: 1, duration: 520, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(threatPulse, { toValue: 0, duration: 520, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ])).start();
+    return () => threatPulse.stopAnimation();
+  }, [recycleWarning, threatPulse]);
   const attackProgress = useRef(new Animated.Value(0)).current;
   const [facingLeft, setFacingLeft] = useState(true);
   const [attackVisible, setAttackVisible] = useState(false);
@@ -661,11 +674,14 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const monsterBarWidth = 80;
   const currentHealth = Math.max(0, Math.min(100, hp));
   const currentHealthColor = healthBarColor(currentHealth);
+  const threatOpacity = threatPulse.interpolate({ inputRange: [0, 1], outputRange: [0.42, 1] });
+  const threatGlow = threatPulse.interpolate({ inputRange: [0, 1], outputRange: [5, 16] });
 
   return (
     <View ref={battleRef} onLayout={({ nativeEvent }) => { setBattleWidth(nativeEvent.layout.width); }} style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
-              <Animated.View ref={monsterTargetRef} style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, transform: [{ translateX: monsterTranslate }, { translateY: bossEntranceTranslateY }, { scale: bossEntranceScale }] }]}>
+              <Animated.View ref={monsterTargetRef} style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, transform: [{ translateX: monsterTranslate }, { translateY: bossEntranceTranslateY }, { scale: bossEntranceScale }, { scale: threatScale }] }]}>
 
+        {recycleWarning ? <Animated.View pointerEvents="none" style={[styles.monsterThreatGlow, { opacity: threatOpacity, shadowRadius: threatGlow, width: spriteSize + 12, height: spriteSize + 12, left: -6, top: -6 }]} /> : null}
         <Animated.View pointerEvents="none" style={[styles.hitExplosionAnchor, { left: spriteSize * 0.5, top: spriteSize * 0.5, zIndex: 1 }]}>
           <HitExplosion attackStyle={attackStyle} progress={hitExplosionProgress} size={spriteSize * 1.55} />
         </Animated.View>
@@ -745,6 +761,18 @@ export default function HomeScreen() {
   const compactControls = compact || compactLandscape;
   const monsterTravelDistance = isLandscape ? Math.max(160, Math.min(310, Math.round(safeScreenWidth * 0.2) + 50)) : 94;
   const [game, setGame] = useState(createPlayableGame);
+  const stockWarningPulse = useRef(new Animated.Value(0)).current;
+  const remainingRecycles = getRemainingRecycles(game);
+  const recycleWarning = isFinalRecycleWarning(game);
+  useEffect(() => {
+    stockWarningPulse.stopAnimation();
+    if (!recycleWarning) { stockWarningPulse.setValue(0); return; }
+    Animated.loop(Animated.sequence([
+      Animated.timing(stockWarningPulse, { toValue: 1, duration: 420, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(stockWarningPulse, { toValue: 0, duration: 420, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ])).start();
+    return () => stockWarningPulse.stopAnimation();
+  }, [recycleWarning, stockWarningPulse]);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -1506,7 +1534,7 @@ export default function HomeScreen() {
       setShowTwoTouch(false);
       setShowNoMovesPopup(false);
       beginHammerMode(true);
-      showTimedHint("원하는 카드를 클릭하세요");
+      showTimedHint("카드를 선택하세요. 웨이스트 파괴에는 망치 3개가 필요합니다.");
       return;
     }
       setRewardedRetrySlot(1);
@@ -1751,7 +1779,7 @@ export default function HomeScreen() {
     if (hammerMode) {
       const boardLeft = Math.max(0, (safeScreenWidth - boardWidth) * 0.5);
       const wasteLeft = boardLeft + cardWidth * 1.08;
-      useHammerOnCard({ kind: "waste" }, { dx: wasteLeft - hammerStartLeft, dy: 0 }, 5);
+      useHammerOnCard({ kind: "waste" }, { dx: wasteLeft - hammerStartLeft, dy: 0 }, 3);
       return;
     }
     selectCard({ kind: "waste", cardId: card.id });
@@ -2019,13 +2047,13 @@ export default function HomeScreen() {
             <View style={styles.statDivider} />
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
           </View>
-          <MonsterBattle compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} androidPortrait={Platform.OS === "android" && !isLandscape} safeWidth={safeScreenWidth} travelDistance={monsterTravelDistance} leftTravelExtension={isTablet ? 130 : 100} motionValue={monsterMotion} rootRef={rootRef} monsterTargetRef={monsterTargetRef} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
+          <MonsterBattle recycleWarning={recycleWarning} remainingRecycles={remainingRecycles} compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} androidPortrait={Platform.OS === "android" && !isLandscape} safeWidth={safeScreenWidth} travelDistance={monsterTravelDistance} leftTravelExtension={isTablet ? 130 : 100} motionValue={monsterMotion} rootRef={rootRef} monsterTargetRef={monsterTargetRef} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
         <Animated.View style={[styles.boardTransition, styles.boardTransitionFront, { opacity: layoutTransition, transform: [{ translateY: -24 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
         <View style={[styles.board, { width: boardWidth, alignSelf: "flex-start", marginLeft: isTablet && !isLandscape ? Math.max(0, (safeScreenWidth - boardWidth) * 0.5) : foldUltraWide && !isLandscape ? Math.max(0, (safeScreenWidth - boardWidth) * 0.5) : Math.max(0, (isLandscape ? 10 : cardAreaLeft) - 6) }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
-          <View style={styles.stockWasteGroup}>
+          <Animated.View style={[styles.stockWasteGroup, recycleWarning && styles.stockWasteWarning, recycleWarning && { opacity: stockWarningPulse.interpolate({ inputRange: [0, 1], outputRange: [0.58, 1] }) }]}>
             {game.stock.length ? (
               <CardBack width={cardWidth} cardRatio={renderCardRatio} theme={cardBackTheme} onPress={drawStockCard} />
             ) : (
@@ -2037,11 +2065,11 @@ export default function HomeScreen() {
               ) : (
                 <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label="" />
               )}
-              <View pointerEvents="none" style={[styles.wasteHammerTooltip, hammerMode && styles.wasteHammerTooltipActive]}>
-                <Text style={styles.wasteHammerTooltipText}>{hammerMode ? "웨이스트 파괴 · 망치 5개" : "망치 사용 시 웨이스트 5개"}</Text>
-              </View>
+              {hammerMode && game.waste.length > 0 ? <View pointerEvents="none" style={[styles.wasteHammerTooltip, styles.wasteHammerTooltipActive]}>
+                <Text style={styles.wasteHammerTooltipText}>웨이스트 파괴 · 망치 3개</Text>
+              </View> : null}
             </View>
-          </View>
+          </Animated.View>
           <Animated.View style={[styles.hammerPilesAnimated, { width: cardWidth, height: cardWidth * renderCardRatio }, { opacity: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) : 0.72 }, { transform: [{ translateX: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: [-4, 4] }) }, { rotate: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: ["-5deg", "5deg"] }) }, { scale: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) : 1 }] }]}> 
             <Pressable accessibilityRole="button" accessibilityLabel={`망치 ${hammerCharges}개 남음`} onPress={() => beginHammerMode()} style={({ pressed }) => [styles.hammerPilesButton, { width: cardWidth, height: cardWidth * renderCardRatio }, hammerCharges > 0 && styles.hammerPilesButtonReady, pressed && styles.pressed]}>
               <Animated.Image source={HAMMER_ICON_ART} resizeMode="contain" style={[styles.hammerPilesIcon, { width: Math.min(cardWidth * 1.3, 84), height: Math.min(cardWidth * 1.3, 84) }, { transform: [{ translateY: hammerIdleMotion.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] }) }] }]} />
@@ -2372,6 +2400,7 @@ const styles = StyleSheet.create({
   monsterSprite: { width: 50, height: 54 },
   monsterSpriteCompact: { width: 34, height: 38 },
   monsterImageLayer: { alignItems: "center", justifyContent: "center" },
+  monsterThreatGlow: { position: "absolute", borderWidth: 3, borderColor: "#FF8A2B", borderRadius: 18, shadowColor: "#FF5A1F", shadowOpacity: 1, elevation: 18, zIndex: 0 },
   hitExplosionAnchor: { position: "absolute", width: 0, height: 0, alignItems: "center", justifyContent: "center", overflow: "visible" },
   hitExplosion: { position: "absolute", alignItems: "center", justifyContent: "center", zIndex: 1, overflow: "visible" },
   hitExplosionImage: { width: "100%", height: "100%" },
@@ -2428,6 +2457,7 @@ const styles = StyleSheet.create({
   topPiles: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
   topPilesLandscape: { marginBottom: 6 },
   stockWasteGroup: { flexDirection: "row", gap: 6 },
+  stockWasteWarning: { borderWidth: 2, borderColor: "#FF9D3D", borderRadius: 10, padding: 3, shadowColor: "#FF7A22", shadowOpacity: 0.95, shadowRadius: 12, elevation: 14 },
   foundationGroup: { flexDirection: "row", gap: 4 },
   slot: { borderRadius: 7, borderWidth: 1.5, borderStyle: "dashed", borderColor: "#3C557D", alignItems: "center", justifyContent: "center", backgroundColor: "#182744" },
   slotLabel: { color: "#58739D", fontSize: 15, fontWeight: "900" },

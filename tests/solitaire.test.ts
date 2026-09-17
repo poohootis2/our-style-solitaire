@@ -11,8 +11,10 @@ import {
   findHint,
   findAutoFoundationMove,
   getDifficulty,
+  getRemainingRecycles,
   getChapterForStage,
   isChapterBossStage,
+  isFinalRecycleWarning,
   isLateGameAutoFinishReady,
   moveAceToFoundation,
   moveAvailableAcesToFoundation,
@@ -154,6 +156,17 @@ describe("클론다이크 규칙", () => {
     expect(level4.waste).toHaveLength(1);
     expect(level11.waste).toHaveLength(3);
     expect(level13.waste).toHaveLength(1);
+  });
+
+  it("스톡이 비고 마지막 재순환이 남으면 경고 상태를 계산한다", () => {
+    const game = foundationGame([card(2, "clubs")]);
+    game.level = 1;
+    game.recycles = 7;
+    expect(getRemainingRecycles(game)).toBe(1);
+    expect(isFinalRecycleWarning(game)).toBe(true);
+    expect(isFinalRecycleWarning({ ...game, stock: [card(3, "clubs")] })).toBe(false);
+    expect(isFinalRecycleWarning({ ...game, recycles: 8 })).toBe(true);
+    expect(getRemainingRecycles({ level: 1, recycles: 99 })).toBe(0);
   });
 
   it("모든 카드가 공개되고 스톡이 비면 자동 정렬을 시작할 수 있다", () => {

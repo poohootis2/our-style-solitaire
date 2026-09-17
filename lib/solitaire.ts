@@ -97,6 +97,16 @@ export function getDifficulty(level: number): Difficulty {
   return { drawCount: 3, maxRecycles: 3, label: "마스터" };
 }
 
+/** 현재 스테이지에서 스톡을 다시 만들 수 있는 남은 횟수입니다. */
+export function getRemainingRecycles(game: Pick<GameState, "level" | "recycles">): number {
+  return Math.max(0, getDifficulty(game.level).maxRecycles - (game.recycles ?? 0));
+}
+
+/** 스톡이 비었고 다음 순환이 마지막이거나 이미 소진된 상태인지 표시합니다. */
+export function isFinalRecycleWarning(game: Pick<GameState, "level" | "recycles" | "stock" | "waste">): boolean {
+  return game.stock.length === 0 && game.waste.length > 0 && getRemainingRecycles(game) <= 1;
+}
+
 function minimumInitialMoves(level: number): number {
   if (level <= 3) return 6;
   if (level <= 10) return 5;
