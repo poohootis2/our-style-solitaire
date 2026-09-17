@@ -2514,7 +2514,7 @@ const styles = StyleSheet.create({
   petPreservationNotice: { position: "absolute", top: "44%", left: 24, right: 24, zIndex: 90, alignItems: "center", justifyContent: "center", paddingHorizontal: 18, paddingVertical: 13, borderRadius: 16, backgroundColor: "rgba(20, 44, 73, 0.96)", borderWidth: 2, borderColor: "#77D6C3", shadowColor: "#77D6C3", shadowOpacity: 0.75, shadowRadius: 14, elevation: 18 },
   petPreservationNoticeText: { color: "#E7FFF8", fontSize: 15, fontWeight: "900", textAlign: "center" },
   wastePileWithHint: { position: "relative", alignItems: "center" },
-  wasteHammerTooltip: { position: "absolute", top: "100%", marginTop: 5, minWidth: 118, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: "rgba(22, 35, 60, 0.94)", borderWidth: 1, borderColor: "#64799D", zIndex: 10 },
+  wasteHammerTooltip: { position: "absolute", bottom: "100%", marginBottom: 7, minWidth: 118, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: "rgba(22, 35, 60, 0.98)", borderWidth: 1, borderColor: "#64799D", zIndex: 200, elevation: 30 },
   wasteHammerTooltipActive: { backgroundColor: "rgba(90, 41, 26, 0.98)", borderColor: "#F3A85D" },
   wasteHammerTooltipText: { color: "#FFF3D1", fontSize: 10, fontWeight: "900", textAlign: "center" },
   hammerModeHint: { position: "absolute", left: 18, right: 18, top: "44%", zIndex: 62, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 13, backgroundColor: "rgba(90, 41, 26, 0.96)", borderWidth: 2, borderColor: "#F3A85D", shadowColor: "#FFB86B", shadowOpacity: 0.75, shadowRadius: 11, elevation: 16, transform: [{ translateY: 5 }] },
