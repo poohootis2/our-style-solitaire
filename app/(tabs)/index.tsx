@@ -56,6 +56,8 @@ type ActiveFlight = {
   flightColor?: string;
   flamingArt?: ImageSourcePropType;
 };
+type GameMode = "unlimited" | "timeAttack";
+const TIME_ATTACK_LIMIT_SECONDS = 180;
 type Sheet = "menu" | "rules" | "records" | "sound" | "companions" | null;
 type Records = { wins: number; bestScore: number; bestTimeSeconds: number | null };
 
@@ -559,10 +561,11 @@ function healthBarColor(percent: number) {
   return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
 }
 
-function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo, compact = false, landscape = false, phoneLandscape = false, androidPortrait = false, safeWidth = 360, travelDistance = 24, leftTravelExtension = 100, monster, isBoss, cardSize, motionValue, rootRef, monsterTargetRef, recycleWarning = false, remainingRecycles = 0 }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; attackStyle: CompanionAttackStyle; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; androidPortrait?: boolean; safeWidth?: number; travelDistance?: number; leftTravelExtension?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; rootRef?: RefObject<View | null>; monsterTargetRef: RefObject<View | null>; recycleWarning?: boolean; remainingRecycles?: number }) {
+function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo, compact = false, landscape = false, phoneLandscape = false, androidPortrait = false, safeWidth = 360, travelDistance = 24, leftTravelExtension = 100, verticalTravel = 0, monster, isBoss, cardSize, motionValue, rootRef, monsterTargetRef, recycleWarning = false, remainingRecycles = 0 }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; attackStyle: CompanionAttackStyle; combo: boolean; compact?: boolean; landscape?: boolean; phoneLandscape?: boolean; androidPortrait?: boolean; safeWidth?: number; travelDistance?: number; leftTravelExtension?: number; verticalTravel?: number; monster: BattleAsset; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; rootRef?: RefObject<View | null>; monsterTargetRef: RefObject<View | null>; recycleWarning?: boolean; remainingRecycles?: number }) {
   const battleRef = useRef<View | null>(null);
   const internalMonsterMotion = useRef(new Animated.Value(1)).current;
   const monsterMotion = motionValue ?? internalMonsterMotion;
+  const verticalMonsterMotion = useRef(new Animated.Value(0)).current;
   const threatPulse = useRef(new Animated.Value(0)).current;
   const threatScale = recycleWarning ? Math.min(3, 3 - Math.max(0, remainingRecycles) * 0.1) : 1;
   useEffect(() => {
@@ -605,6 +608,17 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
     moveRightToLeft();
     return () => { cancelled = true; monsterMotion.stopAnimation(); };
   }, [monsterMotion]);
+  useEffect(() => {
+    verticalMonsterMotion.stopAnimation();
+    verticalMonsterMotion.setValue(0);
+    if (verticalTravel <= 0) return;
+    const bounce = Animated.loop(Animated.sequence([
+      Animated.timing(verticalMonsterMotion, { toValue: 1, duration: 7600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(verticalMonsterMotion, { toValue: 0, duration: 7600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]));
+    bounce.start();
+    return () => bounce.stop();
+  }, [verticalMonsterMotion, verticalTravel]);
 
   useEffect(() => {
     if (!attackToken) return;
@@ -678,8 +692,8 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const threatGlow = threatPulse.interpolate({ inputRange: [0, 1], outputRange: [5, 16] });
 
   return (
-    <View ref={battleRef} onLayout={({ nativeEvent }) => { setBattleWidth(nativeEvent.layout.width); }} style={[styles.monsterBattle, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
-              <Animated.View ref={monsterTargetRef} style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, transform: [{ translateX: monsterTranslate }, { translateY: bossEntranceTranslateY }, { scale: bossEntranceScale }, { scale: threatScale }] }]}>
+    <View ref={battleRef} onLayout={({ nativeEvent }) => { setBattleWidth(nativeEvent.layout.width); }} style={[styles.monsterBattle, styles.monsterBattleFront, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
+              <Animated.View ref={monsterTargetRef} style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, transform: [{ translateX: monsterTranslate }, { translateY: Animated.add(bossEntranceTranslateY, verticalMonsterMotion.interpolate({ inputRange: [0, 1], outputRange: [0, verticalTravel] })) }, { scale: bossEntranceScale }, { scale: threatScale }] }]}>
 
         {recycleWarning ? <Animated.View pointerEvents="none" style={[styles.monsterThreatGlow, { opacity: threatOpacity, shadowRadius: threatGlow, width: spriteSize + 12, height: spriteSize + 12, left: -6, top: -6 }]} /> : null}
         <Animated.View pointerEvents="none" style={[styles.hitExplosionAnchor, { left: spriteSize * 0.5, top: spriteSize * 0.5, zIndex: 1 }]}>
@@ -760,6 +774,7 @@ export default function HomeScreen() {
   const tableauGap = foldPortrait ? Math.max(8, Math.round(baseTableauGap * 1.22)) : baseTableauGap;
   const compactControls = compact || compactLandscape;
   const monsterTravelDistance = isLandscape ? Math.max(160, Math.min(310, Math.round(safeScreenWidth * 0.2) + 50)) : 94;
+  const monsterVerticalTravel = Math.max(0, Math.min(260, Math.round(safeScreenHeight * 0.38)));
   const [game, setGame] = useState(createPlayableGame);
   const stockWarningPulse = useRef(new Animated.Value(0)).current;
   const remainingRecycles = getRemainingRecycles(game);
@@ -775,6 +790,8 @@ export default function HomeScreen() {
   }, [recycleWarning, stockWarningPulse]);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [gameMode, setGameMode] = useState<GameMode>("unlimited");
+  const [showTimeOutPopup, setShowTimeOutPopup] = useState(false);
   const [paused, setPaused] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [rulesTab, setRulesTab] = useState<"basic" | "cards" | "items">("basic");
@@ -833,6 +850,7 @@ export default function HomeScreen() {
   const petPreservationNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gameRef = useRef(game);
   const elapsedSecondsRef = useRef(elapsedSeconds);
+  const timeOutHandledRef = useRef(false);
   const flightProgress = useRef(new Animated.Value(0)).current;
   const monsterMotion = useRef(new Animated.Value(1)).current;
   const comboCompanionScale = useRef(new Animated.Value(1)).current;
@@ -1223,11 +1241,24 @@ export default function HomeScreen() {
     return () => animation.stop();
   }, [isLandscape, isTablet, layoutTransition, phoneLandscape, screenHeight, screenWidth]);
 
+  const timeAttackRemaining = Math.max(0, TIME_ATTACK_LIMIT_SECONDS - elapsedSeconds);
+  const displayedTime = gameMode === "timeAttack" ? timeAttackRemaining : elapsedSeconds;
   useEffect(() => {
-    if (paused || !hydrated || isWon(game)) return;
-    const timer = setInterval(() => setElapsedSeconds((seconds) => seconds + 1), 1000);
+    if (paused || !hydrated || isWon(game) || (gameMode === "timeAttack" && timeOutHandledRef.current)) return;
+    const timer = setInterval(() => {
+      setElapsedSeconds((seconds) => {
+        const nextSeconds = seconds + 1;
+        if (gameMode === "timeAttack" && nextSeconds >= TIME_ATTACK_LIMIT_SECONDS && !timeOutHandledRef.current) {
+          timeOutHandledRef.current = true;
+          setPaused(true);
+          setShowTimeOutPopup(true);
+          return TIME_ATTACK_LIMIT_SECONDS;
+        }
+        return nextSeconds;
+      });
+    }, 1000);
     return () => clearInterval(timer);
-  }, [game, hydrated, paused]);
+  }, [game, gameMode, hydrated, paused]);
 
   const startNewGame = (level = game.level, resetProgress = false) => {
     resetHintAttention();
@@ -1250,6 +1281,8 @@ export default function HomeScreen() {
     setGame(freshGame);
     setSelection(null);
     setElapsedSeconds(0);
+    timeOutHandledRef.current = false;
+    setShowTimeOutPopup(false);
     setPaused(false);
     setSheet(null);
     setShowNewGameConfirm(false);
@@ -1281,6 +1314,13 @@ export default function HomeScreen() {
     setResetMode("full");
     setPaused(true);
     setShowNewGameConfirm(true);
+  };
+
+  const startGameMode = (mode: GameMode) => {
+    setGameMode(mode);
+    timeOutHandledRef.current = false;
+    startNewGame(game.level, false);
+    showTimedHint(mode === "timeAttack" ? "시간제한 모드: 3분 안에 클리어하세요." : "무제한 모드로 시작합니다.");
   };
 
   const requestCurrentStageRestart = () => {
@@ -1587,8 +1627,9 @@ export default function HomeScreen() {
       showDailyAdRewardExhausted();
       return;
     }
-    if (hammerCharges >= 10) {
-      showTimedHint("망치가 이미 10개라 광고 보상을 받을 수 없습니다. 먼저 망치를 사용해 주세요.");
+    const hammerCap = gameMode === "timeAttack" ? 20 : 10;
+    if (hammerCharges >= hammerCap) {
+      showTimedHint(`망치가 이미 ${hammerCap}개라 광고 보상을 받을 수 없습니다. 먼저 망치를 사용해 주세요.`);
       return;
     }
     setRewardedAdError(null);
@@ -1599,10 +1640,10 @@ export default function HomeScreen() {
       return;
     }
     const dailyRewardNumber = Math.min(MAX_DAILY_AD_HAMMER_REWARDS, dailyAdHammerRewards + 1);
-    const rewardAmount = dailyRewardNumber <= 3 ? 2 : 5;
+    const rewardAmount = gameMode === "timeAttack" ? 10 : dailyRewardNumber <= 3 ? 2 : 5;
     recordDailyAdHammerReward();
-    setHammerCharges((charges) => Math.min(10, charges + rewardAmount));
-    showTimedHint(`망치 +${rewardAmount} 충전 완료 (${Math.min(10, hammerCharges + rewardAmount)}/10) · 오늘 ${dailyRewardNumber}/${MAX_DAILY_AD_HAMMER_REWARDS}`);
+    setHammerCharges((charges) => Math.min(hammerCap, charges + rewardAmount));
+    showTimedHint(`망치 +${rewardAmount} 충전 완료 (${Math.min(hammerCap, hammerCharges + rewardAmount)}/${hammerCap}) · 오늘 ${dailyRewardNumber}/${MAX_DAILY_AD_HAMMER_REWARDS}`);
   };
 
   const beginHammerMode = (allowRepeat = false) => {
@@ -2046,9 +2087,9 @@ export default function HomeScreen() {
             <View style={styles.statDivider} />
             <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{game.moves}</Text><Text style={styles.statLabel}>이동</Text></View>
             <View style={styles.statDivider} />
-            <View><Text style={[styles.statValue, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(elapsedSeconds)}</Text><Text style={styles.statLabel}>시간</Text></View>
+            <View><Text style={[styles.statValue, gameMode === "timeAttack" && timeAttackRemaining <= 30 && styles.timeAttackStatWarning, { fontSize: Math.round(15 * uiScale) }]}>{formatDuration(displayedTime)}</Text><Text style={styles.statLabel}>{gameMode === "timeAttack" ? "남은시간" : "시간"}</Text></View>
           </View>
-          <MonsterBattle recycleWarning={recycleWarning} remainingRecycles={remainingRecycles} compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} androidPortrait={Platform.OS === "android" && !isLandscape} safeWidth={safeScreenWidth} travelDistance={monsterTravelDistance} leftTravelExtension={isTablet ? 130 : 100} motionValue={monsterMotion} rootRef={rootRef} monsterTargetRef={monsterTargetRef} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
+          <MonsterBattle recycleWarning={recycleWarning} remainingRecycles={remainingRecycles} compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} androidPortrait={Platform.OS === "android" && !isLandscape} safeWidth={safeScreenWidth} travelDistance={monsterTravelDistance} verticalTravel={monsterVerticalTravel} leftTravelExtension={isTablet ? 130 : 100} motionValue={monsterMotion} rootRef={rootRef} monsterTargetRef={monsterTargetRef} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
         <Animated.View style={[styles.boardTransition, styles.boardTransitionFront, { opacity: layoutTransition, transform: [{ translateY: -24 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}>
@@ -2283,9 +2324,23 @@ export default function HomeScreen() {
                   {rulesTab === "basic" ? <Text style={styles.rulesText}>A부터 같은 무늬 순서로 위쪽 파운데이션을 완성하면 승리합니다. 카드는 색을 번갈아 놓고 숫자가 하나씩 낮아지게 쌓습니다. 반복되는 이동이 2번 연속일 경우 더 이상 이동할 수 없다는 창이 떠도 X 버튼을 눌러 계속 진행할 수 있습니다.</Text> : null}
                   {rulesTab === "cards" ? <Text style={styles.rulesText}>카드를 탭한 뒤 이동할 곳을 탭하세요. 빈 열에는 K만 놓을 수 있습니다. 스톡을 탭하면 새 카드가 나오며, 힌트와 실행 취소로 진행을 도울 수 있습니다. 카드를 잘못 선택했다면 다른 카드를 더블탭해 선택을 바꿀 수 있습니다.</Text> : null}
                   {rulesTab === "items" ? <><Text style={styles.rulesText}>카드가 몬스터에게 날아가며 파운데이션 카드와 콤보 공격은 피해를 줍니다. 망치는 히든 카드 공개에 사용하고, 출석과 보상형 광고로 최대 10개까지 충전할 수 있습니다.</Text><Text style={styles.rulesHint}>출석체크: 게임에 접속한 날 출석 버튼을 눌러 보상을 받습니다. 일반 출석은 망치 2개, 10·20·30일차는 망치 5개를 받으며, 당일 출석은 한 번만 인정됩니다.</Text><Text style={styles.rulesHint}>망치 획득: 출석체크 또는 보상형 광고 시청으로 충전됩니다. 망치는 최대 10개까지 보유할 수 있습니다.</Text></> : null}
-                  <Pressable onPress={() => { setPaused(false); setSheet(null); }} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>게임 시작하기</Text></Pressable>
+                  <View style={styles.modeChoiceRow}>
+                    <Pressable accessibilityRole="button" accessibilityLabel="무제한 모드 시작" onPress={() => startGameMode("unlimited")} style={({ pressed }) => [styles.modeChoiceButton, styles.modeChoiceUnlimited, pressed && styles.pressed]}><Text style={styles.modeChoiceTitle}>무제한 모드</Text><Text style={styles.modeChoiceCopy}>시간 제한 없이 플레이</Text></Pressable>
+                    <Pressable accessibilityRole="button" accessibilityLabel="시간제한 모드 시작" onPress={() => startGameMode("timeAttack")} style={({ pressed }) => [styles.modeChoiceButton, styles.modeChoiceTimed, pressed && styles.pressed]}><Text style={styles.modeChoiceTitle}>시간제한</Text><Text style={styles.modeChoiceCopy}>3분 안에 클리어</Text></Pressable>
+                  </View>
                 </>
               ) : null}
+            </View>
+          </View>
+        </Modal>
+        <Modal transparent visible={showTimeOutPopup} animationType="fade" onRequestClose={() => setShowTimeOutPopup(false)}>
+          <View style={styles.confirmBackdrop}>
+            <View style={styles.timeOutCard}>
+              <Text style={styles.sheetEyebrow}>TIME ATTACK</Text>
+              <Text style={styles.sheetTitle}>시간이 종료되었습니다</Text>
+              <Text style={styles.sheetCopy}>이번 도전은 여기서 끝났습니다. 같은 스테이지를 다시 시도해 보세요.</Text>
+              <Pressable onPress={() => { setShowTimeOutPopup(false); startNewGame(game.level, false); }} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>다시 도전</Text></Pressable>
+              <Pressable onPress={() => { setShowTimeOutPopup(false); setPaused(false); }} style={({ pressed }) => [styles.sheetLinkButton, pressed && styles.pressed]}><Text style={styles.sheetLinkText}>닫기</Text></Pressable>
             </View>
           </View>
         </Modal>
@@ -2393,6 +2448,7 @@ const styles = StyleSheet.create({
   statusDotSelected: { backgroundColor: "#FF7A66" },
   statusText: { color: "#A6B4CE", fontSize: 10, fontWeight: "600" },
   monsterBattle: { flex: 1, minWidth: 0, marginLeft: 10, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6, overflow: "visible" },
+  monsterBattleFront: { zIndex: 85, elevation: 85 },
   monsterBattleLandscape: { flex: 1, minWidth: 250, maxWidth: 9999 },
   monsterBattleCompact: { flex: 1, minWidth: 0, marginLeft: 4, gap: 3 },
   monsterBattlePhoneLandscape: { flex: 0, width: "100%", minWidth: 0, maxWidth: 9999, marginLeft: 0, marginTop: 12, justifyContent: "flex-start", gap: 6 },
@@ -2602,6 +2658,13 @@ const styles = StyleSheet.create({
   audioOptionTitle: { color: "#FFFDF8", fontSize: 15, fontWeight: "900" },
   audioOptionSubtitle: { color: "#A6B4CE", fontSize: 11, fontWeight: "600", marginTop: 3 },
   sheetPrimaryButton: { minHeight: 50, justifyContent: "center", alignItems: "center", borderRadius: 15, backgroundColor: "#FF7A66", marginTop: 21 },
+  modeChoiceRow: { flexDirection: "row", gap: 10, marginTop: 21 },
+  modeChoiceButton: { flex: 1, minHeight: 66, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1, paddingHorizontal: 8 },
+  modeChoiceUnlimited: { backgroundColor: "#2A4268", borderColor: "#45628E" },
+  modeChoiceTimed: { backgroundColor: "#A9533F", borderColor: "#F3A85D" },
+  modeChoiceTitle: { color: "#FFFDF8", fontSize: 14, fontWeight: "900" },
+  modeChoiceCopy: { color: "#D4E2F7", fontSize: 10, fontWeight: "700", marginTop: 4 },
+  timeAttackStatWarning: { color: "#FF6F61" },
   sheetPrimaryText: { color: "#11182C", fontSize: 15, fontWeight: "900" },
   sheetRow: { flexDirection: "row", gap: 10, marginTop: 10 },
   sheetSecondaryButton: { flex: 1, minHeight: 46, justifyContent: "center", alignItems: "center", borderRadius: 14, backgroundColor: "#2A4268", borderWidth: 1, borderColor: "#45628E" },
@@ -2654,6 +2717,7 @@ const styles = StyleSheet.create({
   rulesHint: { color: "#77D6C3", fontSize: 13, lineHeight: 20, marginTop: 13 },
   confirmBackdrop: { flex: 1, justifyContent: "center", padding: 24, backgroundColor: "rgba(3, 7, 18, 0.76)" },
   confirmCard: { position: "relative", overflow: "hidden", borderRadius: 24, borderWidth: 0, backgroundColor: "transparent", padding: 24 },
+  timeOutCard: { width: "92%", maxWidth: 340, alignSelf: "center", borderRadius: 22, borderWidth: 2, borderColor: "#F3A85D", backgroundColor: "#36211F", padding: 24 },
   resetModalPanelArt: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, width: "100%", height: "100%" },
   confirmButtonArtClip: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, overflow: "hidden", borderRadius: 15 },
   confirmButtonArt: { position: "absolute", left: 0, width: "100%", height: "200%" },
