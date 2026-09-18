@@ -218,15 +218,15 @@ function CompanionAnchor({ companion, attackStyle, size, left, bottom, horizonta
   const translateX = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [-5, 0, 5] });
   const translateY = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] });
   const rotate = drift.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-2deg", "0deg", "2deg"] });
-  return <Animated.View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom, transform: [{ translateX: horizontalShift }, { scale: comboScale }] }]}> 
+  return <Animated.View pointerEvents="box-none" style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom, transform: [{ translateX: horizontalShift }, { scale: comboScale }] }]}>
     <Pressable accessibilityRole="button" accessibilityLabel={`${companion.name}, 막힘 도움 보기`} onPress={onPress} style={({ pressed }) => [styles.companionPressTarget, pressed && styles.companionPressed]}>
-      <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX }, { translateY }, { rotate }] }]}> 
+      <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX }, { translateY }, { rotate }] }]}>
         <Image source={companion.image} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} />
       </Animated.View>
     </Pressable>
-    <View pointerEvents="none" accessibilityLabel={`현재 펫 속성 ${ATTACK_STYLE_LABELS[attackStyle]}`} style={[styles.companionAttributeLabel, { top: size + 4, width: Math.max(size, 72) }]}> 
+    <View pointerEvents="none" accessibilityLabel={`현재 펫 ${companion.name}, 속성 ${ATTACK_STYLE_LABELS[attackStyle]}`} style={[styles.companionAttributeLabel, { top: size + 4, width: Math.max(size, 72) }]}>
       <View style={[styles.companionAttributeDot, { backgroundColor: companionAttackColors[attackStyle] }]} />
-      <Text style={styles.companionAttributeText}>{ATTACK_STYLE_LABELS[attackStyle]}</Text>
+      <Text style={styles.companionAttributeText} numberOfLines={1}>{companion.name}</Text>
     </View>
   </Animated.View>;
 }
@@ -401,7 +401,7 @@ function CardBack({ width, cardRatio = CARD_RATIO, theme, onPress }: { width: nu
       onPress={onPress}
       style={({ pressed }) => [styles.card, styles.cardBack, { width, height, backgroundColor: theme.outer, borderColor: theme.border }, pressed && styles.pressed]}
     >
-      <View style={[styles.backInner, { backgroundColor: theme.inner, borderColor: theme.border }]}> 
+      <View style={[styles.backInner, { backgroundColor: theme.inner, borderColor: theme.border }]}>
         <Text style={[styles.backMark, { color: theme.mark }]}>{theme.glyph}</Text>
       </View>
     </Pressable>
@@ -450,7 +450,7 @@ function FlyingCard({ card, width, progress, startLeft = 16, startBottom = 44, f
   const scale = progress.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0.05, 0.6, 0.05] });
   const opacity = progress.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
   return (
-    <Animated.View pointerEvents="none" style={[styles.attributeFlyingCard, { left: startLeft, bottom: startBottom, width: imageWidth, height: imageHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX: liveTranslateX }, { translateY: liveTranslateY }] }]}> 
+    <Animated.View pointerEvents="none" style={[styles.attributeFlyingCard, { left: startLeft, bottom: startBottom, width: imageWidth, height: imageHeight, opacity, borderColor: glowColor, shadowColor: glowColor, transform: [{ translateX: liveTranslateX }, { translateY: liveTranslateY }] }]}>
       <Animated.View style={{ width: imageWidth, height: imageHeight, transform: [{ scale }] }}>
         <Image source={flamingArt} resizeMode="stretch" style={[styles.attributeFlyingCardImage, { transform: [{ scaleX: 0.92 }, { scaleY: 0.82 }] }]} />
       </Animated.View>
@@ -1992,7 +1992,7 @@ export default function HomeScreen() {
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
         {showBossPrepReward ? <View style={styles.bossPrepRewardPopup}><Text style={styles.bossPrepRewardTitle}>보스 준비 보너스 획득!</Text><Text style={styles.bossPrepRewardCopy}>망치 +1</Text></View> : null}
         {flyingAttacks.map((flight) => <FlyingCard key={flight.id} card={flight.card} width={cardWidth} progress={flight.progress} startLeft={flight.startLeft} startBottom={flight.startBottom} flightColor={flight.flightColor} flamingArt={flight.flamingArt} flaming={flight.variant === "flaming"} rootRef={rootRef} monsterRef={monsterTargetRef} />)}
-        {hammerStrikeTarget ? <Animated.View pointerEvents="none" style={[styles.hammerStrike, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.08, height: cardWidth * 1.08, transform: [{ translateX: hammerStrikeTranslateX }, { translateY: hammerStrikeTranslateY }, { scale: hammerStrikeScale }, { rotate: hammerStrikeRotate }] }]}> 
+        {hammerStrikeTarget ? <Animated.View pointerEvents="none" style={[styles.hammerStrike, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.08, height: cardWidth * 1.08, transform: [{ translateX: hammerStrikeTranslateX }, { translateY: hammerStrikeTranslateY }, { scale: hammerStrikeScale }, { rotate: hammerStrikeRotate }] }]}>
           <Image source={HAMMER_ICON_ART} resizeMode="contain" style={styles.hammerStrikeImage} />
         </Animated.View> : null}
         {hammerImpactBurstTarget ? <Animated.View pointerEvents="none" style={[styles.hammerImpactBurst, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.5, height: cardWidth * 1.5, transform: [{ translateX: hammerImpactBurstTarget.dx }, { translateY: hammerImpactBurstTarget.dy }, { scale: hammerImpactBurst.interpolate({ inputRange: [0, 0.28, 1], outputRange: [0.35, 1.25, 0.1] }) }, { rotate: hammerImpactBurst.interpolate({ inputRange: [0, 1], outputRange: ["-8deg", "18deg"] }) }], opacity: hammerImpactBurst.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 1, 0] }) }]}><Image source={HAMMER_IMPACT_ART} resizeMode="contain" style={styles.hammerImpactBurstImage} /></Animated.View> : null}
@@ -2050,7 +2050,7 @@ export default function HomeScreen() {
           <MonsterBattle recycleWarning={recycleWarning} remainingRecycles={remainingRecycles} compact={compact || compactLandscape} landscape={isLandscape} phoneLandscape={phoneLandscape} androidPortrait={Platform.OS === "android" && !isLandscape} safeWidth={safeScreenWidth} travelDistance={monsterTravelDistance} leftTravelExtension={isTablet ? 130 : 100} motionValue={monsterMotion} rootRef={rootRef} monsterTargetRef={monsterTargetRef} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
-        <Animated.View style={[styles.boardTransition, styles.boardTransitionFront, { opacity: layoutTransition, transform: [{ translateY: -24 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}> 
+        <Animated.View style={[styles.boardTransition, styles.boardTransitionFront, { opacity: layoutTransition, transform: [{ translateY: -24 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}>
         <View style={[styles.board, { width: boardWidth, alignSelf: "flex-start", marginLeft: isTablet && !isLandscape ? Math.max(0, (safeScreenWidth - boardWidth) * 0.5) : foldUltraWide && !isLandscape ? Math.max(0, (safeScreenWidth - boardWidth) * 0.5) : Math.max(0, (isLandscape ? 10 : cardAreaLeft) - 6) }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <Animated.View style={[styles.stockWasteGroup, recycleWarning && styles.stockWasteWarning, recycleWarning && { opacity: stockWarningPulse.interpolate({ inputRange: [0, 1], outputRange: [0.58, 1] }) }]}>
@@ -2070,7 +2070,7 @@ export default function HomeScreen() {
               </View> : null}
             </View>
           </Animated.View>
-          <Animated.View style={[styles.hammerPilesAnimated, { width: cardWidth, height: cardWidth * renderCardRatio }, { opacity: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) : 0.72 }, { transform: [{ translateX: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: [-4, 4] }) }, { rotate: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: ["-5deg", "5deg"] }) }, { scale: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) : 1 }] }]}> 
+          <Animated.View style={[styles.hammerPilesAnimated, { width: cardWidth, height: cardWidth * renderCardRatio }, { opacity: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) : 0.72 }, { transform: [{ translateX: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: [-4, 4] }) }, { rotate: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: ["-5deg", "5deg"] }) }, { scale: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) : 1 }] }]}>
             <Pressable accessibilityRole="button" accessibilityLabel={`망치 ${hammerCharges}개 남음`} onPress={() => beginHammerMode()} style={({ pressed }) => [styles.hammerPilesButton, { width: cardWidth, height: cardWidth * renderCardRatio }, hammerCharges > 0 && styles.hammerPilesButtonReady, pressed && styles.pressed]}>
               <Animated.Image source={HAMMER_ICON_ART} resizeMode="contain" style={[styles.hammerPilesIcon, { width: Math.min(cardWidth * 1.3, 84), height: Math.min(cardWidth * 1.3, 84) }, { transform: [{ translateY: hammerIdleMotion.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] }) }] }]} />
               <Text style={[styles.hammerPilesCount, { fontSize: Math.max(15, Math.round(cardWidth * 0.18) + 5) }]}>{hammerCharges}/10</Text>
@@ -2090,7 +2090,7 @@ export default function HomeScreen() {
 
         <View style={[styles.tableau, { gap: tableauGap }, isLandscape && styles.tableauLandscape]}>
           {game.tableau.map((pile, column) => (
-            <Animated.View key={`column-${column}`} style={[styles.tableauColumn, { width: cardWidth, minHeight: cardWidth * renderCardRatio, transform: [{ translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, (3 - column) * (cardWidth + tableauGap)] }) }, { scaleY: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 0.12] }) }, { scaleX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 0.9] }) }] }]}> 
+            <Animated.View key={`column-${column}`} style={[styles.tableauColumn, { width: cardWidth, minHeight: cardWidth * renderCardRatio, transform: [{ translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, (3 - column) * (cardWidth + tableauGap)] }) }, { scaleY: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 0.12] }) }, { scaleX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 0.9] }) }] }]}>
               {pile.length === 0 ? <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label="K" onPress={() => moveSelectionToTableau(column)} /> : null}
               {pile.map((card, index) => (
                 <View ref={index === pile.length - 1 ? (node) => { tableauBottomCardRefs.current[column] = node; } : undefined} key={card.id} style={{ position: "absolute", top: index * stackOffset, left: 0, zIndex: 100 + index, elevation: 100 + index }}>
@@ -2109,7 +2109,7 @@ export default function HomeScreen() {
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
         <CompanionAnchor companion={selectedCompanion} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} onPress={() => undefined} />
-                <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: Math.max(0, bottomControlsBottom - 5) }]}> 
+                <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: Math.max(0, bottomControlsBottom - 5) }]}>
 
           <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges >= 10 ? "망치가 10개라 광고 보상을 받을 수 없음" : "광고 시청 후 망치 받기"} onPress={() => { haptic.light(); void claimHammerAdReward(); }} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHammerButton, phoneLandscape && styles.bottomButtonPhoneLandscape, pressed && styles.pressed]}>
             <Image source={HAMMER_PLUS_ONE_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
@@ -2125,7 +2125,7 @@ export default function HomeScreen() {
         </View>
         {hintMessage ? <View style={[styles.hintToast, isLandscape && styles.hintToastLandscape, phoneLandscape && { left: 8, right: undefined, width: Math.max(160, sideRailWidth - 16), bottom: 160 }]}><Text style={styles.hintToastText}>{hintMessage}</Text></View> : null}
         {petPreservationNotice ? <View pointerEvents="none" style={styles.petPreservationNotice}><Text style={styles.petPreservationNoticeText}>펫 도감은 안전하게 보존되었습니다</Text></View> : null}
-        
+
 
 
         <Modal transparent visible={showHammerOffer} animationType="fade" onRequestClose={() => setShowHammerOffer(false)}>
