@@ -1329,6 +1329,16 @@ export default function HomeScreen() {
     setShowNewGameConfirm(true);
   };
 
+  const grantTimeAttackComboBonus = () => {
+    if (gameMode !== "timeAttack") return;
+    setElapsedSeconds((seconds) => Math.max(0, seconds - 10));
+    elapsedSecondsRef.current = Math.max(0, elapsedSecondsRef.current - 10);
+    timeOutHandledRef.current = false;
+    setShowTimeOutPopup(false);
+    setPaused(false);
+    showTimedHint("콤보 성공! 시간 보너스 +10초");
+  };
+
   const unlockRandomPets = (count: number) => {
     const locked = PET_ROSTER.filter((pet) => !unlockedPetIds.includes(pet.id));
     const shuffled = [...locked].sort(() => Math.random() - 0.5);
@@ -1454,6 +1464,7 @@ export default function HomeScreen() {
     const step = () => {
       const move = findAutoFoundationMove(cursor);
       if (!move) {
+        grantTimeAttackComboBonus();
         autoFinishRunningRef.current = false;
         autoFinishTimerRef.current = null;
         setComboAttack(false);
