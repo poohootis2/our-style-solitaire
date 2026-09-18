@@ -692,7 +692,7 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const threatGlow = threatPulse.interpolate({ inputRange: [0, 1], outputRange: [5, 16] });
 
   return (
-    <View ref={battleRef} onLayout={({ nativeEvent }) => { setBattleWidth(nativeEvent.layout.width); }} style={[styles.monsterBattle, styles.monsterBattleFront, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
+    <View pointerEvents="none" ref={battleRef} onLayout={({ nativeEvent }) => { setBattleWidth(nativeEvent.layout.width); }} style={[styles.monsterBattle, styles.monsterBattleFront, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
               <Animated.View ref={monsterTargetRef} style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, transform: [{ translateX: monsterTranslate }, { translateY: Animated.add(bossEntranceTranslateY, verticalMonsterMotion.interpolate({ inputRange: [0, 1], outputRange: [0, verticalTravel] })) }, { scale: bossEntranceScale }, { scale: threatScale }] }]}>
 
         {recycleWarning ? <Animated.View pointerEvents="none" style={[styles.monsterThreatGlow, { opacity: threatOpacity, shadowRadius: threatGlow, width: spriteSize + 12, height: spriteSize + 12, left: -6, top: -6 }]} /> : null}
@@ -2423,7 +2423,7 @@ const styles = StyleSheet.create({
   attackCardPreviewImage: { width: "100%", height: 74 },
   attackCardPreviewLabel: { color: "#D6E2F4", fontSize: 10, fontWeight: "800", marginTop: 2 },
   contentLift: { transform: [{ translateY: -24 }] },
-  stats: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 6, marginBottom: 10 },
+  stats: { position: "relative", zIndex: 100, elevation: 100, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#2E4163", paddingVertical: 6, marginBottom: 10 },
   statsNarrowCover: { paddingVertical: 6.3, marginBottom: 10.8 },
   statsFoldUltraWide: { paddingVertical: 4.2, marginBottom: 7.6 },
   statsSummary: { flex: 0, flexDirection: "row", alignItems: "center", justifyContent: "flex-start" },
