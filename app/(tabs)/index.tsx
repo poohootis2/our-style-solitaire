@@ -948,9 +948,10 @@ export default function HomeScreen() {
     return () => idleLoop.stop();
   }, [hammerCharges, hammerIdleMotion, hammerStrikeTarget]);
 
+  const attackVisualActive = comboAttack || flyingAttacks.length > 0;
   useEffect(() => {
     comboCompanionScale.stopAnimation();
-    if (comboAttack) {
+    if (attackVisualActive) {
       const grow = Animated.timing(comboCompanionScale, { toValue: 3, duration: 1450, easing: Easing.out(Easing.cubic), useNativeDriver: true });
       grow.start();
       return () => grow.stop();
@@ -958,7 +959,7 @@ export default function HomeScreen() {
     const reset = Animated.timing(comboCompanionScale, { toValue: 1, duration: 520, easing: Easing.out(Easing.cubic), useNativeDriver: true });
     reset.start();
     return () => reset.stop();
-  }, [comboAttack, comboCompanionScale]);
+  }, [attackVisualActive, comboCompanionScale]);
 
   useEffect(() => {
     setFlyingCard(flyingAttacks.at(-1)?.card ?? null);
