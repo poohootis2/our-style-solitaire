@@ -11,7 +11,13 @@ module.exports = function withAndroidEdgeToEdgeStyles(config) {
       if (style.$?.name !== "AppTheme") continue;
       style.item = (style.item ?? []).filter((item) => {
         const name = item.$?.name;
-        return name !== "android:statusBarColor" && name !== "android:enforceNavigationBarContrast";
+        return ![
+          "android:statusBarColor",
+          "android:navigationBarColor",
+          "android:windowLightStatusBar",
+          "android:windowLightNavigationBar",
+          "android:enforceNavigationBarContrast",
+        ].includes(name);
       });
     }
     return stylesConfig;

@@ -732,8 +732,9 @@ function EmptySlot({ width, cardRatio = CARD_RATIO, label, onPress }: { width: n
 export default function HomeScreen() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  // The game is intentionally portrait-only for consistent card sizing and safe touch targets.
-  const isLandscape = false;
+  // Use the live window dimensions so Fold/tablet windows can rotate and resize.
+  // The 24dp hysteresis prevents layout thrashing while a device is rotating.
+  const isLandscape = screenWidth > screenHeight + 24;
   const isTablet = Math.min(screenWidth, screenHeight) >= 600;
   const phoneLandscape = isLandscape && !isTablet;
   const safeScreenWidth = Math.max(260, screenWidth - insets.left - insets.right);

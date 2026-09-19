@@ -42,8 +42,9 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   // Wide windows preserve the more generous spacing used by the previous Fold/tablet layout.
   const phoneLandscapeOverlap = isPhoneLandscape ? clamp(landscapeAspect / 2.2, 0.78, 1) : 1;
   const sideRailWidth = isPhoneLandscape ? clamp(Math.round(width * 0.30), 190, 248) : 0;
-  // Wide devices enlarge card width by 10%; the ratio compensates so total card height grows by 15%.
-  const cardRatio = isLandscape ? 1.18 : CARD_RATIO;
+  // Keep the physical card shape constant in every window orientation. A card
+  // must never become wider or flatter just because a Fold was opened.
+  const cardRatio = CARD_RATIO;
   // Use measured score/option anchors when available; otherwise keep 10px side padding.
   const outerPadding = 10;
   const leftBound = clamp(horizontalBounds?.left ?? outerPadding, outerPadding, Math.max(outerPadding, width - outerPadding));
@@ -63,7 +64,16 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const reservedHeight = (isPhoneLandscape ? 84 : isLandscape ? 116 : isTablet ? 250 : isFoldedCover ? 230 : 214) + extraReservedHeight;
   const usableTableauHeight = Math.max(isLandscape ? 118 : 210, height - verticalEdgeInset - reservedHeight);
   const topPilesGap = isLandscape ? 6 : 16;
-  const minimumStackOffset = isPhoneLandscape ? Math.max(8, Math.round(10 * phoneLandscapeOverlap)) : isLandscape ? 8 : isFoldedCover ? 19 : 22;
+  // Preserve enough exposed card face for the corner rank/suit to remain
+  // readable when a column is stacked. The height calculation below may still
+  // reduce the card width, but never removes this readability floor.
+  const minimumStackOffset = isPhoneLandscape
+    ? Math.max(12, Math.round(14 * phoneLandscapeOverlap))
+    : isLandscape
+      ? 14
+      : isFoldedCover
+        ? 19
+        : 22;
   // The board contains a top-pile card, a gap, and the deepest seven-card tableau.
   const heightCardLimit = (usableTableauHeight - topPilesGap - TABLEAU_STEPS * minimumStackOffset) / (cardRatio * 2);
   // The measured width is already the final usable width; do not apply model-specific shrink factors.
