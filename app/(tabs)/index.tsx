@@ -774,7 +774,9 @@ export default function HomeScreen() {
   const stackOffset = isTablet ? Math.max(8, Math.round(tabletStackOffset * 0.9)) : tabletStackOffset;
   const tableauGap = foldPortrait ? Math.max(8, Math.round(baseTableauGap * 1.22)) : baseTableauGap;
   const compactControls = compact || compactLandscape;
-  const monsterTravelDistance = isLandscape ? Math.max(160, Math.min(310, Math.round(safeScreenWidth * 0.2) + 50)) : 94;
+  const monsterTravelDistance = isLandscape
+    ? Math.max(180, Math.min(520, Math.round(safeScreenWidth * 0.46)))
+    : Math.max(94, Math.min(150, Math.round(safeScreenWidth * 0.26)));
   const monsterVerticalTravel = Math.max(0, Math.min(260, Math.round(safeScreenHeight * 0.38)));
   const [game, setGame] = useState(createPlayableGame);
   const stockWarningPulse = useRef(new Animated.Value(0)).current;
@@ -1922,9 +1924,13 @@ export default function HomeScreen() {
   const companionBaseCardWidth = foldUltraWide ? Math.round(cardWidth / 0.7) : cardWidth;
   // The previous card-size multipliers made the idle pet visually oversized; keep combo scaling separate.
   const companionSize = Math.max(30, Math.round(companionBaseCardWidth * 1.64 * 0.9 * 1.3 * 0.5));
-  const companionBaseLeft = Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
-  const companionBottom = Math.max(0, bottomControlsBottom + 47 + (!isLandscape ? 1 : 0) - (Platform.OS === "android" && !isLandscape ? 24 : 0));
-  const renderCardRatio = !isLandscape ? Math.max(0.76, cardRatio * 0.9) : cardRatio;
+  const companionBaseLeft = isLandscape
+    ? Math.max(8, Math.round(safeScreenWidth * 0.08 - companionSize * 0.5))
+    : Math.max(4, (phoneLandscape ? Math.max(8, Math.round((sideRailWidth - companionSize) * 0.5)) : Math.max(10, Math.round((safeScreenWidth - companionSize) * 0.5))) - 30);
+  const companionBottom = isLandscape
+    ? Math.max(bottomControlsBottom + 18, Math.round(safeScreenHeight * 0.34))
+    : Math.max(0, bottomControlsBottom + 47 + (!isLandscape ? 1 : 0) - (Platform.OS === "android" && !isLandscape ? 24 : 0));
+  const renderCardRatio = cardRatio;
   const activeShuffleStep: 0 | 1 | 2 = twoTouchOpensUsed === 0 ? 0 : rewardedRevealUsed < 10 ? 1 : 2;
   const shuffleHelpTitle = activeShuffleStep === 0 ? "무료 망치" : `광고 보상 망치 +${activeShuffleStep}`;
   const shuffleHelpCopy = activeShuffleStep === 0
