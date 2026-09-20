@@ -30,6 +30,7 @@ import {
   moveToFoundation,
   moveWasteToTableau,
   destroyWasteWithHammer,
+  recycleStockWithHammer,
   rankLabels,
   suitNames,
   suitSymbols,
@@ -778,7 +779,9 @@ export default function HomeScreen() {
   const monsterTravelDistance = isLandscape
     ? Math.max(180, Math.min(520, Math.round(safeScreenWidth * 0.46)))
     : Math.max(94, Math.min(150, Math.round(safeScreenWidth * 0.26)));
-  const monsterVerticalTravel = Math.max(0, Math.min(260, Math.round(safeScreenHeight * 0.38)));
+  // Give the monster a longer approach toward the companion while keeping a
+  // bounded safe distance from the bottom controls on short screens.
+  const monsterVerticalTravel = Math.max(0, Math.min(340, Math.round(safeScreenHeight * 0.5)));
   const [game, setGame] = useState(createPlayableGame);
   const stockWarningPulse = useRef(new Animated.Value(0)).current;
   const remainingRecycles = getRemainingRecycles(game);
@@ -1790,6 +1793,21 @@ export default function HomeScreen() {
     applyGame(drawnGame);
   };
 
+  const recycleStockWithHammerAction = () => {
+    if (game.stock.length > 0 || game.waste.length === 0) return;
+    if (hammerCharges < 3) {
+      showTimedHint(`추가 스톡 순환에는 망치 3개가 필요합니다. 현재 ${hammerCharges}개입니다.`);
+      haptic.error();
+      return;
+    }
+    const recycledGame = recycleStockWithHammer(game);
+    if (!recycledGame) return;
+    setHammerCharges((charges) => Math.max(0, charges - 3));
+    applyGame(recycledGame, false);
+    showTimedHint("망치 3개를 사용해 스톡을 한 바퀴 추가로 열 수 있습니다.");
+    playEffect("shuffle");
+  };
+
   const cancelHammerModeForCardAction = () => {
     if (!hammerMode) return;
     setHammerMode(false);
@@ -2130,7 +2148,7 @@ export default function HomeScreen() {
             {game.stock.length ? (
               <CardBack width={cardWidth} cardRatio={renderCardRatio} theme={cardBackTheme} onPress={drawStockCard} />
             ) : (
-              <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label={game.waste.length ? "↻" : ""} onPress={() => applyGame(drawFromStock(game))} />
+              <EmptySlot width={cardWidth} cardRatio={renderCardRatio} label={game.waste.length ? "↻" : ""} onPress={() => game.waste.length ? (getRemainingRecycles(game) > 0 ? applyGame(drawFromStock(game)) : recycleStockWithHammerAction()) : undefined} />
             )}
             <View style={styles.wastePileWithHint}>
               {game.waste.at(-1) ? (

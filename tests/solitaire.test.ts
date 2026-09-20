@@ -7,6 +7,7 @@ import {
   destroyCardWithHammer,
   revealHiddenCardWithHammer,
   drawFromStock,
+  recycleStockWithHammer,
   shuffleAvailableCards,
   findHint,
   findAutoFoundationMove,
@@ -82,6 +83,16 @@ describe("클론다이크 규칙", () => {
     game.destroyedCards = [card(2, "clubs")];
     const next = moveToFoundation(game, { kind: "waste" });
     expect(next?.foundations.clubs.map((item) => item.rank)).toEqual([1, 3]);
+  });
+  it("일반 재순환을 모두 사용해도 망치 추가 순환은 웨이스트를 스톡으로 되돌린다", () => {
+    const game = foundationGame([card(4, "hearts"), card(7, "clubs")]);
+    game.level = 30;
+    game.recycles = getDifficulty(game.level).maxRecycles;
+    const next = recycleStockWithHammer(game);
+    expect(next?.stock.map((item) => item.id)).toEqual(["clubs-7", "hearts-4"]);
+    expect(next?.waste).toEqual([]);
+    expect(next?.recycles).toBe(game.recycles + 1);
+    expect(next?.moves).toBe(game.moves + 1);
   });
   it("고난도 랜덤 새 게임은 52장의 카드를 정확히 배치한다", () => {
     const game = createNewGame(6);

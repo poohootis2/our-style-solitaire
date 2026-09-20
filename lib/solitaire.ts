@@ -347,6 +347,16 @@ export function drawFromStock(game: GameState): GameState {
   return withMove(next);
 }
 
+/** 망치 3개로 일반 재순환 제한을 넘어 스톡을 한 바퀴 추가 개방합니다. */
+export function recycleStockWithHammer(game: GameState): GameState | null {
+  if (game.stock.length > 0 || game.waste.length === 0) return null;
+  const next = cloneGame(game);
+  next.stock = next.waste.reverse().map((card) => ({ ...card, faceUp: false }));
+  next.waste = [];
+  next.recycles += 1;
+  return withMove(next);
+}
+
 export function flipTableauCard(game: GameState, column: number): GameState | null {
   const pile = game.tableau[column];
   const topCard = pile?.at(-1);
