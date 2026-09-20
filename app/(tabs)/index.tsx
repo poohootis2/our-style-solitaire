@@ -126,6 +126,7 @@ const SELECTED_COMPANION_KEY = "our-style-solitaire:selected-companion";
 const UNLOCKED_PETS_KEY = "our-style-solitaire:unlocked-pets";
 const BOSS_PREP_BONUSES_KEY = "our-style-solitaire:boss-prep-bonuses";
 const ATTENDANCE_KEY = "our-style-solitaire:attendance";
+const HAMMER_CHARGES_KEY = "our-style-solitaire:hammer-charges";
 const DAILY_AD_HAMMER_REWARD_KEY = "our-style-solitaire:daily-ad-hammer-reward";
 const MAX_DAILY_AD_HAMMER_REWARDS = 5;
 const INITIAL_UNLOCKED_PET_IDS = ["pet-004", "pet-005", "pet-006", "pet-007"];
@@ -1062,7 +1063,7 @@ export default function HomeScreen() {
     let mounted = true;
     const loadLocalGame = async () => {
       try {
-        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, cardSelectVibrationValue, selectedCompanionValue, unlockedPetsValue, bossPrepValue, attendanceValue, dailyAdRewardValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, CARD_SELECT_VIBRATION_KEY, SELECTED_COMPANION_KEY, UNLOCKED_PETS_KEY, BOSS_PREP_BONUSES_KEY, ATTENDANCE_KEY, DAILY_AD_HAMMER_REWARD_KEY]);
+        const [activeGameValue, recordsValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, cardSelectVibrationValue, selectedCompanionValue, unlockedPetsValue, bossPrepValue, attendanceValue, hammerChargesValue, dailyAdRewardValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, CARD_SELECT_VIBRATION_KEY, SELECTED_COMPANION_KEY, UNLOCKED_PETS_KEY, BOSS_PREP_BONUSES_KEY, ATTENDANCE_KEY, HAMMER_CHARGES_KEY, DAILY_AD_HAMMER_REWARD_KEY]);
         if (!mounted) return;
         if (activeGameValue[1] && !newGameStarted.current) {
           const saved = JSON.parse(activeGameValue[1]) as { saveVersion?: number; game?: typeof game; elapsedSeconds?: number };
@@ -1102,6 +1103,10 @@ export default function HomeScreen() {
           const savedAttendance = JSON.parse(attendanceValue[1]) as { day?: number; lastDate?: string | null };
           setAttendanceDay(typeof savedAttendance.day === "number" ? Math.max(0, savedAttendance.day) : 0);
           setLastAttendanceDate(typeof savedAttendance.lastDate === "string" ? savedAttendance.lastDate : null);
+        }
+        if (hammerChargesValue[1]) {
+          const savedHammerCharges = Number.parseInt(hammerChargesValue[1], 10);
+          if (Number.isFinite(savedHammerCharges)) setHammerCharges(Math.max(0, Math.min(10, savedHammerCharges)));
         }
         const today = localDateKey();
         if (dailyAdRewardValue[1]) {
@@ -1186,6 +1191,10 @@ export default function HomeScreen() {
     if (!hydrated) return;
     AsyncStorage.setItem(ATTENDANCE_KEY, JSON.stringify({ day: attendanceDay, lastDate: lastAttendanceDate })).catch(() => undefined);
   }, [attendanceDay, hydrated, lastAttendanceDate]);
+  useEffect(() => {
+    if (!hydrated) return;
+    AsyncStorage.setItem(HAMMER_CHARGES_KEY, String(Math.max(0, Math.min(10, hammerCharges)))).catch(() => undefined);
+  }, [hammerCharges, hydrated]);
   useEffect(() => {
     if (!hydrated) return;
     AsyncStorage.setItem(BOSS_PREP_BONUSES_KEY, JSON.stringify(claimedBossPrepStages)).catch(() => undefined);
@@ -1531,7 +1540,8 @@ export default function HomeScreen() {
     setGame(nextGame);
     setSelection(null);
     playEffect("move");
-    if (!isWon(nextGame)) queueLateGameAutoFinish(nextGame);
+    const foundationRetreat = nextFoundationCount < previousFoundationCount;
+    if (!isWon(nextGame) && !foundationRetreat) queueLateGameAutoFinish(nextGame);
     if (foundationCard || movedCard) {
       const attackCard = foundationCard ?? movedCard;
       if (attackCard) {
@@ -1739,6 +1749,9 @@ export default function HomeScreen() {
     } else if (selection.kind === "waste") {
       applyGame(moveWasteToTableau(game, toColumn), false, movingCard);
     } else {
+      if (autoFinishTimerRef.current) clearTimeout(autoFinishTimerRef.current);
+      autoFinishTimerRef.current = null;
+      autoFinishRunningRef.current = false;
       applyGame(moveFoundationToTableau(game, selection.suit, toColumn), false, movingCard);
     }
   };
