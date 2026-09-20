@@ -823,6 +823,10 @@ export default function HomeScreen() {
   const [flyingCard, setFlyingCard] = useState<Card | null>(null);
   const [showFireworks, setShowFireworks] = useState(false);
   const [hintMessage, setHintMessage] = useState<string | null>(null);
+  const [timeBonusText, setTimeBonusText] = useState<string | null>(null);
+  const timeBonusOpacity = useRef(new Animated.Value(0)).current;
+  const timeBonusTranslateY = useRef(new Animated.Value(10)).current;
+  const timeBonusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [petPreservationNotice, setPetPreservationNotice] = useState(false);
   const [attackKind, setAttackKind] = useState<AttackKind>("clubs");
   const [lastDamage, setLastDamage] = useState(0);
@@ -1001,6 +1005,27 @@ export default function HomeScreen() {
       setHintMessage(null);
       toastTimeoutRef.current = null;
     }, 2000);
+  };
+
+  const showTimeBonus = (seconds: number) => {
+    if (timeBonusTimerRef.current) clearTimeout(timeBonusTimerRef.current);
+    setTimeBonusText(`+${seconds}초`);
+    timeBonusOpacity.stopAnimation();
+    timeBonusTranslateY.stopAnimation();
+    timeBonusOpacity.setValue(0);
+    timeBonusTranslateY.setValue(10);
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(timeBonusOpacity, { toValue: 1, duration: 140, useNativeDriver: true }),
+        Animated.delay(720),
+        Animated.timing(timeBonusOpacity, { toValue: 0, duration: 340, useNativeDriver: true }),
+      ]),
+      Animated.timing(timeBonusTranslateY, { toValue: -18, duration: 1200, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start();
+    timeBonusTimerRef.current = setTimeout(() => {
+      setTimeBonusText(null);
+      timeBonusTimerRef.current = null;
+    }, 1300);
   };
 
   const setSoundEffectsVolumePreference = (value: number) => {
@@ -1365,6 +1390,7 @@ export default function HomeScreen() {
     timeOutHandledRef.current = false;
     setShowTimeOutPopup(false);
     setPaused(false);
+    showTimeBonus(bonusSeconds);
     showTimedHint(`파운데이션 이동! 시간 보너스 +${bonusSeconds}초`);
   };
 
@@ -2229,6 +2255,7 @@ export default function HomeScreen() {
             <Image source={UNDO_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
           </Pressable>
         </View>
+        {timeBonusText ? <Animated.View pointerEvents="none" style={[styles.timeBonusFloat, isLandscape && styles.timeBonusFloatLandscape, { opacity: timeBonusOpacity, transform: [{ translateY: timeBonusTranslateY }] }]}><Text style={styles.timeBonusFloatText}>{timeBonusText}</Text></Animated.View> : null}
         {hintMessage ? <View style={[styles.hintToast, isLandscape && styles.hintToastLandscape, phoneLandscape && { left: 8, right: undefined, width: Math.max(160, sideRailWidth - 16), bottom: 160 }]}><Text style={styles.hintToastText}>{hintMessage}</Text></View> : null}
         {petPreservationNotice ? <View pointerEvents="none" style={styles.petPreservationNotice}><Text style={styles.petPreservationNoticeText}>펫 도감은 안전하게 보존되었습니다</Text></View> : null}
 
@@ -2629,6 +2656,9 @@ const styles = StyleSheet.create({
   undoButtonDisabled: { opacity: 0.38 },
   bottomButtonText: { color: "#FFFDF8", fontSize: 12, fontWeight: "900", letterSpacing: 0.7 },
   bottomButtonContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  timeBonusFloat: { position: "absolute", top: "31%", left: 0, right: 0, zIndex: 80, alignItems: "center" },
+  timeBonusFloatLandscape: { top: "25%" },
+  timeBonusFloatText: { color: "#FFE27A", fontSize: 28, fontWeight: "900", textShadowColor: "#6B2B1E", textShadowOffset: { width: 1, height: 2 }, textShadowRadius: 5 },
   hintToast: { position: "absolute", left: 16, right: 16, bottom: 51, zIndex: 20, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 13, backgroundColor: "#182744", borderWidth: 1, borderColor: "#45628E" },
   hintToastLandscape: { bottom: 55 },
   hintToastText: { color: "#BCEAE2", fontSize: 12, fontWeight: "700", textAlign: "center" },
@@ -2723,11 +2753,11 @@ const styles = StyleSheet.create({
   audioOptionSubtitle: { color: "#A6B4CE", fontSize: 11, fontWeight: "600", marginTop: 3 },
   sheetPrimaryButton: { minHeight: 50, justifyContent: "center", alignItems: "center", borderRadius: 15, backgroundColor: "#FF7A66", marginTop: 21 },
   modeChoiceRow: { flexDirection: "row", gap: 10, marginTop: 21 },
-  modeChoiceButton: { flex: 1, minHeight: 66, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1, paddingHorizontal: 8 },
+  modeChoiceButton: { flex: 1, minHeight: 86, justifyContent: "center", alignItems: "center", borderRadius: 15, borderWidth: 1, paddingHorizontal: 8 },
   modeChoiceUnlimited: { backgroundColor: "#2A4268", borderColor: "#45628E" },
   modeChoiceTimed: { backgroundColor: "#A9533F", borderColor: "#F3A85D" },
-  modeChoiceTitle: { color: "#FFFDF8", fontSize: 14, fontWeight: "900" },
-  modeChoiceCopy: { color: "#D4E2F7", fontSize: 10, fontWeight: "700", marginTop: 4 },
+  modeChoiceTitle: { color: "#FFFDF8", fontSize: 19, fontWeight: "900" },
+  modeChoiceCopy: { color: "#D4E2F7", fontSize: 15, fontWeight: "700", marginTop: 4 },
   timeAttackStatWarning: { color: "#FF6F61" },
   sheetPrimaryText: { color: "#11182C", fontSize: 15, fontWeight: "900" },
   sheetRow: { flexDirection: "row", gap: 10, marginTop: 10 },
