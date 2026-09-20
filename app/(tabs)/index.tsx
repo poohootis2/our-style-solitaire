@@ -2146,7 +2146,7 @@ export default function HomeScreen() {
         </View>
 
         <Animated.View style={[styles.boardTransition, styles.boardTransitionFront, { opacity: layoutTransition, transform: [{ translateY: -24 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}>
-        <View style={[styles.board, { width: boardWidth, alignSelf: "flex-start", marginLeft: isTablet && !isLandscape ? Math.max(0, (safeScreenWidth - boardWidth) * 0.5) : foldUltraWide && !isLandscape ? Math.max(0, (safeScreenWidth - boardWidth) * 0.5) : Math.max(0, (isLandscape ? 10 : cardAreaLeft) - 6) }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
+        <View style={[styles.board, { width: boardWidth, alignSelf: isLandscape ? "center" : "flex-start", marginLeft: isLandscape ? 0 : isTablet ? Math.max(0, (safeScreenWidth - boardWidth) * 0.5) : foldUltraWide ? Math.max(0, (safeScreenWidth - boardWidth) * 0.5) : Math.max(0, cardAreaLeft - 6) }, isLandscape && styles.boardLandscape, phoneLandscape && styles.boardPhoneLandscape]}>
         <View style={[styles.topPiles, isLandscape && styles.topPilesLandscape]}>
           <Animated.View style={[styles.stockWasteGroup, recycleWarning && styles.stockWasteWarning, recycleWarning && { opacity: stockWarningPulse.interpolate({ inputRange: [0, 1], outputRange: [0.58, 1] }) }]}>
             {game.stock.length ? (
@@ -2560,7 +2560,7 @@ const styles = StyleSheet.create({
   boardTransition: { flex: 1, alignItems: "center" },
   board: { alignSelf: "center" },
   boardLandscape: { flex: 1, justifyContent: "flex-start" },
-  boardPhoneLandscape: { position: "absolute", right: 8, top: 88, alignSelf: "auto" },
+  boardPhoneLandscape: { position: "relative", right: 0, top: 0, alignSelf: "center" },
   difficultyStatus: { flexDirection: "row", alignItems: "center", justifyContent: "center", alignSelf: "center", gap: 7, marginBottom: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: "rgba(26, 32, 48, 0.78)", borderWidth: 1, borderColor: "rgba(243, 201, 105, 0.72)" },
   difficultyStatusText: { color: "#FFF3D1", fontSize: 10, lineHeight: 13, fontWeight: "900" },
   difficultyStatusDivider: { color: "#F3C969", fontSize: 12, fontWeight: "900" },

@@ -79,7 +79,9 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   // The measured width is already the final usable width; do not apply model-specific shrink factors.
   const foldableOrLandscapeReduction = 1;
   const minimumCardWidth = isLandscape ? 30 : 34;
-  const tabletCardScale = foldUltraWide ? 0.63 : isTablet ? 0.72 : 1;
+  // Use the Fold inner-display profile as the reference for every landscape
+  // window so cards do not become oversized on wide tablets or rotated phones.
+  const tabletCardScale = foldUltraWide ? 0.63 : isLandscape && isTablet ? 0.72 : isTablet ? 0.72 : 1;
   const horizontalCardWidth = clamp(rawCardWidth * foldableOrLandscapeReduction * tabletCardScale, minimumCardWidth, widthCardLimit);
   const cardWidth = Math.floor(isLandscape ? Math.min(horizontalCardWidth, heightCardLimit) : horizontalCardWidth);
   const cardHeight = cardWidth * cardRatio;
@@ -92,7 +94,7 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
     cardRatio,
     tableauGap,
     stackOffset,
-    uiScale: foldUltraWide ? 0.85 : isTablet ? 1.22 : width >= 420 ? 1.08 : 1,
+    uiScale: foldUltraWide ? 0.85 : isLandscape ? 0.85 : isTablet ? 1.22 : width >= 420 ? 1.08 : 1,
     compact: width <= 430,
     wideCardProfile,
     sideRailWidth,
