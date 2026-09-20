@@ -130,6 +130,8 @@ const ATTENDANCE_KEY = "our-style-solitaire:attendance";
 const HAMMER_CHARGES_KEY = "our-style-solitaire:hammer-charges";
 const DAILY_AD_HAMMER_REWARD_KEY = "our-style-solitaire:daily-ad-hammer-reward";
 const MAX_DAILY_AD_HAMMER_REWARDS = 5;
+const MAX_HAMMER_CHARGES = 15;
+const AD_HAMMER_REWARD_AMOUNT = 5;
 const INITIAL_UNLOCKED_PET_IDS = ["pet-004", "pet-005", "pet-006", "pet-007"];
 const DEFAULT_PET_ID = INITIAL_UNLOCKED_PET_IDS[0];
 const PHYSICAL_EDGE_INSET = 52;
@@ -569,7 +571,9 @@ function MonsterBattle({ hp, damage, attackKind, attackToken, attackStyle, combo
   const monsterMotion = motionValue ?? internalMonsterMotion;
   const verticalMonsterMotion = useRef(new Animated.Value(0)).current;
   const threatPulse = useRef(new Animated.Value(0)).current;
-  const threatScale = recycleWarning ? Math.min(3, 3 - Math.max(0, remainingRecycles) * 0.1) : 1;
+  // The monster grows with its downward approach: 100% at the upper point,
+  // reaching a maximum of 250% near the companion.
+  const threatScale = verticalMonsterMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 2.5] });
   useEffect(() => {
     threatPulse.stopAnimation();
     if (!recycleWarning) { threatPulse.setValue(0); return; }
@@ -1109,7 +1113,7 @@ export default function HomeScreen() {
         }
         if (hammerChargesValue[1]) {
           const savedHammerCharges = Number.parseInt(hammerChargesValue[1], 10);
-          if (Number.isFinite(savedHammerCharges)) setHammerCharges(Math.max(0, Math.min(10, savedHammerCharges)));
+          if (Number.isFinite(savedHammerCharges)) setHammerCharges(Math.max(0, Math.min(MAX_HAMMER_CHARGES, savedHammerCharges)));
         }
         const today = localDateKey();
         if (dailyAdRewardValue[1]) {
@@ -1196,7 +1200,7 @@ export default function HomeScreen() {
   }, [attendanceDay, hydrated, lastAttendanceDate]);
   useEffect(() => {
     if (!hydrated) return;
-    AsyncStorage.setItem(HAMMER_CHARGES_KEY, String(Math.max(0, Math.min(10, hammerCharges)))).catch(() => undefined);
+    AsyncStorage.setItem(HAMMER_CHARGES_KEY, String(Math.max(0, Math.min(MAX_HAMMER_CHARGES, hammerCharges)))).catch(() => undefined);
   }, [hammerCharges, hydrated]);
   useEffect(() => {
     if (!hydrated) return;
@@ -1287,7 +1291,7 @@ export default function HomeScreen() {
     if (shouldGrantBossPrepBonus) {
       const nextClaimedBossPrepStages = [...claimedBossPrepStages, level];
       setClaimedBossPrepStages(nextClaimedBossPrepStages);
-      setHammerCharges((charges) => Math.min(10, charges + 1));
+      setHammerCharges((charges) => Math.min(MAX_HAMMER_CHARGES, charges + 1));
       setShowBossPrepReward(true);
       showTimedHint("보스 전 준비 보너스: 망치 +1");
     }
@@ -1581,7 +1585,7 @@ export default function HomeScreen() {
     const reward = nextDay === 10 || nextDay === 20 || nextDay === 30 ? 5 : 2;
     setAttendanceDay(nextDay);
     setLastAttendanceDate(today);
-    setHammerCharges((charges) => Math.min(10, charges + reward));
+    setHammerCharges((charges) => Math.min(MAX_HAMMER_CHARGES, charges + reward));
     setShowAttendanceClaim(false);
     attendanceRewardFlight.stopAnimation();
     attendanceRewardFlight.setValue(0);
@@ -1598,7 +1602,7 @@ export default function HomeScreen() {
     if (slot === 0) {
       if (twoTouchOpensUsed > 0) { showTimedHint("무료 망치는 이미 사용했습니다."); return; }
       setTwoTouchOpensUsed(1);
-      setHammerCharges((charges) => Math.min(10, charges + 1));
+      setHammerCharges((charges) => Math.min(MAX_HAMMER_CHARGES, charges + 1));
       setShowTwoTouch(false);
       setShowNoMovesPopup(false);
       beginHammerMode(true);
@@ -1624,14 +1628,14 @@ export default function HomeScreen() {
     }
     const nextRewardedCount = rewardedRevealUsed + 1;
     const dailyRewardNumber = Math.min(MAX_DAILY_AD_HAMMER_REWARDS, dailyAdHammerRewards + 1);
-    const rewardAmount = dailyRewardNumber <= 3 ? 2 : 5;
+    const rewardAmount = AD_HAMMER_REWARD_AMOUNT;
     setRewardedRevealUsed(nextRewardedCount);
     recordDailyAdHammerReward();
-    setHammerCharges((charges) => Math.min(10, charges + rewardAmount));
+    setHammerCharges((charges) => Math.min(MAX_HAMMER_CHARGES, charges + rewardAmount));
     setShowTwoTouch(false);
     setShowNoMovesPopup(false);
     beginHammerMode(true);
-    showTimedHint(`원하는 카드를 클릭하세요 (광고 망치 ${nextRewardedCount}/10 · 오늘 ${dailyRewardNumber}/5 · 망치 +${rewardAmount})`);
+    showTimedHint(`원하는 카드를 클릭하세요 (오늘 광고 ${dailyRewardNumber}/5 · 망치 +${rewardAmount})`);
   };
 
   const recordDailyAdHammerReward = () => {
@@ -1654,7 +1658,7 @@ export default function HomeScreen() {
       showDailyAdRewardExhausted();
       return;
     }
-    const hammerCap = gameMode === "timeAttack" ? 20 : 10;
+    const hammerCap = MAX_HAMMER_CHARGES;
     if (hammerCharges >= hammerCap) {
       showTimedHint(`망치가 이미 ${hammerCap}개라 광고 보상을 받을 수 없습니다. 먼저 망치를 사용해 주세요.`);
       return;
@@ -1667,7 +1671,7 @@ export default function HomeScreen() {
       return;
     }
     const dailyRewardNumber = Math.min(MAX_DAILY_AD_HAMMER_REWARDS, dailyAdHammerRewards + 1);
-    const rewardAmount = gameMode === "timeAttack" ? 10 : dailyRewardNumber <= 3 ? 2 : 5;
+    const rewardAmount = AD_HAMMER_REWARD_AMOUNT;
     recordDailyAdHammerReward();
     setHammerCharges((charges) => Math.min(hammerCap, charges + rewardAmount));
     showTimedHint(`망치 +${rewardAmount} 충전 완료 (${Math.min(hammerCap, hammerCharges + rewardAmount)}/${hammerCap}) · 오늘 ${dailyRewardNumber}/${MAX_DAILY_AD_HAMMER_REWARDS}`);
@@ -2164,7 +2168,7 @@ export default function HomeScreen() {
           <Animated.View style={[styles.hammerPilesAnimated, { width: cardWidth, height: cardWidth * renderCardRatio }, { opacity: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) : 0.72 }, { transform: [{ translateX: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: [-4, 4] }) }, { rotate: hammerImpact.interpolate({ inputRange: [-1, 1], outputRange: ["-5deg", "5deg"] }) }, { scale: hammerCharges > 0 ? hammerShine.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) : 1 }] }]}>
             <Pressable accessibilityRole="button" accessibilityLabel={`망치 ${hammerCharges}개 남음`} onPress={() => beginHammerMode()} style={({ pressed }) => [styles.hammerPilesButton, { width: cardWidth, height: cardWidth * renderCardRatio }, hammerCharges > 0 && styles.hammerPilesButtonReady, pressed && styles.pressed]}>
               <Animated.Image source={HAMMER_ICON_ART} resizeMode="contain" style={[styles.hammerPilesIcon, { width: Math.min(cardWidth * 1.3, 84), height: Math.min(cardWidth * 1.3, 84) }, { transform: [{ translateY: hammerIdleMotion.interpolate({ inputRange: [-1, 0, 1], outputRange: [2, 0, -2] }) }] }]} />
-              <Text style={[styles.hammerPilesCount, { fontSize: Math.max(15, Math.round(cardWidth * 0.18) + 5) }]}>{hammerCharges}/10</Text>
+              <Text style={[styles.hammerPilesCount, { fontSize: Math.max(15, Math.round(cardWidth * 0.18) + 5) }]}>{hammerCharges}/{MAX_HAMMER_CHARGES}</Text>
             </Pressable>
           </Animated.View>
           <View style={[styles.foundationGroup, { gap: Math.max(3, Math.round(cardWidth * 0.08)) }]}>
@@ -2202,7 +2206,7 @@ export default function HomeScreen() {
         <CompanionAnchor companion={selectedCompanion} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} onPress={() => undefined} />
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: Math.max(0, bottomControlsBottom - 5) }]}>
 
-          <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges >= 10 ? "망치가 10개라 광고 보상을 받을 수 없음" : "광고 시청 후 망치 받기"} onPress={() => { haptic.light(); void claimHammerAdReward(); }} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHammerButton, phoneLandscape && styles.bottomButtonPhoneLandscape, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges >= MAX_HAMMER_CHARGES ? `망치가 ${MAX_HAMMER_CHARGES}개라 광고 보상을 받을 수 없음` : "광고 시청 후 망치 받기"} onPress={() => { haptic.light(); void claimHammerAdReward(); }} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHammerButton, phoneLandscape && styles.bottomButtonPhoneLandscape, pressed && styles.pressed]}>
             <Image source={HAMMER_PLUS_ONE_BUTTON_ART} resizeMode="contain" style={styles.cartoonActionImage} />
           </Pressable>
           <Animated.View style={[styles.hintAttentionWrap, { opacity: hintAttention.interpolate({ inputRange: [0, 1], outputRange: [1, 0.62] }), transform: [{ scale: hintAttention.interpolate({ inputRange: [0, 1], outputRange: [1, 1.035] }) }, { rotate: hintAttention.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "-2deg"] }) }] }]}>
@@ -2225,16 +2229,16 @@ export default function HomeScreen() {
               <Pressable accessibilityRole="button" accessibilityLabel="망치 안내 닫기" onPress={() => setShowHammerOffer(false)} style={({ pressed }) => [styles.noMovesPopupClose, pressed && styles.pressed]}><Text style={styles.noMovesPopupCloseText}>×</Text></Pressable>
               {dailyAdHammerRewards >= MAX_DAILY_AD_HAMMER_REWARDS ? <>
                 <Text style={styles.hammerOfferTitle}>일일 광고 보상이 소진되었습니다.</Text>
-                <Text style={styles.hammerOfferCopy}>오늘 광고 5회 보상이 모두 소진되었습니다. 1~3회차는 망치 2개, 4~5회차는 망치 5개를 받습니다. 망치는 최대 10개까지 보유할 수 있으며, 내일 광고 보상이 다시 열립니다. 현재 스테이지와 펫 도감은 유지됩니다.</Text>
+                <Text style={styles.hammerOfferCopy}>오늘 광고 5회 보상이 모두 소진되었습니다. 광고를 시청할 때마다 망치 5개를 받으며, 망치는 최대 15개까지 보유할 수 있습니다. 내일 광고 보상이 다시 열리고 현재 스테이지와 펫 도감은 유지됩니다.</Text>
                 <View style={styles.noMovesPopupActions}>
                   <Pressable accessibilityRole="button" accessibilityLabel="현재 Stage 새로 시작" onPress={() => { setShowHammerOffer(false); requestCurrentStageRestart(); }} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>이 Stage 재시작</Text></Pressable>
                   <Pressable accessibilityRole="button" accessibilityLabel="Stage 1로 돌아가기" onPress={() => { setShowHammerOffer(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>Stage 1로</Text></Pressable>
                 </View>
               </> : <>
                 <Text style={styles.hammerOfferTitle}>히든 카드를 열어 길을 만들까요?</Text>
-                <Text style={styles.hammerOfferCopy}>망치로 열지 않은 카드 1장을 즉시 공개할 수 있습니다. 광고 보상은 하루 5회이며, 1~3회차는 망치 +2, 4~5회차는 망치 +5입니다. 망치는 최대 10개까지 적립됩니다.</Text>
+                <Text style={styles.hammerOfferCopy}>망치로 히든 카드 1장을 즉시 공개할 수 있습니다. 광고 보상은 하루 5회이며, 매회 망치 +5입니다. 망치는 최대 15개까지 적립됩니다.</Text>
                 <View style={styles.noMovesPopupActions}>
-                  <Pressable accessibilityRole="button" accessibilityLabel="망치 사용" onPress={() => { setHammerCharges((charges) => Math.min(10, charges + 1)); beginHammerMode(true); }} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>망치 사용</Text></Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel="망치 사용" onPress={() => { setHammerCharges((charges) => Math.min(MAX_HAMMER_CHARGES, charges + 1)); beginHammerMode(true); }} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>망치 사용</Text></Pressable>
                   <Pressable accessibilityRole="button" accessibilityLabel="새로 시작" onPress={() => { setShowHammerOffer(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>새로 시작</Text></Pressable>
                 </View>
               </>}
@@ -2276,7 +2280,7 @@ export default function HomeScreen() {
               <Image source={DAILY_CHECKIN_ART} resizeMode="contain" style={styles.attendanceModalImage} />
               <Text style={styles.attendanceTitle}>출석체크</Text>
               <Text style={styles.attendanceCopy}>{lastAttendanceDate === localDateKey() ? `오늘 출석 완료 · ${attendanceDay}일차` : `다음 출석 보상 · ${attendanceDay + 1}일차`}</Text>
-              <Text style={styles.attendanceReward}>{lastAttendanceDate === localDateKey() ? "오늘 보상은 이미 받았습니다." : `망치 +${attendanceDay + 1 === 10 || attendanceDay + 1 === 20 || attendanceDay + 1 === 30 ? 5 : 2} · 최대 10개 보유`}</Text>
+              <Text style={styles.attendanceReward}>{lastAttendanceDate === localDateKey() ? "오늘 보상은 이미 받았습니다." : `망치 +${attendanceDay + 1 === 10 || attendanceDay + 1 === 20 || attendanceDay + 1 === 30 ? 5 : 2} · 최대 15개 보유`}</Text>
               <Pressable disabled={lastAttendanceDate === localDateKey()} onPress={claimAttendance} style={({ pressed }) => [styles.attendanceClaimButton, lastAttendanceDate === localDateKey() && styles.attendanceClaimButtonDisabled, pressed && styles.pressed]}><Text style={styles.attendanceClaimText}>{lastAttendanceDate === localDateKey() ? "오늘 출석 완료" : "오늘 출석 받기"}</Text></Pressable>
             </View>
           </View>
@@ -2372,7 +2376,7 @@ export default function HomeScreen() {
                   </View>
                   {rulesTab === "basic" ? <Text style={styles.rulesText}>A부터 같은 무늬 순서로 위쪽 파운데이션을 완성하면 승리합니다. 카드는 색을 번갈아 놓고 숫자가 하나씩 낮아지게 쌓습니다. 반복되는 이동이 2번 연속일 경우 더 이상 이동할 수 없다는 창이 떠도 X 버튼을 눌러 계속 진행할 수 있습니다.</Text> : null}
                   {rulesTab === "cards" ? <Text style={styles.rulesText}>카드를 탭한 뒤 이동할 곳을 탭하세요. 빈 열에는 K만 놓을 수 있습니다. 스톡을 탭하면 새 카드가 나오며, 힌트와 실행 취소로 진행을 도울 수 있습니다. 카드를 잘못 선택했다면 다른 카드를 더블탭해 선택을 바꿀 수 있습니다.</Text> : null}
-                  {rulesTab === "items" ? <><Text style={styles.rulesText}>카드가 몬스터에게 날아가며 파운데이션 카드와 콤보 공격은 피해를 줍니다. 망치는 히든 카드 공개에 사용하고, 출석과 보상형 광고로 최대 10개까지 충전할 수 있습니다.</Text><Text style={styles.rulesHint}>출석체크: 게임에 접속한 날 출석 버튼을 눌러 보상을 받습니다. 일반 출석은 망치 2개, 10·20·30일차는 망치 5개를 받으며, 당일 출석은 한 번만 인정됩니다.</Text><Text style={styles.rulesHint}>망치 획득: 출석체크 또는 보상형 광고 시청으로 충전됩니다. 망치는 최대 10개까지 보유할 수 있습니다.</Text></> : null}
+                  {rulesTab === "items" ? <><Text style={styles.rulesText}>카드가 몬스터에게 날아가며 파운데이션 카드와 콤보 공격은 피해를 줍니다. 망치는 히든 카드 공개에 사용하고, 출석과 보상형 광고로 최대 15개까지 충전할 수 있습니다.</Text><Text style={styles.rulesHint}>출석체크: 게임에 접속한 날 출석 버튼을 눌러 보상을 받습니다. 일반 출석은 망치 2개, 10·20·30일차는 망치 5개를 받으며, 당일 출석은 한 번만 인정됩니다.</Text><Text style={styles.rulesHint}>망치 획득: 출석체크 또는 보상형 광고 시청으로 충전됩니다. 망치는 최대 15개까지 보유할 수 있습니다.</Text></> : null}
                   <View style={styles.modeChoiceRow}>
                     <Pressable accessibilityRole="button" accessibilityLabel="무제한 모드 시작" onPress={() => startGameMode("unlimited")} style={({ pressed }) => [styles.modeChoiceButton, styles.modeChoiceUnlimited, pressed && styles.pressed]}><Text style={styles.modeChoiceTitle}>무제한 모드</Text><Text style={styles.modeChoiceCopy}>시간 제한 없이 플레이</Text></Pressable>
                     <Pressable accessibilityRole="button" accessibilityLabel="시간제한 모드 시작" onPress={() => startGameMode("timeAttack")} style={({ pressed }) => [styles.modeChoiceButton, styles.modeChoiceTimed, pressed && styles.pressed]}><Text style={styles.modeChoiceTitle}>시간제한</Text><Text style={styles.modeChoiceCopy}>3분 안에 클리어</Text></Pressable>
