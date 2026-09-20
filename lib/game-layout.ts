@@ -49,7 +49,12 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const outerPadding = 10;
   const leftBound = clamp(horizontalBounds?.left ?? outerPadding, outerPadding, Math.max(outerPadding, width - outerPadding));
   const rightBound = clamp(horizontalBounds?.right ?? width - outerPadding, leftBound + 220, width - outerPadding);
-  const availableWidth = Math.max(260, rightBound - leftBound - sideRailWidth);
+  const measuredAvailableWidth = Math.max(260, rightBound - leftBound - sideRailWidth);
+  // A landscape tablet may be much wider than the Fold inner display. Keep the
+  // seven-column play board at the Fold reference width and leave the excess
+  // space for the pet/monster battle rails on both sides.
+  const foldLandscapeBoardLimit = isLandscape && isTablet ? 748 : Number.POSITIVE_INFINITY;
+  const availableWidth = Math.min(measuredAvailableWidth, foldLandscapeBoardLimit);
   const tableauGap = clamp(Math.round(availableWidth * 0.012), 4, 14);
   const maxBoardWidth = availableWidth;
   const rawCardWidth = (availableWidth - tableauGap * TABLEAU_STEPS) / TABLEAU_COLUMNS;

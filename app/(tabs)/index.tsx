@@ -1357,6 +1357,16 @@ export default function HomeScreen() {
     setPaused(false);
     showTimedHint("콤보 성공! 시간 보너스 +10초");
   };
+  const grantTimeAttackFoundationBonus = (cardCount: number) => {
+    if (gameMode !== "timeAttack" || cardCount <= 0) return;
+    const bonusSeconds = cardCount * 2;
+    setElapsedSeconds((seconds) => Math.max(0, seconds - bonusSeconds));
+    elapsedSecondsRef.current = Math.max(0, elapsedSecondsRef.current - bonusSeconds);
+    timeOutHandledRef.current = false;
+    setShowTimeOutPopup(false);
+    setPaused(false);
+    showTimedHint(`파운데이션 이동! 시간 보너스 +${bonusSeconds}초`);
+  };
 
   const unlockRandomPets = (count: number) => {
     const locked = PET_ROSTER.filter((pet) => !unlockedPetIds.includes(pet.id));
@@ -1512,6 +1522,7 @@ export default function HomeScreen() {
     const previousFoundationCount = SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0);
     const nextFoundationCount = SUITS.reduce((total, suit) => total + nextGame.foundations[suit].length, 0);
     const foundationMove = nextFoundationCount > previousFoundationCount;
+    if (foundationMove) grantTimeAttackFoundationBonus(nextFoundationCount - previousFoundationCount);
     const changedSuit = movedCard?.suit ?? SUITS.find((suit) => nextGame.foundations[suit].length > game.foundations[suit].length) ?? "clubs";
     const foundationCard = foundationMove ? (movedCard ?? nextGame.foundations[changedSuit].at(-1)) : undefined;
     if (foundationMove) {

@@ -35,7 +35,12 @@ describe("반응형 게임 테이블 레이아웃", () => {
   it("태블릿 가로 화면은 모바일 전용 좌측 레일을 사용하지 않는다", () => {
     const layout = getGameLayout(1024, 768);
     expect(layout.sideRailWidth).toBe(0);
-    expect(layout.cardWidth).toBeGreaterThan(80);
+    expect(layout.cardWidth).toBeGreaterThan(60);
+  });
+
+  it("넓은 태블릿 가로 화면은 Fold 펼침 기준 보드 폭을 넘지 않는다", () => {
+    const layout = getGameLayout(1716, 1205);
+    expect(layout.boardWidth).toBeLessThanOrEqual(748);
   });
 
   it("가로 화면에서 상단 배너와 하단 조작부를 남겨도 가장 아래 카드가 안전 영역 안에 들어간다", () => {
