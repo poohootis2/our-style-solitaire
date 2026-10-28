@@ -41,7 +41,7 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   // Narrow phone-landscape windows need tighter tableau overlap to keep the cards readable.
   // Wide windows preserve the more generous spacing used by the previous Fold/tablet layout.
   const phoneLandscapeOverlap = isPhoneLandscape ? clamp(landscapeAspect / 2.2, 0.78, 1) : 1;
-  const sideRailWidth = isPhoneLandscape ? clamp(Math.round(width * 0.30), 190, 248) : 0;
+  const sideRailWidth = isPhoneLandscape ? clamp(Math.round(width * 0.25), 176, 216) : 0;
   // Keep the physical card shape constant in every window orientation. A card
   // must never become wider or flatter just because a Fold was opened.
   const cardRatio = CARD_RATIO;
@@ -86,8 +86,12 @@ export function getGameLayout(width: number, height: number, verticalEdgeInset =
   const minimumCardWidth = isLandscape ? 30 : 34;
   // Use the Fold inner-display profile as the reference for every landscape
   // window so cards do not become oversized on wide tablets or rotated phones.
-  const tabletCardScale = foldUltraWide ? 0.63 : isLandscape && isTablet ? 0.72 : isTablet ? 0.72 : 1;
-  const horizontalCardWidth = clamp(rawCardWidth * foldableOrLandscapeReduction * tabletCardScale, minimumCardWidth, widthCardLimit);
+  // Landscape cards are intentionally 15% smaller than the previous profile.
+  // Keep the board centered and preserve the exposed tableau spacing rather than
+  // making the cards wider again on Fold/phone landscape windows.
+  const landscapeCardReduction = isLandscape ? 0.85 : 1;
+  const tabletCardScale = foldUltraWide ? 0.63 : isLandscape && isTablet ? 0.72 : isPhoneLandscape ? 0.86 : isTablet ? 0.72 : 1;
+  const horizontalCardWidth = clamp(rawCardWidth * foldableOrLandscapeReduction * tabletCardScale * landscapeCardReduction, minimumCardWidth, widthCardLimit);
   const cardWidth = Math.floor(isLandscape ? Math.min(horizontalCardWidth, heightCardLimit) : horizontalCardWidth);
   const cardHeight = cardWidth * cardRatio;
   const availableStackOffset = (usableTableauHeight - topPilesGap - cardHeight * 2) / TABLEAU_STEPS;

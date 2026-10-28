@@ -8,6 +8,34 @@
       "when": 1763372440610,
       "tag": "0000_elite_eternals",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1791404867478,
+      "tag": "0001_small_dormammu",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1791569625928,
+      "tag": "0002_opposite_swarm",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1791635295369,
+      "tag": "0003_stage_rankings",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1791846917772,
+      "tag": "0004_stage_rankings_schema_snapshot",
+      "breakpoints": true
     }
   ]
 }

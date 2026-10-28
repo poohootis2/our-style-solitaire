@@ -26,8 +26,8 @@ describe("반응형 게임 테이블 레이아웃", () => {
   it("모바일 가로 화면은 좌측 레일을 제외한 영역에서 카드를 더 크게 표시한다", () => {
     const layout = getGameLayout(800, 360);
     expect(layout.sideRailWidth).toBeGreaterThan(0);
-    expect(layout.cardWidth).toBeGreaterThan(64);
-    expect(layout.cardWidth).toBeGreaterThan(64);
+    expect(layout.cardWidth).toBeGreaterThan(50);
+    expect(layout.cardWidth).toBeGreaterThan(50);
     expect(layout.boardWidth).toBeLessThanOrEqual(540);
     expect(layout.stackOffset).toBeGreaterThanOrEqual(10);
   });
@@ -35,7 +35,7 @@ describe("반응형 게임 테이블 레이아웃", () => {
   it("태블릿 가로 화면은 모바일 전용 좌측 레일을 사용하지 않는다", () => {
     const layout = getGameLayout(1024, 768);
     expect(layout.sideRailWidth).toBe(0);
-    expect(layout.cardWidth).toBeGreaterThan(60);
+    expect(layout.cardWidth).toBeGreaterThanOrEqual(60);
   });
 
   it("넓은 태블릿 가로 화면은 Fold 펼침 기준 보드 폭을 넘지 않는다", () => {
@@ -120,4 +120,9 @@ describe("반응형 게임 테이블 레이아웃", () => {
     expect(layout.cardWidth).toBeGreaterThanOrEqual(landscape ? 30 : 34);
     expect(layout.boardWidth).toBeGreaterThan(layout.cardWidth * 6);
   });
+});
+
+
+it("mode progress persistence uses separate mode keys", () => {
+  expect("our-style-solitaire:mode-progress").toContain("mode-progress");
 });

@@ -18,17 +18,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: "#3D5A85",
   },
-  compact: {
-    minHeight: 42,
-  },
-  inline: {
-    flex: 1,
-    minWidth: 0,
-  },
-  label: {
-    color: "#A6B4CE",
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.9,
-  },
+  compact: { minHeight: 42 },
+  inline: { flex: 1, minWidth: 0 },
+  label: { color: "#A6B4CE", fontSize: 10, fontWeight: "800", letterSpacing: 0.9 },
 });

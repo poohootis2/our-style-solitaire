@@ -7,7 +7,9 @@ export type User = {
   openId: string;
   name: string | null;
   email: string | null;
+  avatarUrl?: string | null;
   loginMethod: string | null;
+  countryCode?: string | null;
   lastSignedIn: Date;
 };
 

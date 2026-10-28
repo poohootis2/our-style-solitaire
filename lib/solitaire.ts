@@ -82,13 +82,15 @@ export function getChapterForStage(stage: number): number {
 }
 
 export function isChapterBossStage(stage: number): boolean {
-  return stage === 4 || stage === 7 || stage === 11;
+  const safeStage = Math.max(1, Math.floor(stage));
+  if (safeStage <= 115) return safeStage % 15 === 0;
+  return safeStage >= 116;
 }
 
 export function getDifficulty(level: number): Difficulty {
   // Extra-forgiving mobile opening: early stages stay on Turn 1 and allow
   // generous Stock recycles so new players can recover from a poor route.
-  if (isChapterBossStage(level) && level >= 11) return { drawCount: 3, maxRecycles: 5, label: "보스 도전" };
+  if (isChapterBossStage(level)) return { drawCount: 3, maxRecycles: 5, label: "보스 도전" };
   if (level <= 3) return { drawCount: 1, maxRecycles: 8, label: "입문" };
   if (level <= 10) return { drawCount: 1, maxRecycles: 7, label: "초반" };
   // Keep Turn 1 through most of the mid-game. Turn 3 appears only on every
@@ -201,6 +203,19 @@ export function cloneGameState(game: GameState): GameState {
   return cloneGame(game);
 }
 
+/**
+ * Migrate games created by the old destructive waste-hammer implementation.
+ * Those cards were only hidden from play, not meant to be permanently lost.
+ */
+export function restoreDestroyedCardsToWaste(game: GameState): GameState {
+  const hidden = game.destroyedCards ?? [];
+  if (hidden.length === 0) return cloneGame(game);
+  const next = cloneGame(game);
+  next.waste = [...next.waste, ...hidden.map((card) => ({ ...card, faceUp: true }))];
+  next.destroyedCards = [];
+  return next;
+}
+
 function withMove(game: GameState, scoreDelta = 0): GameState {
   return { ...game, moves: game.moves + 1, score: Math.max(0, game.score + scoreDelta) };
 }
@@ -259,6 +274,42 @@ export function canPlaceOnFoundation(card: Card, foundation: Card[], destroyedCa
     expectedRank += 1;
   }
   return expectedRank <= 13 && card.rank === expectedRank;
+}
+
+/** Detect impossible persisted/transient boards before they reach the UI. */
+export function validateGameState(game: GameState): { valid: boolean; reason?: string } {
+  if (!game || !Array.isArray(game.stock) || !Array.isArray(game.waste) || !Array.isArray(game.tableau) || game.tableau.length !== 7 || !game.foundations) {
+    return { valid: false, reason: "게임 보드 구조 오류" };
+  }
+  if (!SUITS.every((suit) => Array.isArray(game.foundations[suit]))) {
+    return { valid: false, reason: "파운데이션 구조 오류" };
+  }
+  if (game.tableau.some((pile) => !Array.isArray(pile))) {
+    return { valid: false, reason: "태블로 구조 오류" };
+  }
+  const activeCards = [
+    ...game.stock,
+    ...game.waste,
+    ...game.tableau.flat(),
+    ...SUITS.flatMap((suit) => game.foundations[suit] ?? []),
+  ];
+  const allIds = new Set<string>();
+  for (const card of [...activeCards, ...(game.destroyedCards ?? [])]) {
+    if (allIds.has(card.id)) return { valid: false, reason: `중복 카드 ${card.id}` };
+    allIds.add(card.id);
+  }
+  for (const suit of SUITS) {
+    const foundation = game.foundations[suit] ?? [];
+    for (let index = 0; index < foundation.length; index += 1) {
+      const card = foundation[index];
+      if (card.suit !== suit || card.rank !== index + 1) return { valid: false, reason: `${suit} 파운데이션 순서 오류` };
+    }
+    // A card can legitimately leave the foundation and return to the tableau
+    // during a retreat. Duplicate IDs and malformed foundation order are the
+    // reliable corruption signals; do not reject a recoverable board merely
+    // because a lower card is temporarily outside the foundation.
+  }
+  return { valid: true };
 }
 
 export function shuffleAvailableCards(game: GameState): GameState | null {
@@ -347,7 +398,7 @@ export function drawFromStock(game: GameState): GameState {
   return withMove(next);
 }
 
-/** 망치 3개로 일반 재순환 제한을 넘어 스톡을 한 바퀴 추가 개방합니다. */
+/** 망치 2개로 일반 재순환 제한을 넘어 스톡을 한 바퀴 추가 개방합니다. */
 export function recycleStockWithHammer(game: GameState): GameState | null {
   if (game.stock.length > 0 || game.waste.length === 0) return null;
   const next = cloneGame(game);
@@ -401,7 +452,11 @@ export function destroyWasteWithHammer(game: GameState): GameState | null {
   if (!card) return null;
   const next = cloneGame(game);
   next.waste.pop();
-  next.destroyedCards = [...(next.destroyedCards ?? []), card];
+  // A waste hammer hides the exposed card under the waste pile instead of
+  // destroying it. It remains in the deck and becomes available again after
+  // the stock/waste cycle reaches the bottom card.
+  next.waste.unshift({ ...card, faceUp: true });
+  next.hammerUses = (next.hammerUses ?? 0) + 1;
   return withMove(next, -5);
 }
 
@@ -472,28 +527,13 @@ export function createPlayableGame(level = 1): GameState {
   return createNewGame(level);
 }
 
-export function autoComplete(game: GameState): GameState {
-  let next = game;
-  let moved = true;
-  while (moved) {
-    moved = false;
-    const wasteMove = moveToFoundation(next, { kind: "waste" });
-    if (wasteMove) {
-      next = wasteMove;
-      moved = true;
-      continue;
-    }
-    for (let column = 0; column < next.tableau.length; column += 1) {
-      const pile = next.tableau[column];
-      if (!pile.at(-1)?.faceUp) continue;
-      const tableauMove = moveToFoundation(next, { kind: "tableau", column, index: pile.length - 1 });
-      if (tableauMove) {
-        next = tableauMove;
-        moved = true;
-        break;
-      }
-    }
-  }
+/**
+ * Opens the tableau while preserving the stock, waste, foundations, score,
+ * and card order. Used by the preview-only Time Attack experiment.
+ */
+export function revealAllTableauCards(game: GameState): GameState {
+  const next = cloneGame(game);
+  next.tableau = next.tableau.map((pile) => pile.map((card) => ({ ...card, faceUp: true })));
   return next;
 }
 

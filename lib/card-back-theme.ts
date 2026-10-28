@@ -5,17 +5,26 @@ export type CardBackTheme = {
   border: string;
   mark: string;
   glyph: string;
+  image?: string;
 };
 
-const CARD_BACK_THEMES: CardBackTheme[] = [
-  { name: "민트 펠트", outer: "#77D6C3", inner: "#1E3153", border: "#A5F0DF", mark: "#77D6C3", glyph: "✦" },
-  { name: "오로라", outer: "#9C85EE", inner: "#292052", border: "#D0C4FF", mark: "#B9F4E5", glyph: "✧" },
-  { name: "코랄", outer: "#FF8A76", inner: "#5A2632", border: "#FFC1B4", mark: "#FFE6B5", glyph: "◆" },
-  { name: "라군", outer: "#4BA9C8", inner: "#143F58", border: "#9BE7F1", mark: "#F4E98C", glyph: "✺" },
-  { name: "골드", outer: "#D6A956", inner: "#49351A", border: "#FFE7A2", mark: "#FFF3C9", glyph: "✹" },
-  { name: "로즈", outer: "#D46B9A", inner: "#511D3A", border: "#FFC0DC", mark: "#FFE1EF", glyph: "✿" },
+export const CARD_BACK_THEMES: CardBackTheme[] = [
+  { name: "카드 뒷면 01", outer: "#2E5D8A", inner: "#17314F", border: "#B9E4FF", mark: "#EAF8FF", glyph: "✦", image: "card_back_01.png" },
+  { name: "카드 뒷면 02", outer: "#7A3E72", inner: "#321B3E", border: "#F4B8E8", mark: "#FFF0FB", glyph: "✧", image: "card_back_02.png" },
+  { name: "카드 뒷면 03", outer: "#9B4B35", inner: "#4A211C", border: "#FFD0A8", mark: "#FFF4DE", glyph: "◆", image: "card_back_03.png" },
+  { name: "카드 뒷면 04", outer: "#2B806F", inner: "#123F3A", border: "#A7F4DB", mark: "#E9FFF8", glyph: "✺", image: "card_back_04.png" },
+  { name: "카드 뒷면 05", outer: "#B47B2C", inner: "#513915", border: "#FFE39B", mark: "#FFF8D7", glyph: "✹", image: "card_back_05.png" },
+  { name: "카드 뒷면 06", outer: "#A64D70", inner: "#4B1D3A", border: "#FFC5DD", mark: "#FFEAF2", glyph: "✿", image: "card_back_06.png" },
+  { name: "카드 뒷면 07", outer: "#416FAD", inner: "#172E56", border: "#BBD9FF", mark: "#EDF6FF", glyph: "♜", image: "card_back_07.png" },
+  { name: "카드 뒷면 08", outer: "#7656A9", inner: "#2B1D4A", border: "#E5D5FF", mark: "#FFF0B8", glyph: "♛", image: "card_back_08.png" },
 ];
 
+const STAGE_CARD_BACK_THEME_COUNT = CARD_BACK_THEMES.length;
+
 export function getCardBackTheme(level: number): CardBackTheme {
-  return CARD_BACK_THEMES[(Math.max(level, 1) - 1) % CARD_BACK_THEMES.length];
+  return CARD_BACK_THEMES[(Math.max(level, 1) - 1) % STAGE_CARD_BACK_THEME_COUNT];
+}
+
+export function getCardBackThemeByIndex(index: number): CardBackTheme {
+  return CARD_BACK_THEMES[Math.max(0, Math.min(CARD_BACK_THEMES.length - 1, Math.floor(index)))];
 }

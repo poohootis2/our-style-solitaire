@@ -1,11 +1,57 @@
 import { Platform } from "react-native";
 import { getApiBaseUrl } from "@/constants/oauth";
 import * as Auth from "./auth";
+import { parseApiResponseBody } from "./api-response";
 
 type ApiResponse<T> = {
   data?: T;
   error?: string;
 };
+
+const GOOGLE_LOGIN_RETRY_DELAYS_MS = [0, 700, 1500] as const;
+
+function isTransientGoogleLoginError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return [
+    "network request failed",
+    "networkerror",
+    "fetch failed",
+    "timed out",
+    "timeout",
+    "html 대신",
+    "html을 반환했습니다",
+    "502",
+    "503",
+    "504",
+    "522",
+    "524",
+    "service unavailable",
+    "bad gateway",
+  ].some((marker) => message.includes(marker));
+}
+
+async function exchangeGoogleIdTokenWithRetry(
+  idToken: string,
+): Promise<{ app_session_id: string; user: any }> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < GOOGLE_LOGIN_RETRY_DELAYS_MS.length; attempt += 1) {
+    const delay = GOOGLE_LOGIN_RETRY_DELAYS_MS[attempt];
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+    try {
+      return await apiCall<{ app_session_id: string; user: any }>("/api/auth/google", {
+        method: "POST",
+        body: JSON.stringify({ idToken }),
+      });
+    } catch (error) {
+      lastError = error;
+      if (!isTransientGoogleLoginError(error) || attempt === GOOGLE_LOGIN_RETRY_DELAYS_MS.length - 1) {
+        throw error;
+      }
+      console.warn(`[API] Google login transient failure; retrying (${attempt + 1}/${GOOGLE_LOGIN_RETRY_DELAYS_MS.length - 1})`);
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Google login request failed.");
+}
 
 export async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
@@ -62,24 +108,23 @@ export async function apiCall<T>(endpoint: string, options: RequestInit = {}): P
       console.error("[API] Error response:", errorText);
       let errorMessage = errorText;
       try {
-        const errorJson = JSON.parse(errorText);
+        const errorJson = parseApiResponseBody<Record<string, string>>(
+          errorText,
+          response.headers.get("content-type"),
+          url,
+        );
         errorMessage = errorJson.error || errorJson.message || errorText;
-      } catch {
-        // Not JSON, use text as is
+      } catch (parseError) {
+        errorMessage = parseError instanceof Error ? parseError.message : errorText;
       }
       throw new Error(errorMessage || `API call failed: ${response.statusText}`);
     }
 
     const contentType = response.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
-      const data = await response.json();
-      console.log("[API] JSON response received");
-      return data as T;
-    }
-
     const text = await response.text();
-    console.log("[API] Text response received");
-    return (text ? JSON.parse(text) : {}) as T;
+    const data = parseApiResponseBody<T>(text, contentType, url);
+    console.log("[API] JSON response received");
+    return data;
   } catch (error) {
     console.error("[API] Request failed:", error);
     if (error instanceof Error) {
@@ -112,6 +157,22 @@ export async function exchangeOAuthCode(
 
   return {
     sessionToken,
+    user: result.user,
+  };
+}
+
+/** Exchange a Google ID token for the game's own signed mobile session. */
+export async function exchangeGoogleIdToken(
+  idToken: string,
+): Promise<{ sessionToken: string; user: any }> {
+  const result = await exchangeGoogleIdTokenWithRetry(idToken);
+
+  if (!result.app_session_id || !result.user) {
+    throw new Error("Google login did not return a game session.");
+  }
+
+  return {
+    sessionToken: result.app_session_id,
     user: result.user,
   };
 }

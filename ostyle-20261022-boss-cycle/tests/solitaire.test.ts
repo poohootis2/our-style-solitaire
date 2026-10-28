@@ -1,0 +1,279 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  canPlaceOnFoundation,
+  canPlaceOnTableau,
+  createNewGame,
+  destroyCardWithHammer,
+  destroyWasteWithHammer,
+  revealHiddenCardWithHammer,
+  drawFromStock,
+  recycleStockWithHammer,
+  revealAllTableauCards,
+  shuffleAvailableCards,
+  findHint,
+  findAutoFoundationMove,
+  getDifficulty,
+  getRemainingRecycles,
+  getChapterForStage,
+  isChapterBossStage,
+  isFinalRecycleWarning,
+  isLateGameAutoFinishReady,
+  moveAceToFoundation,
+  moveAvailableAcesToFoundation,
+  moveFoundationToTableau,
+  moveToFoundation,
+  validateGameState,
+  type Card,
+  type GameState,
+} from "../lib/solitaire";
+
+const card = (rank: Card["rank"], suit: Card["suit"]): Card => ({
+  id: `${suit}-${rank}`,
+  rank,
+  suit,
+  faceUp: true,
+});
+
+const foundationGame = (waste: Card[], clubs: Card[] = []): GameState => ({
+  stock: [],
+  waste,
+  foundations: { clubs, diamonds: [], hearts: [], spades: [] },
+  tableau: [[], [], [], [], [], [], []],
+  score: 0,
+  moves: 0,
+  level: 1,
+  recycles: 0,
+});
+
+describe("클론다이크 규칙", () => {
+  it("파운데이션 2와 같은 무늬 A가 웨이스트에 공존하는 불가능한 상태를 감지한다", () => {
+    const game = foundationGame([card(1, "clubs")], [card(1, "clubs"), card(2, "clubs")]);
+    expect(validateGameState(game).valid).toBe(false);
+  });
+
+  it("정상적인 A-2 파운데이션 상태는 유효한 것으로 판정한다", () => {
+    const game = foundationGame([], [card(1, "clubs"), card(2, "clubs")]);
+    expect(validateGameState(game).valid).toBe(true);
+  });
+
+  it("재단 카드를 태블로로 되돌리면 웨이스트의 다음 재단 카드가 다시 진행된다", () => {
+    const game = foundationGame([card(3, "clubs")], [card(1, "clubs"), card(2, "clubs")]);
+    game.tableau[0] = [card(3, "hearts")];
+    const movedBack = moveFoundationToTableau(game, "clubs", 0);
+    expect(movedBack?.foundations.clubs.map((item) => item.rank)).toEqual([1]);
+    expect(movedBack?.tableau[0].at(-1)?.id).toBe("clubs-2");
+    expect(validateGameState(movedBack!).valid).toBe(true);
+    const restored = moveToFoundation(movedBack!, { kind: "tableau", column: 0, index: 1 });
+    expect(restored?.foundations.clubs.map((item) => item.rank)).toEqual([1, 2]);
+    expect(validateGameState(restored!).valid).toBe(true);
+    const next = moveToFoundation(restored!, { kind: "waste" });
+    expect(next?.foundations.clubs.map((item) => item.rank)).toEqual([1, 2, 3]);
+    expect(validateGameState(next!).valid).toBe(true);
+  });
+
+  it("보너스 셔플은 공개 타블로·스톡·웨이스트를 섞고 히든·파운데이션을 보존한다", () => {
+    const game = foundationGame([card(3, "hearts"), card(7, "clubs")], [card(1, "clubs")]);
+    game.stock = [card(9, "spades"), card(2, "diamonds")];
+    game.tableau[0] = [{ ...card(13, "spades"), faceUp: false }, card(5, "clubs")];
+    const shuffled = shuffleAvailableCards(game);
+    expect(shuffled).not.toBeNull();
+    expect(shuffled?.waste).toEqual([]);
+    expect(shuffled?.stock).toHaveLength(4);
+    expect(shuffled?.stock.every((item) => !item.faceUp)).toBe(true);
+    expect(shuffled?.tableau[0][0]).toMatchObject({ id: "spades-13", faceUp: false });
+    expect(shuffled?.tableau[0].filter((item) => item.faceUp)).toHaveLength(1);
+    expect(shuffled?.foundations.clubs.map((item) => item.id)).toEqual(["clubs-1"]);
+    expect(shuffled?.moves).toBe(1);
+  });
+
+  it("망치는 테이블 최상단 앞면 카드 한 장을 파괴하고 아래 숨은 카드를 연다", () => {
+    const game = foundationGame([]);
+    game.tableau[0] = [{ ...card(5, "clubs"), faceUp: false }, card(4, "hearts")];
+    const destroyed = destroyCardWithHammer(game, { kind: "tableau", column: 0, index: 1 });
+    expect(destroyed?.destroyedCards?.map((item) => item.id)).toEqual(["hearts-4"]);
+    expect(destroyed?.tableau[0]).toHaveLength(1);
+    expect(destroyed?.tableau[0][0].faceUp).toBe(true);
+    expect(destroyed?.hammerUses).toBe(1);
+  });
+
+  it("망치는 선택한 히든 카드를 공개해 웨이스트에 놓고 원래 슬롯에서 제거한다", () => {
+    const game = foundationGame([card(4, "hearts")]);
+    game.tableau[2] = [{ ...card(12, "spades"), faceUp: false }, card(6, "clubs")];
+    const revealed = revealHiddenCardWithHammer(game, { kind: "tableau", column: 2, index: 0 });
+    expect(revealed?.tableau[2]).toEqual([expect.objectContaining({ id: "clubs-6", faceUp: true })]);
+    expect(revealed?.waste.at(-1)).toMatchObject({ id: "spades-12", faceUp: true });
+    expect(revealed?.hammerUses).toBe(1);
+    expect(revealed?.moves).toBe(1);
+  });
+
+  it("망치로 파괴된 순서는 파운데이션 정렬에서 건너뛴다", () => {
+    const game = foundationGame([card(3, "clubs")], [card(1, "clubs")]);
+    game.destroyedCards = [card(2, "clubs")];
+    const next = moveToFoundation(game, { kind: "waste" });
+    expect(next?.foundations.clubs.map((item) => item.id)).toEqual(["clubs-1", "clubs-3"]);
+  });
+  it("웨이스트 망치는 카드를 삭제하지 않고 맨 아래로 이동시킨다", () => {
+    const game = foundationGame([card(5, "hearts"), card(7, "clubs"), card(9, "spades")]);
+    const next = destroyWasteWithHammer(game);
+    expect(next?.waste.map((item) => item.id)).toEqual(["spades-9", "hearts-5", "clubs-7"]);
+    expect(next?.destroyedCards ?? []).toHaveLength(0);
+    expect(next?.hammerUses).toBe(1);
+    expect(validateGameState(next!).valid).toBe(true);
+  });
+  it("일반 재순환을 모두 사용해도 망치 추가 순환은 웨이스트를 스톡으로 되돌린다", () => {
+    const game = foundationGame([card(4, "hearts"), card(7, "clubs")]);
+    game.level = 30;
+    game.recycles = getDifficulty(game.level).maxRecycles;
+    const next = recycleStockWithHammer(game);
+    expect(next?.stock.map((item) => item.id)).toEqual(["clubs-7", "hearts-4"]);
+    expect(next?.waste).toEqual([]);
+    expect(next?.recycles).toBe(game.recycles + 1);
+    expect(next?.moves).toBe(game.moves + 1);
+  });
+  it("고난도 랜덤 새 게임은 52장의 카드를 정확히 배치한다", () => {
+    const game = createNewGame(6);
+    const totalCards = game.stock.length + game.waste.length + game.tableau.flat().length;
+    expect(totalCards).toBe(52);
+    expect(game.tableau.map((pile) => pile.length)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(game.tableau.every((pile) => pile.at(-1)?.faceUp)).toBe(true);
+  });
+
+  it("타블로는 색이 다른 한 단계 낮은 카드만 받는다", () => {
+    expect(canPlaceOnTableau(card(12, "hearts"), card(13, "spades"))).toBe(true);
+    expect(canPlaceOnTableau(card(12, "diamonds"), card(13, "hearts"))).toBe(false);
+    expect(canPlaceOnTableau(card(12, "clubs"), card(11, "hearts"))).toBe(false);
+  });
+
+  it("파운데이션은 A부터 같은 무늬 순서로 쌓는다", () => {
+    expect(canPlaceOnFoundation(card(1, "clubs"), [])).toBe(true);
+    expect(canPlaceOnFoundation(card(2, "clubs"), [card(1, "clubs")])).toBe(true);
+    expect(canPlaceOnFoundation(card(2, "hearts"), [card(1, "clubs")])).toBe(false);
+  });
+
+  it("스톡 탭은 웨이스트에 앞면 카드를 한 장 낸다", () => {
+    const game = createNewGame();
+    const next = drawFromStock(game);
+    expect(next.stock.length).toBe(game.stock.length - 1);
+    expect(next.waste).toHaveLength(1);
+    expect(next.waste[0].faceUp).toBe(true);
+  });
+
+  it("모든 레벨은 무작위 셔플된 표준 7열 배치로 시작한다", () => {
+    const first = createNewGame(1);
+    const second = createNewGame(3);
+    for (const game of [first, second]) {
+      expect(game.tableau.map((pile) => pile.length)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+      expect(game.tableau.map((pile) => pile.at(-1)?.faceUp)).toEqual([true, true, true, true, true, true, true]);
+      expect(game.tableau.flat().filter((card) => card.faceUp)).toHaveLength(7);
+      expect(game.stock).toHaveLength(24);
+      expect(Object.values(game.foundations).every((pile) => pile.length === 0)).toBe(true);
+    }
+    expect(first.tableau.flat().map((card) => card.id)).not.toEqual(second.tableau.flat().map((card) => card.id));
+  });
+
+  it("태블로 전체 공개는 카드 순서·스톡을 유지하면서 앞면만 연다", () => {
+    const game = createNewGame(8);
+    const originalTableauIds = game.tableau.map((pile) => pile.map((item) => item.id));
+    const originalStockIds = game.stock.map((item) => item.id);
+    const revealed = revealAllTableauCards(game);
+
+    expect(revealed.tableau.map((pile) => pile.map((item) => item.id))).toEqual(originalTableauIds);
+    expect(revealed.tableau.flat().every((item) => item.faceUp)).toBe(true);
+    expect(revealed.stock.map((item) => item.id)).toEqual(originalStockIds);
+    expect(game.tableau.some((pile) => pile.some((item) => !item.faceUp))).toBe(true);
+  });
+
+  it("저난도 새 게임도 파운데이션이나 A 카드 순서를 미리 채우지 않는다", () => {
+    const games = Array.from({ length: 6 }, () => createNewGame(1));
+    for (const game of games) {
+      expect(Object.values(game.foundations).flat()).toHaveLength(0);
+    }
+    expect(games.some((game) => game.tableau.flat().filter((item) => item.faceUp && item.rank === 1).length < 4)).toBe(true);
+    expect(new Set(games.map((game) => [...game.tableau.flat(), ...game.stock].map((item) => item.id).join(","))).size).toBeGreaterThan(1);
+  });
+
+  it("스테이지 1~3·4~6·7~10·11 이상이 네 챕터로 이어진다", () => {
+    expect([1, 3].map(getChapterForStage)).toEqual([1, 1]);
+    expect([4, 6].map(getChapterForStage)).toEqual([2, 2]);
+    expect([7, 10].map(getChapterForStage)).toEqual([3, 3]);
+    expect(getChapterForStage(11)).toBe(4);
+    expect([9, 18, 81, 82, 92, 102, 112, 113, 114, 115].every(isChapterBossStage)).toBe(true);
+    expect(isChapterBossStage(1)).toBe(false);
+  });
+
+  it("완화된 난이도는 초반 Turn 1과 넉넉한 재순환으로 펫 수집을 돕는다", () => {
+    expect(getDifficulty(1)).toMatchObject({ drawCount: 1, maxRecycles: 8 });
+    expect(getDifficulty(4)).toMatchObject({ drawCount: 1, maxRecycles: 7 });
+    expect(getDifficulty(10)).toMatchObject({ drawCount: 1, maxRecycles: 7 });
+    expect(getDifficulty(9)).toMatchObject({ drawCount: 3, maxRecycles: 5 });
+    expect(getDifficulty(12)).toMatchObject({ drawCount: 3, maxRecycles: 4 });
+    expect(getDifficulty(13)).toMatchObject({ drawCount: 1, maxRecycles: 4 });
+
+    const level4 = drawFromStock(createNewGame(4));
+    const level9 = drawFromStock(createNewGame(9));
+    const level13 = drawFromStock(createNewGame(13));
+    expect(level4.waste).toHaveLength(1);
+    expect(level9.waste).toHaveLength(3);
+    expect(level13.waste).toHaveLength(1);
+  });
+
+  it("스톡이 비고 마지막 재순환이 남으면 경고 상태를 계산한다", () => {
+    const game = foundationGame([card(2, "clubs")]);
+    game.level = 1;
+    game.recycles = 7;
+    expect(getRemainingRecycles(game)).toBe(1);
+    expect(isFinalRecycleWarning(game)).toBe(true);
+    expect(isFinalRecycleWarning({ ...game, stock: [card(3, "clubs")] })).toBe(false);
+    expect(isFinalRecycleWarning({ ...game, recycles: 8 })).toBe(true);
+    expect(getRemainingRecycles({ level: 1, recycles: 99 })).toBe(0);
+  });
+
+  it("모든 카드가 공개되고 스톡이 비면 자동 정렬을 시작할 수 있다", () => {
+    const lateGame: GameState = {
+      stock: [],
+      waste: [card(2, "clubs")],
+      foundations: { clubs: [card(1, "clubs")], diamonds: [], hearts: [], spades: [] },
+      tableau: [[], [], [], [], [], [], []],
+      score: 0,
+      moves: 0,
+      level: 1,
+      recycles: 0,
+    };
+    expect(isLateGameAutoFinishReady(lateGame)).toBe(true);
+    expect(findAutoFoundationMove(lateGame)?.card.id).toBe("clubs-2");
+    expect(isLateGameAutoFinishReady({ ...lateGame, stock: [card(3, "clubs")] })).toBe(false);
+  });
+
+  it("A는 가능한 빈 파운데이션으로 자동 이동한다", () => {
+    const game = foundationGame([card(1, "hearts")]);
+    const next = moveAceToFoundation(game, { kind: "waste" });
+    expect(next?.foundations.hearts).toHaveLength(1);
+    expect(next?.waste).toHaveLength(0);
+  });
+
+  it("같은 무늬의 다음 순서 카드는 파운데이션으로 자동 이동할 수 있다", () => {
+    const game = foundationGame([card(2, "clubs")], [card(1, "clubs")]);
+    const next = moveToFoundation(game, { kind: "waste" });
+    expect(next?.foundations.clubs.map((item) => item.rank)).toEqual([1, 2]);
+  });
+
+  it("보이는 A는 모두 가능한 파운데이션으로 자동 배치한다", () => {
+    const game = foundationGame([card(1, "hearts")]);
+    game.tableau[0] = [card(1, "clubs")];
+    const next = moveAvailableAcesToFoundation(game);
+    expect(next.foundations.hearts).toHaveLength(1);
+    expect(next.foundations.clubs).toHaveLength(1);
+  });
+
+  it("힌트는 가능한 파운데이션 이동을 우선 안내한다", () => {
+    const game = foundationGame([card(1, "hearts")]);
+    expect(findHint(game)).toMatchObject({ action: "foundation", source: { kind: "waste" } });
+  });
+
+  it("힌트는 이동이 없을 때 스톡 드로우를 안내한다", () => {
+    const game = foundationGame([]);
+    game.stock = [card(9, "spades")];
+    expect(findHint(game)).toMatchObject({ action: "draw" });
+  });
+});

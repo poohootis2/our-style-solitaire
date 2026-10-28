@@ -1,8 +1,12 @@
 import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
+import { GOOGLE_WEB_CLIENT_ID, googleOpenId } from "../../shared/google-auth.js";
+import { OAuth2Client } from "google-auth-library";
 import type { Express, Request, Response } from "express";
 import { getUserByOpenId, upsertUser } from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
+
+const googleIdTokenVerifier = new OAuth2Client();
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -13,6 +17,7 @@ async function syncUser(userInfo: {
   openId?: string | null;
   name?: string | null;
   email?: string | null;
+  avatarUrl?: string | null;
   loginMethod?: string | null;
   platform?: string | null;
 }) {
@@ -48,6 +53,7 @@ function buildUserResponse(
         name?: string | null;
         email?: string | null;
         loginMethod?: string | null;
+        countryCode?: string | null;
         lastSignedIn?: Date | null;
       },
 ) {
@@ -56,12 +62,70 @@ function buildUserResponse(
     openId: user?.openId ?? null,
     name: user?.name ?? null,
     email: user?.email ?? null,
+    avatarUrl: (user as any)?.avatarUrl ?? null,
     loginMethod: user?.loginMethod ?? null,
+    countryCode: (user as any)?.countryCode ?? null,
     lastSignedIn: (user?.lastSignedIn ?? new Date()).toISOString(),
   };
 }
 
 export function registerOAuthRoutes(app: Express) {
+  /**
+   * Native Google Sign-In supplies an ID token. Verify its Google signature and
+   * audience on the server, then issue the same app session used by tRPC.
+   * The OAuth client secret is never sent to, stored in, or used by the app.
+   */
+  app.post("/api/auth/google", async (req: Request, res: Response) => {
+    const idToken = typeof req.body?.idToken === "string" ? req.body.idToken.trim() : "";
+    if (!idToken || idToken.length > 12_000) {
+      res.status(400).json({ error: "A Google ID token is required." });
+      return;
+    }
+
+    try {
+      const ticket = await googleIdTokenVerifier.verifyIdToken({
+        idToken,
+        audience: GOOGLE_WEB_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+      if (!payload?.sub) {
+        res.status(401).json({ error: "Google ID token has no subject." });
+        return;
+      }
+
+      const openId = googleOpenId(payload.sub);
+      const signedInAt = new Date();
+      await upsertUser({
+        openId,
+        // Omit name so a nickname selected in the game is never overwritten
+        // by a Google profile name on a later sign-in.
+        email: typeof payload.email === "string" ? payload.email : null,
+        avatarUrl: typeof payload.picture === "string" ? payload.picture : null,
+        loginMethod: "google",
+        lastSignedIn: signedInAt,
+      });
+      const user = await getUserByOpenId(openId);
+      if (!user) {
+        res.status(503).json({ error: "Unable to create the game account. Please try again." });
+        return;
+      }
+
+      const sessionToken = await sdk.createSessionToken(openId, {
+        name: payload.name || "Google Player",
+        expiresInMs: ONE_YEAR_MS,
+      });
+      const cookieOptions = getSessionCookieOptions(req);
+      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      res.json({
+        app_session_id: sessionToken,
+        user: buildUserResponse(user),
+      });
+    } catch (error) {
+      console.warn("[GoogleAuth] ID token verification failed", error instanceof Error ? error.message : String(error));
+      res.status(401).json({ error: "Google authentication could not be verified." });
+    }
+  });
+
   app.get("/api/oauth/callback", async (req: Request, res: Response) => {
     const code = getQueryParam(req, "code");
     const state = getQueryParam(req, "state");

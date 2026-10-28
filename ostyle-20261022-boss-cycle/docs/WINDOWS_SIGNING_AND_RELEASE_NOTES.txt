@@ -1,0 +1,376 @@
+OUR STYLE SOLITAIRE
+Windows 서명키·BA 인증서·버전 업데이트·APK/AAB 출시 주의사항
+작성 기준: 현재 프로젝트와 Google Play 업로드 오류 해결 과정
+
+======================================================================
+1. 가장 중요한 결론
+======================================================================
+
+이 앱의 Google Play 업로드에 사용해야 하는 업로드 인증서 SHA1은 다음 값입니다.
+
+BA:3E:1F:46:2A:60:2F:4C:D2:D0:1C:87:5A:51:84:17:8C:B7:CA:BF
+
+현재 올바른 업로드 키 파일은 다음 위치에 복사되어 있습니다.
+
+E:\game_make\our-style-solitaire4\android\app\upload-keystore.jks
+
+이 파일의 SHA1을 keytool로 확인했을 때 위 BA 지문이 나와야 합니다.
+
+다음 지문으로 서명된 AAB는 이 앱의 현재 Google Play 업로드 키와 일치하지 않습니다.
+
+5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25
+
+따라서 5E 지문이 나오는 keystore를 사용하면 다음 오류가 발생합니다.
+
+Android App Bundle이 잘못된 키로 서명되었습니다.
+
+서명키는 앱 업데이트에서 가장 중요한 자산입니다. keystore 파일, 비밀번호, alias를 잃어버리거나 다른 파일로 바꾸면 기존 Google Play 앱에 일반적인 업데이트를 올릴 수 없습니다. keystore 파일은 여러 안전한 위치에 백업하되, 공개 저장소나 채팅·스크린샷·문서에 비밀번호를 기록하지 않습니다.
+
+======================================================================
+2. 현재 프로젝트 및 버전 정보
+======================================================================
+
+Windows 작업 프로젝트:
+E:\game_make\our-style-solitaire4
+
+Android 프로젝트:
+E:\game_make\our-style-solitaire4\android
+
+Android 애플리케이션 ID:
+com.app.ourstylesolitaire
+
+현재 확인된 버전 코드:
+27
+
+현재 확인된 버전 이름:
+1.7.1
+
+현재 release AAB 예상 출력 경로:
+E:\game_make\our-style-solitaire4\android\app\build\outputs\bundle\release\app-release.aab
+
+현재 release APK 예상 출력 경로:
+E:\game_make\our-style-solitaire4\android\app\build\outputs\apk\release\app-release.apk
+
+======================================================================
+3. 반드시 기억해야 하는 서명 설정
+======================================================================
+
+release 빌드는 반드시 upload-keystore.jks로 서명해야 합니다. 다음 설정은 잘못된 설정입니다.
+
+signingConfig signingConfigs.debug
+
+위 설정이 buildTypes의 release 블록에 있으면 release AAB가 debug.keystore로 서명될 수 있으며, Google Play에서 잘못된 키 오류가 발생합니다.
+
+release 블록은 반드시 다음처럼 release signing 설정을 사용해야 합니다.
+
+signingConfig signingConfigs.release
+
+app/build.gradle의 기본 구조는 다음과 같은 형태여야 합니다. 기존의 shrinkResources, minifyEnabled, proguardFiles 등은 필요한 경우 유지합니다.
+
+signingConfigs {
+    debug {
+        storeFile file('debug.keystore')
+        storePassword 'android'
+        keyAlias 'androiddebugkey'
+        keyPassword 'android'
+    }
+    release {
+        storeFile file('upload-keystore.jks')
+        storePassword '<키스토어 비밀번호>'
+        keyAlias 'upload'
+        keyPassword '<키스토어 비밀번호>'
+    }
+}
+
+buildTypes {
+    debug {
+        signingConfig signingConfigs.debug
+    }
+    release {
+        signingConfig signingConfigs.release
+    }
+}
+
+주의할 점은 release 설정의 비밀번호와 alias를 따옴표 없이 입력하면 안 된다는 것입니다. 특히 비밀번호에 !, @ 등의 특수문자가 있으면 Groovy 문법 오류가 발생할 수 있으므로 문자열로 입력해야 합니다.
+
+더 안전한 방법은 비밀번호를 build.gradle에 직접 기록하지 않고 android/gradle.properties에 저장한 뒤 다음처럼 참조하는 것입니다.
+
+MYAPP_UPLOAD_STORE_FILE=upload-keystore.jks
+MYAPP_UPLOAD_STORE_PASSWORD=키스토어비밀번호
+MYAPP_UPLOAD_KEY_ALIAS=upload
+MYAPP_UPLOAD_KEY_PASSWORD=키스토어비밀번호
+
+이 경우 build.gradle은 다음처럼 구성할 수 있습니다.
+
+release {
+    storeFile file(MYAPP_UPLOAD_STORE_FILE)
+    storePassword MYAPP_UPLOAD_STORE_PASSWORD
+    keyAlias MYAPP_UPLOAD_KEY_ALIAS
+    keyPassword MYAPP_UPLOAD_KEY_PASSWORD
+}
+
+gradle.properties는 절대로 공개 저장소에 커밋하거나 다른 사람에게 전송하지 않습니다.
+
+======================================================================
+4. 서명키 확인 명령
+======================================================================
+
+PowerShell을 열고 아래 명령을 실행합니다. 명령 앞의 PS, >>, > 기호는 복사하지 않습니다.
+
+cd "E:\game_make\our-style-solitaire4\android"
+keytool -list -v -keystore ".\app\upload-keystore.jks" | Select-String "Alias name|SHA1"
+
+정상 결과는 다음과 같은 형태여야 합니다.
+
+Alias name: upload
+SHA1: BA:3E:1F:46:2A:60:2F:4C:D2:D0:1C:87:5A:51:84:17:8C:B7:CA:BF
+
+지문이 BA로 나오지 않으면 해당 파일로 빌드하지 않습니다. 5E 지문이 나오면 잘못된 키입니다.
+
+======================================================================
+5. 버전 코드 업데이트 규칙
+======================================================================
+
+Google Play는 동일한 versionCode를 다시 업로드할 수 없습니다. 현재 프로젝트에서 versionCode 27을 이미 사용했다면 다음 업로드는 반드시 28 이상이어야 합니다.
+
+versionName은 사용자에게 보이는 버전 이름이고, versionCode는 Google Play가 업데이트 순서를 판단하는 정수입니다. 둘 다 관리해야 하지만, 동일 버전 업로드 거부에는 versionCode가 직접적으로 영향을 줍니다.
+
+예시:
+
+versionCode 28
+versionName "1.7.2"
+
+수정 파일:
+E:\game_make\our-style-solitaire4\android\app\build.gradle
+
+이미 Google Play에 업로드된 versionCode는 다시 사용하지 않습니다. 빌드 전에 현재 Play Console에서 사용된 가장 높은 versionCode를 확인합니다.
+
+서명키를 유지한 상태에서 versionCode만 증가시키는 것은 가능하지만, applicationId, package name, keystore, alias를 임의로 바꾸면 안 됩니다.
+
+======================================================================
+6. release APK 빌드 명령
+======================================================================
+
+현재 프로젝트의 android 폴더로 이동합니다.
+
+cd "E:\game_make\our-style-solitaire4\android"
+
+서명 설정이나 네이티브 매니페스트를 수정한 직후에는 clean을 한 번 실행합니다.
+
+.\gradlew.bat clean
+.\gradlew.bat assembleRelease
+
+APK 출력 위치:
+
+E:\game_make\our-style-solitaire4\android\app\build\outputs\apk\release\app-release.apk
+
+======================================================================
+7. release AAB 빌드 명령
+======================================================================
+
+Google Play 업로드용 AAB를 만듭니다.
+
+cd "E:\game_make\our-style-solitaire4\android"
+.\gradlew.bat bundleRelease
+
+AAB 출력 위치:
+
+E:\game_make\our-style-solitaire4\android\app\build\outputs\bundle\release\app-release.aab
+
+AAB를 만들었다고 해서 APK가 자동으로 새로 생성되는 것은 아닙니다. APK가 필요하면 assembleRelease를 별도로 실행합니다.
+
+일반적으로 코드만 수정한 경우에는 clean 없이 bundleRelease를 실행해도 되지만, 서명 설정·매니페스트·Gradle 설정을 수정한 직후에는 다음 순서가 안전합니다.
+
+.\gradlew.bat clean
+.\gradlew.bat bundleRelease
+
+======================================================================
+8. AAB 서명 지문 확인
+======================================================================
+
+AAB 생성 후 파일의 생성 시각과 인증서 지문을 확인합니다.
+
+cd "E:\game_make\our-style-solitaire4\android"
+$aab = ".\app\build\outputs\bundle\release\app-release.aab"
+Get-Item $aab | Select-Object FullName,Length,LastWriteTime
+keytool -printcert -jarfile $aab | Select-String "SHA1"
+
+결과 SHA1은 반드시 다음과 같아야 합니다.
+
+BA:3E:1F:46:2A:60:2F:4C:D2:D0:1C:87:5A:51:84:17:8C:B7:CA:BF
+
+이 값이 다르면 AAB를 Google Play에 업로드하지 않습니다. 먼저 app/build.gradle의 buildTypes.release가 signingConfigs.release를 사용하는지, upload-keystore.jks의 위치가 맞는지 확인합니다.
+
+또한 AAB 파일의 LastWriteTime이 방금 빌드한 시각인지 확인합니다. 예전에 생성된 app-release.aab를 잘못 업로드하지 않도록 주의합니다.
+
+======================================================================
+9. AD_ID 권한 확인
+======================================================================
+
+AdMob을 사용하는 앱이므로 release AAB 매니페스트에 다음 권한이 포함되어야 합니다.
+
+com.google.android.gms.permission.AD_ID
+
+소스 매니페스트의 일반적인 위치:
+
+E:\game_make\our-style-solitaire4\android\app\src\main\AndroidManifest.xml
+
+권한은 <manifest> 아래, <application> 위에 있어야 합니다.
+
+<uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+
+Expo 설정을 사용하는 경우 app.config.ts의 android.permissions에도 다음 항목을 유지합니다.
+
+permissions: [
+  "POST_NOTIFICATIONS",
+  "com.google.android.gms.permission.AD_ID",
+]
+
+AAB를 APK로 변환해 권한을 확인할 때 bundletool 결과 파일의 확장자는 .apks이지만 PowerShell Expand-Archive는 .zip 확장자만 허용하는 경우가 있습니다. 이때 다음처럼 복사한 뒤 압축을 풉니다.
+
+Copy-Item ".\adid-check.apks" ".\adid-check.zip"
+Expand-Archive ".\adid-check.zip" -DestinationPath ".\adid-check" -Force
+$aapt = "$env:LOCALAPPDATA\Android\Sdk\build-tools\36.0.0\aapt.exe"
+& $aapt dump permissions ".\adid-check\universal.apk" | Select-String "com.google.android.gms.permission.AD_ID"
+
+정상 결과:
+
+uses-permission: name='com.google.android.gms.permission.AD_ID'
+
+이 결과가 실제로 확인되었습니다. 따라서 이후에도 AAB와 APK를 반드시 같은 최신 빌드 결과물에서 검증합니다.
+
+구형 bundletool 1.9.0에서 다음과 같은 오류가 발생할 수 있습니다.
+
+기본 Manifest 속성이 없습니다.
+
+이 오류는 AD_ID가 없다는 뜻이 아닐 수 있습니다. 구형 bundletool이 최신 AAB 형식을 읽지 못하는 경우가 있으므로 최신 공식 bundletool을 사용하거나, 이미 생성된 .apks 파일을 .zip으로 복사하여 universal.apk를 검사합니다.
+
+======================================================================
+10. Google Play 업로드 전 최종 점검표
+======================================================================
+
+1) 올바른 Windows 프로젝트 폴더에서 빌드했는지 확인합니다.
+
+E:\game_make\our-style-solitaire4
+
+2) 올바른 keystore 파일이 존재하는지 확인합니다.
+
+E:\game_make\our-style-solitaire4\android\app\upload-keystore.jks
+
+3) keystore의 alias가 upload인지 확인합니다.
+
+4) keystore SHA1이 BA 지문인지 확인합니다.
+
+5) app/build.gradle에서 buildTypes.release가 signingConfigs.release를 사용하는지 확인합니다.
+
+6) versionCode가 Google Play에서 이미 사용된 값보다 큰지 확인합니다.
+
+7) AAB의 생성 시각이 현재 빌드 시각인지 확인합니다.
+
+8) AAB의 SHA1이 BA 지문인지 keytool로 확인합니다.
+
+9) AAB에서 추출한 universal APK에 AD_ID 권한이 있는지 확인합니다.
+
+10) Google Play에는 app-release.aab를 업로드하며, debug APK나 debug keystore로 서명된 파일을 업로드하지 않습니다.
+
+11) 업로드 전에 Play Console에서 같은 앱의 내부 테스트·비공개 테스트·공개 테스트·프로덕션 트랙에 남아 있는 이전 활성 아티팩트를 확인합니다.
+
+12) AD_ID 오류가 계속되면 새 AAB의 매니페스트만 보지 말고 Play Console의 모든 활성 트랙 아티팩트를 확인합니다.
+
+======================================================================
+11. APK와 AAB의 용도 차이
+======================================================================
+
+APK는 휴대폰에 직접 설치해 실기기 테스트할 때 사용합니다. Google Play 일반 배포용으로는 AAB를 업로드합니다.
+
+APK는 다음 경로에서 확인합니다.
+
+android\app\build\outputs\apk\release\app-release.apk
+
+AAB는 다음 경로에서 확인합니다.
+
+android\app\build\outputs\bundle\release\app-release.aab
+
+APK와 AAB를 같은 버전으로 만들고 싶다면 versionCode를 먼저 정한 뒤 각각 assembleRelease와 bundleRelease를 실행합니다. 단, Play Console에 업로드하는 것은 release 서명 AAB만 사용합니다.
+
+======================================================================
+12. 절대 하지 말아야 할 작업
+======================================================================
+
+- debug.keystore로 release AAB를 빌드하지 않습니다.
+- Google Play에 이미 사용한 versionCode를 다시 사용하지 않습니다.
+- upload-keystore.jks를 새로 생성하거나 다른 keystore로 교체하지 않습니다.
+- alias upload를 임의로 변경하지 않습니다.
+- 다른 프로젝트 폴더에서 생성된 오래된 app-release.aab를 업로드하지 않습니다.
+- app/build.gradle의 release signingConfig를 debug로 두지 않습니다.
+- 매니페스트를 수정한 뒤 예전 AAB를 업로드하지 않습니다.
+- keystore 비밀번호를 채팅, 스크린샷, 공개 저장소에 기록하지 않습니다.
+- AD_ID 권한을 소스 매니페스트에서 삭제하지 않습니다.
+- versionCode와 versionName만 바꾸고 서명키를 바꾸지 않습니다.
+
+======================================================================
+13. 현재 발생했던 오류의 원인 요약
+======================================================================
+
+오류 A: Android App Bundle이 잘못된 키로 서명됨
+
+원인:
+BA 인증서가 필요한 앱에 5E 인증서로 서명된 AAB가 업로드됨.
+
+해결:
+BA SHA1이 나오는 upload-keystore.jks를 복사하고, release 빌드가 signingConfigs.release를 사용하도록 수정함.
+
+오류 B: release 빌드가 debug 설정을 사용함
+
+원인:
+buildTypes.release 안에 signingConfig signingConfigs.debug가 있었음.
+
+해결:
+signingConfig signingConfigs.release로 변경함.
+
+오류 C: bundletool에서 기본 Manifest 속성이 없다는 메시지
+
+원인:
+구형 bundletool 또는 최신 AAB 형식과 검사 도구의 호환 문제.
+
+해결:
+최신 bundletool을 사용하거나 .apks를 .zip으로 복사한 뒤 universal.apk를 aapt로 검사함.
+
+오류 D: PowerShell에서 .apks가 지원되는 보관 파일 형식이 아님
+
+원인:
+Expand-Archive가 .apks 확장자를 ZIP으로 처리하지 않음.
+
+해결:
+.adks 파일을 .zip으로 복사한 뒤 Expand-Archive를 실행함.
+
+오류 E: AD_ID 권한 누락 경고
+
+현재 검증 결과:
+AAB에서 생성한 universal.apk 검사 결과 다음 권한이 확인됨.
+
+uses-permission: name='com.google.android.gms.permission.AD_ID'
+
+따라서 새 AAB의 권한이 정상인데도 Play Console 경고가 남으면, 다른 활성 테스트·프로덕션 아티팩트 또는 Play Console 반영 상태를 확인함.
+
+======================================================================
+14. 서명키 보안 주의
+======================================================================
+
+keystore 비밀번호가 외부에 노출되었다고 판단되면 더 이상 문서나 메시지에 재입력하지 않습니다. 업로드 키 자체가 안전하게 보관되어 있고 비밀번호만 노출된 경우에도 보안 위험이 있으므로, 출시 후 Google Play Console의 업로드 키 재설정 또는 교체 절차를 검토합니다.
+
+단, 업로드 키를 교체할 때는 Google Play Console에서 공식 절차를 먼저 확인하고 진행합니다. 새 키로 무작정 빌드하여 업로드하면 기존 앱 업데이트가 다시 거부될 수 있습니다.
+
+======================================================================
+15. 최종 한 줄 요약
+======================================================================
+
+이 앱의 Google Play용 release AAB는 반드시
+
+E:\game_make\our-style-solitaire4\android\app\upload-keystore.jks
+
+를 사용하고, SHA1
+
+BA:3E:1F:46:2A:60:2F:4C:D2:D0:1C:87:5A:51:84:17:8C:B7:CA:BF
+
+가 확인되며, versionCode는 이전 업로드보다 높고, AD_ID 권한이 포함된 상태여야 합니다.

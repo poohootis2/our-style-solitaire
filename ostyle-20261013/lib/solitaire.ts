@@ -1,0 +1,602 @@
+export type Suit = "clubs" | "diamonds" | "hearts" | "spades";
+export type Rank = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
+
+export type Card = {
+  id: string;
+  suit: Suit;
+  rank: Rank;
+  faceUp: boolean;
+};
+
+export type FoundationMap = Record<Suit, Card[]>;
+
+export type GameState = {
+  stock: Card[];
+  waste: Card[];
+  foundations: FoundationMap;
+  tableau: Card[][];
+  destroyedCards?: Card[];
+  score: number;
+  moves: number;
+  level: number;
+  recycles: number;
+  hammerUses?: number;
+};
+
+export type CardSource =
+  | { kind: "tableau"; column: number; index: number }
+  | { kind: "waste" }
+  | { kind: "foundation"; suit: Suit };
+
+export type Hint = {
+  message: string;
+  source?: CardSource;
+  targetColumn?: number;
+  action: "foundation" | "tableau" | "flip" | "draw";
+};
+
+export const SUITS: Suit[] = ["clubs", "diamonds", "hearts", "spades"];
+
+export const suitSymbols: Record<Suit, string> = {
+  clubs: "♣",
+  diamonds: "♦",
+  hearts: "♥",
+  spades: "♠",
+};
+
+export const suitNames: Record<Suit, string> = {
+  clubs: "클럽",
+  diamonds: "다이아몬드",
+  hearts: "하트",
+  spades: "스페이드",
+};
+
+export const rankLabels: Record<Rank, string> = {
+  1: "A",
+  2: "2",
+  3: "3",
+  4: "4",
+  5: "5",
+  6: "6",
+  7: "7",
+  8: "8",
+  9: "9",
+  10: "10",
+  11: "J",
+  12: "Q",
+  13: "K",
+};
+
+export type Difficulty = { drawCount: number; maxRecycles: number; label: string };
+
+/**
+ * The stored `level` field represents the current stage for backward compatibility.
+ * This helper exposes the player's four visual chapters without changing saved-game shape.
+ * Stage 6 belongs to chapter 2; chapter 3 therefore starts at stage 7 to avoid overlap.
+ */
+export function getChapterForStage(stage: number): number {
+  if (stage <= 3) return 1;
+  if (stage <= 6) return 2;
+  if (stage <= 10) return 3;
+  return 4;
+}
+
+export function isChapterBossStage(stage: number): boolean {
+  const safeStage = Math.max(1, Math.floor(stage));
+  if (safeStage <= 81) return safeStage % 9 === 0;
+  if (safeStage >= 82 && safeStage <= 114) return [82, 92, 102, 112, 113, 114].includes(safeStage);
+  return safeStage >= 115;
+}
+
+export function getDifficulty(level: number): Difficulty {
+  // Extra-forgiving mobile opening: early stages stay on Turn 1 and allow
+  // generous Stock recycles so new players can recover from a poor route.
+  if (isChapterBossStage(level)) return { drawCount: 3, maxRecycles: 5, label: "보스 도전" };
+  if (level <= 3) return { drawCount: 1, maxRecycles: 8, label: "입문" };
+  if (level <= 10) return { drawCount: 1, maxRecycles: 7, label: "초반" };
+  // Keep Turn 1 through most of the mid-game. Turn 3 appears only on every
+  // fourth stage, while four recycles preserve a forgiving route to pets.
+  if (level <= 20) return { drawCount: level % 4 === 0 ? 3 : 1, maxRecycles: 4, label: level % 4 === 0 ? "중반 도전" : "중반" };
+  return { drawCount: 3, maxRecycles: 3, label: "마스터" };
+}
+
+/** 현재 스테이지에서 스톡을 다시 만들 수 있는 남은 횟수입니다. */
+export function getRemainingRecycles(game: Pick<GameState, "level" | "recycles">): number {
+  return Math.max(0, getDifficulty(game.level).maxRecycles - (game.recycles ?? 0));
+}
+
+/** 스톡이 비었고 다음 순환이 마지막이거나 이미 소진된 상태인지 표시합니다. */
+export function isFinalRecycleWarning(game: Pick<GameState, "level" | "recycles" | "stock" | "waste">): boolean {
+  return game.stock.length === 0 && game.waste.length > 0 && getRemainingRecycles(game) <= 1;
+}
+
+function minimumInitialMoves(level: number): number {
+  if (level <= 3) return 6;
+  if (level <= 10) return 5;
+  if (level <= 20) return 2;
+  return 1;
+}
+
+function countInitialMoves(tableau: Card[][]): number {
+  const visible = tableau.map((pile) => pile.at(-1)).filter((card): card is Card => Boolean(card));
+  const aceMoves = visible.filter((card) => card.rank === 1).length;
+  const tableauMoves = visible.reduce((count, card, sourceIndex) => count + visible.reduce((inner, destination, destinationIndex) => {
+    if (sourceIndex === destinationIndex) return inner;
+    return inner + (canPlaceOnTableau(card, destination) ? 1 : 0);
+  }, 0), 0);
+  return aceMoves + tableauMoves;
+}
+
+/** 현재 보드에서 즉시 실행 가능한 대표 이동 수를 표시용으로 계산합니다. */
+export function countAvailableMoves(game: GameState): number {
+  let count = 0;
+  const wasteCard = game.waste.at(-1);
+  if (wasteCard) {
+    if (canPlaceOnFoundation(wasteCard, game.foundations[wasteCard.suit], game.destroyedCards)) count += 1;
+    count += game.tableau.filter((pile) => canPlaceOnTableau(wasteCard, pile.at(-1))).length;
+  }
+
+  game.tableau.forEach((pile, sourceColumn) => {
+    const topCard = pile.at(-1);
+    if (topCard?.faceUp) {
+      if (canPlaceOnFoundation(topCard, game.foundations[topCard.suit], game.destroyedCards)) count += 1;
+      count += game.tableau.filter((target, targetColumn) => targetColumn !== sourceColumn && canPlaceOnTableau(topCard, target.at(-1))).length;
+    } else if (topCard) {
+      count += 1;
+    }
+
+    pile.forEach((card, index) => {
+      if (!card.faceUp || index === pile.length - 1 || pile.slice(index).some((item) => !item.faceUp)) return;
+      count += game.tableau.filter((target, targetColumn) => targetColumn !== sourceColumn && canPlaceOnTableau(card, target.at(-1))).length;
+    });
+  });
+
+  const difficulty = getDifficulty(game.level);
+  if (game.stock.length > 0 || (game.waste.length > 0 && game.recycles < difficulty.maxRecycles)) count += 1;
+  return count;
+}
+
+function makeDeck(): Card[] {
+  return SUITS.flatMap((suit) =>
+    Array.from({ length: 13 }, (_, offset) => ({
+      id: `${suit}-${offset + 1}`,
+      suit,
+      rank: (offset + 1) as Rank,
+      faceUp: false,
+    })),
+  );
+}
+
+function shuffle<T>(items: T[]): T[] {
+  const shuffled = [...items];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
+  }
+  return shuffled;
+}
+
+function emptyFoundations(): FoundationMap {
+  return { clubs: [], diamonds: [], hearts: [], spades: [] };
+}
+
+function cloneGame(game: GameState): GameState {
+  return {
+    stock: [...game.stock],
+    waste: [...game.waste],
+    foundations: {
+      clubs: [...game.foundations.clubs],
+      diamonds: [...game.foundations.diamonds],
+      hearts: [...game.foundations.hearts],
+      spades: [...game.foundations.spades],
+    },
+    tableau: game.tableau.map((pile) => [...pile]),
+    destroyedCards: [...(game.destroyedCards ?? [])],
+    score: game.score,
+    moves: game.moves,
+    level: game.level ?? 1,
+    recycles: game.recycles ?? 0,
+    hammerUses: game.hammerUses ?? 0,
+  };
+}
+
+export function cloneGameState(game: GameState): GameState {
+  return cloneGame(game);
+}
+
+/**
+ * Migrate games created by the old destructive waste-hammer implementation.
+ * Those cards were only hidden from play, not meant to be permanently lost.
+ */
+export function restoreDestroyedCardsToWaste(game: GameState): GameState {
+  const hidden = game.destroyedCards ?? [];
+  if (hidden.length === 0) return cloneGame(game);
+  const next = cloneGame(game);
+  next.waste = [...next.waste, ...hidden.map((card) => ({ ...card, faceUp: true }))];
+  next.destroyedCards = [];
+  return next;
+}
+
+function withMove(game: GameState, scoreDelta = 0): GameState {
+  return { ...game, moves: game.moves + 1, score: Math.max(0, game.score + scoreDelta) };
+}
+
+export function createNewGame(level = 1): GameState {
+  // Re-deal until the opening tableau has the requested number of legal moves.
+  // This preserves the classic layout and randomness while preventing an
+  // unnecessarily dead opening in the tutorial and early stages.
+  let deck = shuffle(makeDeck());
+  let tableau: Card[][] = [];
+  let deckIndex = 0;
+  const requiredMoves = minimumInitialMoves(level);
+  for (let attempt = 0; attempt < 500; attempt += 1) {
+    tableau = [];
+    deckIndex = 0;
+    for (let column = 0; column < 7; column += 1) {
+      const pile = deck.slice(deckIndex, deckIndex + column + 1).map((card, index) => ({
+        ...card,
+        faceUp: index === column,
+      }));
+      tableau.push(pile);
+      deckIndex += column + 1;
+    }
+    if (countInitialMoves(tableau) >= requiredMoves) break;
+    deck = shuffle(makeDeck());
+  }
+
+  return {
+    stock: deck.slice(deckIndex).map((card) => ({ ...card, faceUp: false })),
+    waste: [],
+    foundations: emptyFoundations(),
+    tableau,
+    destroyedCards: [],
+    score: 0,
+    moves: 0,
+    level,
+    recycles: 0,
+    hammerUses: 0,
+  };
+}
+
+export function isRed(card: Card): boolean {
+  return card.suit === "diamonds" || card.suit === "hearts";
+}
+
+export function canPlaceOnTableau(card: Card, destination: Card | undefined): boolean {
+  if (!destination) return card.rank === 13;
+  return destination.faceUp && isRed(card) !== isRed(destination) && card.rank === destination.rank - 1;
+}
+
+export function canPlaceOnFoundation(card: Card, foundation: Card[], destroyedCards: Card[] = []): boolean {
+  const topCard = foundation.at(-1);
+  if (topCard && topCard.suit !== card.suit) return false;
+  let expectedRank = (topCard?.rank ?? 0) + 1;
+  while (destroyedCards.some((destroyed) => destroyed.suit === card.suit && destroyed.rank === expectedRank)) {
+    expectedRank += 1;
+  }
+  return expectedRank <= 13 && card.rank === expectedRank;
+}
+
+/** Detect impossible persisted/transient boards before they reach the UI. */
+export function validateGameState(game: GameState): { valid: boolean; reason?: string } {
+  if (!game || !Array.isArray(game.stock) || !Array.isArray(game.waste) || !Array.isArray(game.tableau) || game.tableau.length !== 7 || !game.foundations) {
+    return { valid: false, reason: "게임 보드 구조 오류" };
+  }
+  if (!SUITS.every((suit) => Array.isArray(game.foundations[suit]))) {
+    return { valid: false, reason: "파운데이션 구조 오류" };
+  }
+  if (game.tableau.some((pile) => !Array.isArray(pile))) {
+    return { valid: false, reason: "태블로 구조 오류" };
+  }
+  const activeCards = [
+    ...game.stock,
+    ...game.waste,
+    ...game.tableau.flat(),
+    ...SUITS.flatMap((suit) => game.foundations[suit] ?? []),
+  ];
+  const allIds = new Set<string>();
+  for (const card of [...activeCards, ...(game.destroyedCards ?? [])]) {
+    if (allIds.has(card.id)) return { valid: false, reason: `중복 카드 ${card.id}` };
+    allIds.add(card.id);
+  }
+  for (const suit of SUITS) {
+    const foundation = game.foundations[suit] ?? [];
+    for (let index = 0; index < foundation.length; index += 1) {
+      const card = foundation[index];
+      if (card.suit !== suit || card.rank !== index + 1) return { valid: false, reason: `${suit} 파운데이션 순서 오류` };
+    }
+    // A card can legitimately leave the foundation and return to the tableau
+    // during a retreat. Duplicate IDs and malformed foundation order are the
+    // reliable corruption signals; do not reject a recoverable board merely
+    // because a lower card is temporarily outside the foundation.
+  }
+  return { valid: true };
+}
+
+export function shuffleAvailableCards(game: GameState): GameState | null {
+  // Keep the Klondike structure intact: only face-up tableau cards join the
+  // stock/waste pool. Face-down tableau cards remain in their exact slots.
+  const faceUpTableau = game.tableau.flatMap((pile) => pile.filter((card) => card.faceUp));
+  const stockAndWaste = [...game.stock, ...game.waste];
+  const available = [...faceUpTableau, ...stockAndWaste];
+  if (available.length < 2) return null;
+
+  const next = cloneGame(game);
+  const shuffled = shuffle(available);
+  let cursor = 0;
+  next.tableau = next.tableau.map((pile) => pile.map((card) => {
+    if (!card.faceUp) return card;
+    const replacement = shuffled[cursor++];
+    return { ...replacement, faceUp: true };
+  }));
+  next.stock = shuffled.slice(cursor).map((card) => ({ ...card, faceUp: false }));
+  next.waste = [];
+  return withMove(next);
+}
+
+/**
+ * Destroys one exposed waste card or the exposed top card of a tableau column.
+ * The destroyed rank is treated as cleared by the foundation order so a hammer
+ * never makes the stage impossible to finish.
+ */
+export function revealHiddenCardWithHammer(game: GameState, source: CardSource): GameState | null {
+  if (source.kind !== "tableau") return null;
+  const next = cloneGame(game);
+  const pile = next.tableau[source.column];
+  const selected = pile?.[source.index];
+  if (!selected || selected.faceUp) return null;
+
+  pile.splice(source.index, 1);
+  next.waste = [...next.waste, { ...selected, faceUp: true }];
+  next.hammerUses = (next.hammerUses ?? 0) + 1;
+  return withMove(next);
+}
+
+/**
+ * Legacy destructive hammer behavior retained for compatibility with saved games.
+ * New reward flow uses revealHiddenCardWithHammer so hidden cards are opened into waste.
+ */
+export function destroyCardWithHammer(game: GameState, source: CardSource): GameState | null {
+  if (source.kind === "foundation") return null;
+  const next = cloneGame(game);
+  let destroyed: Card | undefined;
+
+  if (source.kind === "waste") {
+    destroyed = next.waste.pop();
+  } else {
+    const pile = next.tableau[source.column];
+    if (source.index !== pile.length - 1) return null;
+    const topCard = pile.at(-1);
+    if (!topCard?.faceUp) return null;
+    destroyed = pile.pop();
+    const newlyExposed = pile.at(-1);
+    if (newlyExposed && !newlyExposed.faceUp) newlyExposed.faceUp = true;
+  }
+
+  if (!destroyed) return null;
+  next.destroyedCards = [...(next.destroyedCards ?? []), { ...destroyed, faceUp: true }];
+  next.hammerUses = (next.hammerUses ?? 0) + 1;
+  return withMove(next, 12);
+}
+
+export function drawFromStock(game: GameState): GameState {
+  const next = cloneGame(game);
+  const difficulty = getDifficulty(next.level);
+  if (next.stock.length === 0) {
+    if (next.waste.length === 0) return game;
+    if (next.recycles >= difficulty.maxRecycles) return game;
+    next.stock = next.waste.reverse().map((card) => ({ ...card, faceUp: false }));
+    next.waste = [];
+    next.recycles += 1;
+    return withMove(next);
+  }
+
+  for (let count = 0; count < difficulty.drawCount; count += 1) {
+    const drawn = next.stock.pop();
+    if (!drawn) break;
+    next.waste.push({ ...drawn, faceUp: true });
+  }
+  return withMove(next);
+}
+
+/** 망치 3개로 일반 재순환 제한을 넘어 스톡을 한 바퀴 추가 개방합니다. */
+export function recycleStockWithHammer(game: GameState): GameState | null {
+  if (game.stock.length > 0 || game.waste.length === 0) return null;
+  const next = cloneGame(game);
+  next.stock = next.waste.reverse().map((card) => ({ ...card, faceUp: false }));
+  next.waste = [];
+  next.recycles += 1;
+  return withMove(next);
+}
+
+export function flipTableauCard(game: GameState, column: number): GameState | null {
+  const pile = game.tableau[column];
+  const topCard = pile?.at(-1);
+  if (!topCard || topCard.faceUp) return null;
+
+  const next = cloneGame(game);
+  next.tableau[column][next.tableau[column].length - 1] = { ...topCard, faceUp: true };
+  return withMove(next, 5);
+}
+
+export function moveTableauToTableau(
+  game: GameState,
+  fromColumn: number,
+  fromIndex: number,
+  toColumn: number,
+): GameState | null {
+  if (fromColumn === toColumn) return null;
+  const sourcePile = game.tableau[fromColumn];
+  const targetPile = game.tableau[toColumn];
+  const moving = sourcePile?.slice(fromIndex);
+  const firstCard = moving?.[0];
+  if (!firstCard || !firstCard.faceUp || moving.some((card) => !card.faceUp)) return null;
+  if (!canPlaceOnTableau(firstCard, targetPile?.at(-1))) return null;
+
+  const next = cloneGame(game);
+  next.tableau[fromColumn] = next.tableau[fromColumn].slice(0, fromIndex);
+  next.tableau[toColumn] = [...next.tableau[toColumn], ...moving];
+  return withMove(next);
+}
+
+export function moveWasteToTableau(game: GameState, toColumn: number): GameState | null {
+  const card = game.waste.at(-1);
+  if (!card || !canPlaceOnTableau(card, game.tableau[toColumn]?.at(-1))) return null;
+  const next = cloneGame(game);
+  next.waste.pop();
+  next.tableau[toColumn].push(card);
+  return withMove(next, 5);
+}
+
+export function destroyWasteWithHammer(game: GameState): GameState | null {
+  const card = game.waste.at(-1);
+  if (!card) return null;
+  const next = cloneGame(game);
+  next.waste.pop();
+  // A waste hammer hides the exposed card under the waste pile instead of
+  // destroying it. It remains in the deck and becomes available again after
+  // the stock/waste cycle reaches the bottom card.
+  next.waste.unshift({ ...card, faceUp: true });
+  next.hammerUses = (next.hammerUses ?? 0) + 1;
+  return withMove(next, -5);
+}
+
+export function moveFoundationToTableau(game: GameState, suit: Suit, toColumn: number): GameState | null {
+  const card = game.foundations[suit].at(-1);
+  if (!card || !canPlaceOnTableau(card, game.tableau[toColumn]?.at(-1))) return null;
+  const next = cloneGame(game);
+  next.foundations[suit].pop();
+  next.tableau[toColumn].push(card);
+  return withMove(next, -15);
+}
+
+function cardFromSource(game: GameState, source: CardSource): Card | undefined {
+  if (source.kind === "waste") return game.waste.at(-1);
+  if (source.kind === "foundation") return game.foundations[source.suit].at(-1);
+  const pile = game.tableau[source.column];
+  if (source.index !== pile.length - 1) return undefined;
+  return pile[source.index];
+}
+
+export function moveToFoundation(game: GameState, source: CardSource): GameState | null {
+  const card = cardFromSource(game, source);
+  if (!card || !canPlaceOnFoundation(card, game.foundations[card.suit], game.destroyedCards)) return null;
+
+  const next = cloneGame(game);
+  if (source.kind === "waste") next.waste.pop();
+  if (source.kind === "foundation") return null;
+  if (source.kind === "tableau") next.tableau[source.column].pop();
+  next.foundations[card.suit].push(card);
+  return withMove(next, 10);
+}
+
+export function moveAceToFoundation(game: GameState, source: CardSource): GameState | null {
+  const card = cardFromSource(game, source);
+  if (!card || card.rank !== 1) return null;
+  return moveToFoundation(game, source);
+}
+
+export function moveAvailableAcesToFoundation(game: GameState): GameState {
+  let next = game;
+  let moved = true;
+  while (moved) {
+    moved = false;
+    const wasteMove = moveAceToFoundation(next, { kind: "waste" });
+    if (wasteMove) {
+      next = wasteMove;
+      moved = true;
+      continue;
+    }
+    for (let column = 0; column < next.tableau.length; column += 1) {
+      const pile = next.tableau[column];
+      const topCard = pile.at(-1);
+      if (topCard?.rank !== 1) continue;
+      const tableauMove = moveAceToFoundation(next, { kind: "tableau", column, index: pile.length - 1 });
+      if (tableauMove) {
+        next = tableauMove;
+        moved = true;
+        break;
+      }
+    }
+  }
+  return next;
+}
+
+export function createPlayableGame(level = 1): GameState {
+  // Keep all four foundations empty at the start. Aces can still be moved
+  // automatically when they are drawn or when the player requests it.
+  return createNewGame(level);
+}
+
+export type AutoFoundationMove = { source: CardSource; card: Card };
+
+/** Returns the next legal top-card move to a foundation, if one exists. */
+export function findAutoFoundationMove(game: GameState): AutoFoundationMove | null {
+  const wasteCard = game.waste.at(-1);
+  if (wasteCard && canPlaceOnFoundation(wasteCard, game.foundations[wasteCard.suit], game.destroyedCards)) {
+    return { source: { kind: "waste" }, card: wasteCard };
+  }
+  for (let column = 0; column < game.tableau.length; column += 1) {
+    const pile = game.tableau[column];
+    const card = pile.at(-1);
+    if (card && card.faceUp && canPlaceOnFoundation(card, game.foundations[card.suit], game.destroyedCards)) {
+      return { source: { kind: "tableau", column, index: pile.length - 1 }, card };
+    }
+  }
+  return null;
+}
+
+/**
+ * Late-game auto-finish is conservative: the stock is empty, every tableau
+ * card is revealed, and at least one top-card foundation move is legal.
+ */
+export function isLateGameAutoFinishReady(game: GameState): boolean {
+  return game.stock.length === 0 && game.tableau.every((pile) => pile.every((card) => card.faceUp)) && findAutoFoundationMove(game) !== null;
+}
+
+export function findHint(game: GameState): Hint | null {
+  const wasteCard = game.waste.at(-1);
+  if (wasteCard && canPlaceOnFoundation(wasteCard, game.foundations[wasteCard.suit], game.destroyedCards)) {
+    return { action: "foundation", message: `${rankLabels[wasteCard.rank]}${suitSymbols[wasteCard.suit]}를 파운데이션으로 옮기세요.`, source: { kind: "waste" } };
+  }
+
+  for (let column = 0; column < game.tableau.length; column += 1) {
+    const pile = game.tableau[column];
+    const top = pile.at(-1);
+    if (!top) continue;
+    if (!top.faceUp) return { action: "flip", message: `${column + 1}번째 열의 카드를 뒤집으세요.`, source: { kind: "tableau", column, index: pile.length - 1 } };
+    if (canPlaceOnFoundation(top, game.foundations[top.suit], game.destroyedCards)) {
+      return { action: "foundation", message: `${rankLabels[top.rank]}${suitSymbols[top.suit]}를 파운데이션으로 옮기세요.`, source: { kind: "tableau", column, index: pile.length - 1 } };
+    }
+  }
+
+  for (let fromColumn = 0; fromColumn < game.tableau.length; fromColumn += 1) {
+    const pile = game.tableau[fromColumn];
+    for (let index = 0; index < pile.length; index += 1) {
+      const movingCard = pile[index];
+      if (!movingCard.faceUp) continue;
+      for (let toColumn = 0; toColumn < game.tableau.length; toColumn += 1) {
+        if (fromColumn === toColumn) continue;
+        if (canPlaceOnTableau(movingCard, game.tableau[toColumn].at(-1))) {
+          return { action: "tableau", message: `${rankLabels[movingCard.rank]}${suitSymbols[movingCard.suit]}를 ${toColumn + 1}번째 열로 옮기세요.`, source: { kind: "tableau", column: fromColumn, index }, targetColumn: toColumn };
+        }
+      }
+    }
+  }
+
+  if (wasteCard) {
+    for (let column = 0; column < game.tableau.length; column += 1) {
+      if (canPlaceOnTableau(wasteCard, game.tableau[column].at(-1))) {
+        return { action: "tableau", message: `웨이스트의 ${rankLabels[wasteCard.rank]}${suitSymbols[wasteCard.suit]}를 ${column + 1}번째 열로 옮기세요.`, source: { kind: "waste" }, targetColumn: column };
+      }
+    }
+  }
+
+  if (game.stock.length || game.waste.length) return { action: "draw", message: "스톡을 탭해 다음 카드를 확인하세요." };
+  return null;
+}
+
+export function isWon(game: GameState): boolean {
+  const completedCards = SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0);
+  return completedCards === 52;
+}

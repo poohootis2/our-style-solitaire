@@ -23,6 +23,14 @@ export const APP_ID = env.appId;
 export const OWNER_OPEN_ID = env.ownerId;
 export const OWNER_NAME = env.ownerName;
 export const API_BASE_URL = env.apiBaseUrl;
+// Native release builds cannot derive the server host from a browser location.
+// This sandbox API is the currently live backend for the test APK. The previous
+// public fallback returned a service-unavailable HTML page, which caused the
+// native client to fail with `JSON Parse error: Unexpected character: <`.
+// Do not use this temporary URL for a public Play release without moving the
+// backend to a persistent deployment first.
+const DEPLOYED_GAME_API_BASE_URL =
+  "https://3000-i8a1rtw9lzxqauj2rlp6f-7e91c956.sg2.manus.computer";
 
 /**
  * Get the API base URL, deriving from current hostname if not set.
@@ -43,6 +51,10 @@ export function getApiBaseUrl(): string {
     if (apiHostname !== hostname) {
       return `${protocol}//${apiHostname}`;
     }
+  }
+
+  if (ReactNative.Platform.OS !== "web") {
+    return DEPLOYED_GAME_API_BASE_URL;
   }
 
   // Fallback to empty (will use relative URL)
