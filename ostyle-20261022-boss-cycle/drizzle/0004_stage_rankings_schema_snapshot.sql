@@ -1,3 +1,0 @@
--- The leaderboard_stage_entries table is created and backfilled by
--- 0003_stage_rankings.sql. This revision preserves the generated Drizzle
--- schema snapshot without attempting to create the same table a second time.
