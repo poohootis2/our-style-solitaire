@@ -1,13 +1,10 @@
 import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
 import { GOOGLE_WEB_CLIENT_ID, googleOpenId } from "../../shared/google-auth.js";
-import { OAuth2Client } from "google-auth-library";
 import type { JWTPayload } from "jose";
 import type { Express, Request, Response } from "express";
 import { getUserByOpenId, upsertUser } from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
-
-const googleIdTokenVerifier = new OAuth2Client();
 
 type GoogleIdTokenPayload = JWTPayload & {
   email?: string;
@@ -16,63 +13,28 @@ type GoogleIdTokenPayload = JWTPayload & {
 };
 
 async function verifyGoogleIdToken(idToken: string): Promise<GoogleIdTokenPayload> {
-  let primaryError: unknown;
-  try {
-    const ticket = await googleIdTokenVerifier.verifyIdToken({
-      idToken,
-      audience: GOOGLE_WEB_CLIENT_ID,
-    });
-    return ticket.getPayload() as GoogleIdTokenPayload;
-  } catch (error) {
-    primaryError = error;
+  const response = await fetch(
+    `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
+  );
+  if (!response.ok) {
+    throw new Error(`Google tokeninfo rejected the ID token: HTTP ${response.status}`);
   }
-
-  try {
-    // Vercel's serverless runtime can occasionally fail while converting a
-    // freshly fetched Google PEM certificate. Retry the same verification
-    // against Google's official rotating JWK endpoint without weakening the
-    // issuer, audience, signature, or expiry checks.
-    const { createRemoteJWKSet, jwtVerify } = await import("jose");
-    const googleJwkSet = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
-    const { payload } = await jwtVerify(idToken, googleJwkSet, {
-      issuer: ["accounts.google.com", "https://accounts.google.com"],
-      audience: GOOGLE_WEB_CLIENT_ID,
-    });
-    console.warn(
-      "[GoogleAuth] PEM verification failed; JWK verification succeeded:",
-      primaryError instanceof Error ? primaryError.message : String(primaryError),
-    );
-    return payload as GoogleIdTokenPayload;
-  } catch (jwkError) {
-    // Last-resort verification through Google's tokeninfo endpoint. This is
-    // still Google's own signature/claim validation, and we additionally
-    // enforce the expected audience, issuer, expiry, and subject locally.
-    const response = await fetch(
-      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
-    );
-    if (!response.ok) {
-      throw new Error(
-        `Google token verification failed (PEM: ${primaryError instanceof Error ? primaryError.message : String(primaryError)}; JWK: ${jwkError instanceof Error ? jwkError.message : String(jwkError)}; tokeninfo: HTTP ${response.status})`,
-      );
-    }
-    const payload = (await response.json()) as GoogleIdTokenPayload & {
-      iss?: string;
-      aud?: string;
-      exp?: string | number;
-    };
-    const expiresAt = Number(payload.exp);
-    if (
-      !payload.sub
-      || payload.aud !== GOOGLE_WEB_CLIENT_ID
-      || (payload.iss !== "accounts.google.com" && payload.iss !== "https://accounts.google.com")
-      || !Number.isFinite(expiresAt)
-      || expiresAt <= Math.floor(Date.now() / 1000)
-    ) {
-      throw new Error("Google tokeninfo returned an invalid audience, issuer, subject, or expiry.");
-    }
-    console.warn("[GoogleAuth] PEM/JWK verification failed; tokeninfo verification succeeded.");
-    return payload;
+  const payload = (await response.json()) as GoogleIdTokenPayload & {
+    iss?: string;
+    aud?: string;
+    exp?: string | number;
+  };
+  const expiresAt = Number(payload.exp);
+  if (
+    !payload.sub
+    || payload.aud !== GOOGLE_WEB_CLIENT_ID
+    || (payload.iss !== "accounts.google.com" && payload.iss !== "https://accounts.google.com")
+    || !Number.isFinite(expiresAt)
+    || expiresAt <= Math.floor(Date.now() / 1000)
+  ) {
+    throw new Error("Google tokeninfo returned an invalid audience, issuer, subject, or expiry.");
   }
+  return payload;
 }
 
 function getQueryParam(req: Request, key: string): string | undefined {
