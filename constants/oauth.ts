@@ -30,8 +30,8 @@ export const API_BASE_URL = env.apiBaseUrl;
 // Do not use this temporary URL for a public Play release without moving the
 // backend to a persistent deployment first.
 // 수정 후 (Vercel 고정 API 서버 주소)
-const DEPLOYED_GAME_API_BASE_URL ="https://monster-solitaire-lilac.vercel.app";
-
+const DEPLOYED_GAME_API_BASE_URL =
+  "https://monster-solitaire-lilac.vercel.app";
 /**
  * Get the API base URL, deriving from current hostname if not set.
  * Metro runs on 8081, API server runs on 3000.
