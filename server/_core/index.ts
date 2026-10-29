@@ -27,9 +27,8 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
   throw new Error(`No available port found starting from ${startPort}`);
 }
 
-async function startServer() {
+export function createApp() {
   const app = express();
-  const server = createServer(app);
 
   // Enable CORS for all routes - reflect the request origin to support credentials
   app.use((req, res, next) => {
@@ -70,6 +69,13 @@ async function startServer() {
     }),
   );
 
+  return app;
+}
+
+async function startServer() {
+  const app = createApp();
+  const server = createServer(app);
+
   const preferredPort = parseInt(process.env.PORT || "3000");
   const port = await findAvailablePort(preferredPort);
 
@@ -82,4 +88,8 @@ async function startServer() {
   });
 }
 
-startServer().catch(console.error);
+// Vercel imports the Express app through api/[...path].ts and manages the
+// request lifecycle itself. Local development still starts a normal server.
+if (!process.env.VERCEL) {
+  startServer().catch(console.error);
+}

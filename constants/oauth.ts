@@ -24,14 +24,11 @@ export const OWNER_OPEN_ID = env.ownerId;
 export const OWNER_NAME = env.ownerName;
 export const API_BASE_URL = env.apiBaseUrl;
 // Native release builds cannot derive the server host from a browser location.
-// This sandbox API is the currently live backend for the test APK. The previous
-// public fallback returned a service-unavailable HTML page, which caused the
-// native client to fail with `JSON Parse error: Unexpected character: <`.
-// Do not use this temporary URL for a public Play release without moving the
-// backend to a persistent deployment first.
-// 수정 후 (Vercel 고정 API 서버 주소)
+// Use the persistent Vercel deployment for release builds instead of the
+// temporary 3000-*.manus.computer sandbox host.
 const DEPLOYED_GAME_API_BASE_URL =
   "https://monster-solitaire-lilac.vercel.app";
+
 /**
  * Get the API base URL, deriving from current hostname if not set.
  * Metro runs on 8081, API server runs on 3000.
