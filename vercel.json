@@ -1,9 +1,3 @@
 {
-  "version": 2,
-  "functions": {
-    "api/[...path].ts": {
-      "runtime": "nodejs22.x",
-      "maxDuration": 60
-    }
-  }
+  "version": 2
 }
