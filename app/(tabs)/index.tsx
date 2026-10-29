@@ -1527,6 +1527,7 @@ export default function HomeScreen() {
   const adRewardResetForAppUpdateRef = useRef(false);
   const [googleAuthPending, setGoogleAuthPending] = useState(false);
   const [googleAuthMessage, setGoogleAuthMessage] = useState<string | null>(null);
+  const [googleSessionUser, setGoogleSessionUser] = useState<Auth.User | null>(null);
   const [cloudSyncMessage, setCloudSyncMessage] = useState<string | null>(null);
   const getCurrentDailyAdRewardCount = () => {
     const now = Date.now();
@@ -1674,6 +1675,7 @@ export default function HomeScreen() {
       };
       await Auth.setSessionToken(session.sessionToken);
       await Auth.setUserInfo(user);
+      setGoogleSessionUser(user);
       await authQuery.refetch();
       await submitStoredStagesToServer(user.id);
       await leaderboardQuery.refetch();
@@ -1701,6 +1703,7 @@ export default function HomeScreen() {
       await signOutFromGoogle().catch(() => undefined);
       await Auth.removeSessionToken();
       await Auth.clearUserInfo();
+      setGoogleSessionUser(null);
       cloudHydratedUserRef.current = null;
       await authQuery.refetch();
       setGoogleAuthMessage(tr("로그아웃했습니다. 이 기기의 로컬 게임 데이터는 유지됩니다.", "Signed out. This device's local game data remains."));
@@ -4397,8 +4400,8 @@ export default function HomeScreen() {
           <Pressable style={styles.accountMenuBackdrop} onPress={() => setShowGoogleAccountMenu(false)}>
             <View style={styles.accountMenuCard} onStartShouldSetResponder={() => true}>
               <View style={styles.accountMenuHeader}>
-                {authQuery.data?.avatarUrl ? <Image source={{ uri: authQuery.data.avatarUrl }} style={styles.accountMenuAvatar} /> : <View style={styles.accountMenuAvatarFallback}><Text style={styles.accountMenuAvatarText}>G</Text></View>}
-                <View style={styles.accountMenuCopy}><Text style={styles.accountMenuTitle}>{authQuery.data?.name ?? tr("Google 계정", "Google Account")}</Text><Text numberOfLines={1} style={styles.accountMenuSubtitle}>{authQuery.data?.email ?? ""}</Text></View>
+                {(googleSessionUser ?? authQuery.data)?.avatarUrl ? <Image source={{ uri: (googleSessionUser ?? authQuery.data)!.avatarUrl! }} style={styles.accountMenuAvatar} /> : <View style={styles.accountMenuAvatarFallback}><Text style={styles.accountMenuAvatarText}>G</Text></View>}
+                <View style={styles.accountMenuCopy}><Text style={styles.accountMenuTitle}>{(googleSessionUser ?? authQuery.data)?.name ?? tr("Google 계정", "Google Account")}</Text><Text numberOfLines={1} style={styles.accountMenuSubtitle}>{(googleSessionUser ?? authQuery.data)?.email ?? ""}</Text></View>
               </View>
               <Pressable accessibilityRole="button" accessibilityLabel="다른 Google 계정으로 전환" onPress={() => { setShowGoogleAccountMenu(false); void logoutFromGoogle().then(() => setSheet("profile")); }} style={({ pressed }) => [styles.accountMenuSwitchButton, pressed && styles.pressed]}><Text style={styles.accountMenuSwitchText}>{tr("다른 계정으로 전환", "Switch account")}</Text></Pressable>
               <Pressable accessibilityRole="button" accessibilityLabel="Google 로그아웃" onPress={() => { setShowGoogleAccountMenu(false); void logoutFromGoogle(); }} style={({ pressed }) => [styles.accountMenuLogoutButton, pressed && styles.pressed]}><Text style={styles.accountMenuLogoutText}>{tr("로그아웃", "Sign out")}</Text></Pressable>
@@ -4576,20 +4579,20 @@ export default function HomeScreen() {
                   <Text style={[styles.sheetCopy, compactLanguageText && styles.sheetCopyCompactLanguage]}>{tr("Google 로그인으로 기록을 계정에 연결하고, 아이디와 국가를 실시간 랭킹에 표시하세요.", "Use Google sign-in to link your records, then set your leaderboard name and country.")}</Text>
                   <View style={styles.googleLoginCard}>
                     <View style={styles.googleLoginHeader}>
-                      {authQuery.data?.avatarUrl ? <Image accessibilityLabel="Google profile image" source={{ uri: authQuery.data.avatarUrl }} style={styles.googleProfileImage} /> : <View style={styles.googleLoginMark}><Text style={styles.googleLoginMarkText}>G</Text></View>}
+                        {(googleSessionUser ?? authQuery.data)?.avatarUrl ? <Image accessibilityLabel="Google profile image" source={{ uri: (googleSessionUser ?? authQuery.data)!.avatarUrl! }} style={styles.googleProfileImage} /> : <View style={styles.googleLoginMark}><Text style={styles.googleLoginMarkText}>G</Text></View>}
                       <View style={styles.googleLoginCopyWrap}>
-                        <Text style={styles.googleLoginTitle}>{authQuery.data?.name ?? (authQuery.data ? tr("Google 계정 로그인됨", "Google account signed in") : tr("Google 계정 로그인", "Sign in with Google"))}</Text>
-                        <Text numberOfLines={1} style={styles.googleLoginSubtitle}>{authQuery.data?.email ?? tr("기록과 실시간 랭킹을 계정에 연결합니다.", "Link records and live rankings to your account.")}</Text>
+                        <Text style={styles.googleLoginTitle}>{(googleSessionUser ?? authQuery.data)?.name ?? ((googleSessionUser ?? authQuery.data) ? tr("Google 계정 로그인됨", "Google account signed in") : tr("Google 계정 로그인", "Sign in with Google"))}</Text>
+                        <Text numberOfLines={1} style={styles.googleLoginSubtitle}>{(googleSessionUser ?? authQuery.data)?.email ?? tr("기록과 실시간 랭킹을 계정에 연결합니다.", "Link records and live rankings to your account.")}</Text>
                       </View>
                     </View>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={authQuery.data ? tr("Google 로그아웃", "Sign out of Google") : tr("Google 로그인", "Sign in with Google")}
+                      accessibilityLabel={(googleSessionUser ?? authQuery.data) ? tr("Google 로그아웃", "Sign out of Google") : tr("Google 로그인", "Sign in with Google")}
                       disabled={googleAuthPending}
-                      onPress={authQuery.data ? logoutFromGoogle : loginWithGoogle}
-                      style={({ pressed }) => [styles.googleLoginButton, authQuery.data && styles.googleLogoutButton, googleAuthPending && styles.googleLoginButtonDisabled, pressed && styles.pressed]}
+                      onPress={(googleSessionUser ?? authQuery.data) ? logoutFromGoogle : loginWithGoogle}
+                      style={({ pressed }) => [styles.googleLoginButton, (googleSessionUser ?? authQuery.data) && styles.googleLogoutButton, googleAuthPending && styles.googleLoginButtonDisabled, pressed && styles.pressed]}
                     >
-                      <Text style={[styles.googleLoginButtonText, authQuery.data && styles.googleLogoutButtonText]}>{googleAuthPending ? tr("처리 중…", "Working…") : authQuery.data ? tr("로그아웃", "Sign out") : tr("Google 로그인", "Sign in with Google")}</Text>
+                      <Text style={[styles.googleLoginButtonText, (googleSessionUser ?? authQuery.data) && styles.googleLogoutButtonText]}>{googleAuthPending ? tr("처리 중…", "Working…") : (googleSessionUser ?? authQuery.data) ? tr("로그아웃", "Sign out") : tr("Google 로그인", "Sign in with Google")}</Text>
                     </Pressable>
                     {googleAuthMessage ? <Text style={styles.googleLoginMessage}>{googleAuthMessage}</Text> : null}
                     {cloudSyncMessage ? <Text style={styles.cloudSyncMessage}>{cloudSyncMessage}</Text> : null}
