@@ -52,6 +52,10 @@ export async function signInWithGoogle(): Promise<GoogleNativeLoginResult> {
     if (!hasPlayServices) {
       return { kind: "unavailable", message: "Google Play 서비스를 사용할 수 없거나 업데이트가 필요합니다." };
     }
+    // Force the account chooser instead of silently reusing the last Google
+    // account selected on this device. This signs out only from this app;
+    // it does not remove any Google account from Android or the device.
+    await GoogleSignin.signOut().catch(() => undefined);
     const response = await GoogleSignin.signIn();
 
     if (response.type === "cancelled") return { kind: "cancelled" };
