@@ -1,14 +1,13 @@
 import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
 import { GOOGLE_WEB_CLIENT_ID, googleOpenId } from "../../shared/google-auth.js";
 import { OAuth2Client } from "google-auth-library";
-import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
+import type { JWTPayload } from "jose";
 import type { Express, Request, Response } from "express";
 import { getUserByOpenId, upsertUser } from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
 
 const googleIdTokenVerifier = new OAuth2Client();
-const googleJwkSet = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
 
 type GoogleIdTokenPayload = JWTPayload & {
   email?: string;
@@ -28,6 +27,8 @@ async function verifyGoogleIdToken(idToken: string): Promise<GoogleIdTokenPayloa
     // freshly fetched Google PEM certificate. Retry the same verification
     // against Google's official rotating JWK endpoint without weakening the
     // issuer, audience, signature, or expiry checks.
+    const { createRemoteJWKSet, jwtVerify } = await import("jose");
+    const googleJwkSet = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
     const { payload } = await jwtVerify(idToken, googleJwkSet, {
       issuer: ["accounts.google.com", "https://accounts.google.com"],
       audience: GOOGLE_WEB_CLIENT_ID,
