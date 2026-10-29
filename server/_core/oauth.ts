@@ -13,11 +13,16 @@ type GoogleIdTokenPayload = JWTPayload & {
 };
 
 async function verifyGoogleIdToken(idToken: string): Promise<GoogleIdTokenPayload> {
+  console.info("[GoogleAuth-v4] tokeninfo verification started", {
+    tokenSegments: idToken.split(".").length,
+    tokenLength: idToken.length,
+  });
   const response = await fetch(
     `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
   );
   if (!response.ok) {
-    throw new Error(`Google tokeninfo rejected the ID token: HTTP ${response.status}`);
+    const reason = (await response.text()).slice(0, 160).replace(/\s+/g, " ");
+    throw new Error(`Google tokeninfo rejected the ID token: HTTP ${response.status} ${reason}`);
   }
   const payload = (await response.json()) as GoogleIdTokenPayload & {
     iss?: string;
@@ -32,8 +37,15 @@ async function verifyGoogleIdToken(idToken: string): Promise<GoogleIdTokenPayloa
     || !Number.isFinite(expiresAt)
     || expiresAt <= Math.floor(Date.now() / 1000)
   ) {
+    console.warn("[GoogleAuth-v4] tokeninfo claim mismatch", {
+      audienceMatches: payload.aud === GOOGLE_WEB_CLIENT_ID,
+      issuer: payload.iss,
+      hasSubject: Boolean(payload.sub),
+      expiryValid: Number.isFinite(expiresAt) && expiresAt > Math.floor(Date.now() / 1000),
+    });
     throw new Error("Google tokeninfo returned an invalid audience, issuer, subject, or expiry.");
   }
+  console.info("[GoogleAuth-v4] tokeninfo verification passed");
   return payload;
 }
 
