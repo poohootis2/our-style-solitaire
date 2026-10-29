@@ -194,7 +194,14 @@ class SDKServer {
       });
       const { openId, appId, name } = payload as Record<string, unknown>;
 
-      if (!isNonEmptyString(openId) || !isNonEmptyString(appId) || !isNonEmptyString(name)) {
+      // Native Google sessions are issued directly by the game API and may not
+      // have the legacy VITE_APP_ID available in Vercel. The signed openId and
+      // display name remain mandatory; when an appId is configured, enforce it.
+      if (
+        !isNonEmptyString(openId)
+        || !isNonEmptyString(name)
+        || (isNonEmptyString(ENV.appId) && appId !== ENV.appId)
+      ) {
         console.warn("[Auth] Session payload missing required fields");
         return null;
       }
