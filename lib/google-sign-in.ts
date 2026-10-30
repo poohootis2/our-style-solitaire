@@ -15,6 +15,11 @@ export async function signInWithGoogle(): Promise<GoogleNativeLoginResult> {
   };
 }
 
+export async function restoreGoogleSignIn(): Promise<GoogleNativeLoginResult | null> {
+  // There is no native Google session in the web preview.
+  return null;
+}
+
 export async function signOutFromGoogle(): Promise<void> {
   // There is no native Google session in the web preview.
 }

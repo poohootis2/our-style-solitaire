@@ -87,6 +87,31 @@ export async function signInWithGoogle(): Promise<GoogleNativeLoginResult> {
   }
 }
 
+/**
+ * Restores the Google account already authorized for this app without opening
+ * an account chooser. This is only used during app startup to renew the game
+ * server session; an explicit login still shows the chooser.
+ */
+export async function restoreGoogleSignIn(): Promise<GoogleNativeLoginResult | null> {
+  try {
+    configureGoogleSignin();
+    if (!GoogleSignin.hasPreviousSignIn()) return null;
+    const response = await GoogleSignin.signInSilently();
+    if (response.type !== "success" || !response.data.idToken) return null;
+    return {
+      kind: "success",
+      idToken: response.data.idToken,
+      name: response.data.user.name,
+      email: response.data.user.email,
+      avatarUrl: response.data.user.photo ?? null,
+    };
+  } catch {
+    // A missing/expired native Google credential is not an app error. The user
+    // can sign in manually from the profile screen.
+    return null;
+  }
+}
+
 export async function signOutFromGoogle(): Promise<void> {
   configureGoogleSignin();
   await GoogleSignin.signOut();

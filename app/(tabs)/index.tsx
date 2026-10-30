@@ -16,7 +16,7 @@ import { AdBanner } from "@/components/ad-banner";
 import { CARD_BACK_THEMES, getCardBackTheme, getCardBackThemeByIndex, type CardBackTheme } from "@/lib/card-back-theme";
 import { getGameLayout } from "@/lib/game-layout";
 import { getLastVerifiedClearedStage } from "@/lib/stage-access";
-import { signInWithGoogle, signOutFromGoogle } from "@/lib/google-sign-in";
+import { restoreGoogleSignIn, signInWithGoogle, signOutFromGoogle } from "@/lib/google-sign-in";
 import { haptic } from "@/lib/haptics";
 import {
   cloneGameState,
@@ -1528,6 +1528,7 @@ export default function HomeScreen() {
   const [googleAuthPending, setGoogleAuthPending] = useState(false);
   const [googleAuthMessage, setGoogleAuthMessage] = useState<string | null>(null);
   const [googleSessionUser, setGoogleSessionUser] = useState<Auth.User | null>(null);
+  const googleSessionRestoreStartedRef = useRef(false);
   const [cloudSyncMessage, setCloudSyncMessage] = useState<string | null>(null);
   const getCurrentDailyAdRewardCount = () => {
     const now = Date.now();
@@ -1648,20 +1649,7 @@ export default function HomeScreen() {
     return () => { cancelled = true; subscription.remove(); };
   }, [authQuery.data?.id, cloudStateQuery.isFetched, hydrated, records, submitLeaderboardMutation]);
 
-  const loginWithGoogle = async () => {
-    if (googleAuthPending) return;
-    setGoogleAuthPending(true);
-    setGoogleAuthMessage(tr("Google 로그인 창을 여는 중…", "Opening Google sign-in…"));
-    try {
-      const googleLogin = await signInWithGoogle();
-      if (googleLogin.kind === "cancelled") return;
-      if (googleLogin.kind !== "success") {
-        setGoogleAuthMessage(googleLogin.message);
-        if (Platform.OS === "android") Alert.alert(tr("Google 로그인 실패", "Google Sign-In failed"), googleLogin.message);
-        haptic.error();
-        return;
-      }
-
+  const establishGoogleSession = async (googleLogin: { idToken: string; avatarUrl: string | null }) => {
       const session = await Api.exchangeGoogleIdToken(googleLogin.idToken);
       const user: Auth.User = {
         id: session.user.id,
@@ -1682,6 +1670,24 @@ export default function HomeScreen() {
       await leaderboardSnapshotQuery.refetch();
       await currentStageRankingQuery.refetch();
       await currentStageRankingSnapshotQuery.refetch();
+      return user;
+  };
+
+  const loginWithGoogle = async () => {
+    if (googleAuthPending) return;
+    setGoogleAuthPending(true);
+    setGoogleAuthMessage(tr("Google 로그인 창을 여는 중…", "Opening Google sign-in…"));
+    try {
+      const googleLogin = await signInWithGoogle();
+      if (googleLogin.kind === "cancelled") return;
+      if (googleLogin.kind !== "success") {
+        setGoogleAuthMessage(googleLogin.message);
+        if (Platform.OS === "android") Alert.alert(tr("Google 로그인 실패", "Google Sign-In failed"), googleLogin.message);
+        haptic.error();
+        return;
+      }
+
+      await establishGoogleSession(googleLogin);
       setGoogleAuthMessage(tr("✓ Google 로그인 완료 · 이제 기록이 계정에 연결됩니다.", "✓ Google sign-in complete · your records are now linked to this account."));
       if (Platform.OS === "android") Alert.alert(tr("Google 로그인 완료", "Google Sign-In successful"), tr("프로필과 게임 데이터가 계정에 연결되었습니다.", "Your profile and game data are now linked to your account."));
       haptic.success();
@@ -1712,6 +1718,29 @@ export default function HomeScreen() {
       setGoogleAuthPending(false);
     }
   };
+  useEffect(() => {
+    if (Platform.OS === "web" || authQuery.data || googleSessionRestoreStartedRef.current) return;
+    googleSessionRestoreStartedRef.current = true;
+    let cancelled = false;
+
+    void (async () => {
+      const googleLogin = await restoreGoogleSignIn();
+      if (!googleLogin || googleLogin.kind !== "success" || cancelled) return;
+      try {
+        await establishGoogleSession(googleLogin);
+        if (!cancelled) {
+          setGoogleAuthMessage(tr("✓ Google 계정 연결을 복원했습니다.", "✓ Restored your Google account connection."));
+        }
+      } catch (error) {
+        // Preserve manual sign-in and local game data if a renewal fails.
+        console.warn("[GoogleAuth] Startup session restore failed", error instanceof Error ? error.message : String(error));
+      }
+    })();
+
+    return () => { cancelled = true; };
+  // A ref intentionally limits recovery to one attempt per app launch.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authQuery.data]);
   const [hammerStrikeTarget, setHammerStrikeTarget] = useState<{ dx: number; dy: number } | null>(null);
   const [hammerRevealFlight, setHammerRevealFlight] = useState<{ card: Card; from: { dx: number; dy: number }; to: { dx: number; dy: number } } | null>(null);
   const [hammerLandingDustTarget, setHammerLandingDustTarget] = useState<{ dx: number; dy: number } | null>(null);
