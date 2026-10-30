@@ -31,7 +31,10 @@ export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query((opts) => opts.ctx.user),
+    me: publicProcedure.query((opts) => {
+      console.info("[Session-v3] auth.me", { authenticated: Boolean(opts.ctx.user) });
+      return opts.ctx.user;
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -63,15 +66,27 @@ export const appRouter = router({
   }),
 
   leaderboard: router({
-    top: publicProcedure.input(z.object({ mode: z.enum(["unlimited", "timeAttack"]) })).query(({ input }) => getLeaderboard(input.mode)),
-    byStage: publicProcedure.input(z.object({ mode: z.enum(["unlimited", "timeAttack"]), stage: z.number().int().min(1).max(10000) })).query(({ input }) => getLeaderboardByStage(input.mode, input.stage)),
+    top: publicProcedure.input(z.object({ mode: z.enum(["unlimited", "timeAttack"]) })).query(async ({ input }) => {
+      const rows = await getLeaderboard(input.mode);
+      console.info("[Ranking-v3] top", { mode: input.mode, rowCount: rows.length });
+      return rows;
+    }),
+    byStage: publicProcedure.input(z.object({ mode: z.enum(["unlimited", "timeAttack"]), stage: z.number().int().min(1).max(10000) })).query(async ({ input }) => {
+      const rows = await getLeaderboardByStage(input.mode, input.stage);
+      console.info("[Ranking-v3] byStage", { mode: input.mode, stage: input.stage, rowCount: rows.length });
+      return rows;
+    }),
     snapshot: protectedProcedure.input(z.object({ mode: z.enum(["unlimited", "timeAttack"]) })).query(({ ctx, input }) => getLeaderboardSnapshot(ctx.user.id, input.mode)),
     stageSnapshot: protectedProcedure.input(z.object({ mode: z.enum(["unlimited", "timeAttack"]), stage: z.number().int().min(1).max(10000) })).query(({ ctx, input }) => getLeaderboardStageSnapshot(ctx.user.id, input.mode, input.stage)),
     submit: protectedProcedure.input(z.object({ mode: z.enum(["unlimited", "timeAttack"]), score: z.number().int().min(0).max(2147483647), timeSeconds: z.number().int().min(0).max(2147483647).nullable().optional(), stage: z.number().int().min(1).max(10000) })).mutation(({ ctx, input }) => upsertLeaderboardEntry({ userId: ctx.user.id, ...input })),
   }),
 
   gameState: router({
-    get: protectedProcedure.query(({ ctx }) => getUserGameState(ctx.user.id)),
+    get: protectedProcedure.query(async ({ ctx }) => {
+      const state = await getUserGameState(ctx.user.id);
+      console.info("[GameState-v3] get", { found: state !== null });
+      return state;
+    }),
     save: protectedProcedure.input(z.object({ payload: z.string().max(500_000) })).mutation(({ ctx, input }) => upsertUserGameState(ctx.user.id, JSON.parse(input.payload))),
   }),
 
