@@ -1345,11 +1345,14 @@ export default function HomeScreen() {
   const [showUiGuideModal, setShowUiGuideModal] = useState(false);
   const [unlockedBossBadges, setUnlockedBossBadges] = useState<string[]>([]);
   const [earnedBadge, setEarnedBadge] = useState<{ id: string; name: string; image: number } | null>(null);
-  const [selectedBadge, setSelectedBadge] = useState<{ id: string; name: string; image: number } | null>(null);
+  const [spinningBadgeId, setSpinningBadgeId] = useState<string | null>(null);
   const [activeBadgeId, setActiveBadgeId] = useState<string | null>(null);
+  const [showActiveBadgeNotice, setShowActiveBadgeNotice] = useState(false);
   const badgePreviewSpin = useRef(new Animated.Value(0)).current;
   const badgeCollectionMotion = useRef(new Animated.Value(0)).current;
   const activeBadgeAbility = activeBadgeId ? getBadgeAbility(activeBadgeId) : null;
+  const activeBadgeImage = activeBadgeId ? getBattleContent(getBossBadgeStage(activeBadgeId), false).badgeImage : null;
+  const activeBadgeNoticeMotion = useRef(new Animated.Value(0)).current;
   const [attendanceDay, setAttendanceDay] = useState(0);
   const [lastAttendanceDate, setLastAttendanceDate] = useState<string | null>(null);
   const [showAttendanceClaim, setShowAttendanceClaim] = useState(false);
@@ -1811,42 +1814,15 @@ export default function HomeScreen() {
     setEarnedBadge({ id: content.badgeId, name: content.monster.name, image: content.badgeImage });
     Animated.timing(badgePreviewSpin, { toValue: 1, duration: 1800, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   };
-  const openBadgeDetail = (badgeId: string) => {
+  const spinBadgeInCollection = (badgeId: string) => {
     const content = getBattleContent(getBossBadgeStage(badgeId), false);
     if (!content.badgeImage) return;
     haptic.light();
-    // Render the detail in its own native Modal instead of stacking it over the
-    // Dismiss the collection sheet first, then present the independent detail
-    // modal on the next frame. This avoids Android modal stacking swallowing taps.
-    setSheet(null);
-    setPaused(true);
-    requestAnimationFrame(() => setSelectedBadge({ id: badgeId, name: content.monster.name, image: content.badgeImage! }));
-  };
-  const closeBadgeDetail = () => {
-    badgeCollectionMotion.stopAnimation();
-    setSelectedBadge(null);
-    setSheet("badges");
-    setPaused(true);
-  };
-  useEffect(() => {
-    if (!selectedBadge) {
-      badgeCollectionMotion.stopAnimation();
-      return;
-    }
     badgeCollectionMotion.stopAnimation();
     badgeCollectionMotion.setValue(0);
-    const animation = Animated.timing(badgeCollectionMotion, {
-      toValue: 1,
-      duration: 2000,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    });
-    const frame = requestAnimationFrame(() => animation.start());
-    return () => {
-      cancelAnimationFrame(frame);
-      animation.stop();
-    };
-  }, [badgeCollectionMotion, selectedBadge]);
+    setSpinningBadgeId(badgeId);
+    Animated.timing(badgeCollectionMotion, { toValue: 1, duration: 2000, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setSpinningBadgeId(null));
+  };
   useEffect(() => {
     void AsyncStorage.getItem(PROFILE_COUNTRY_KEY).then((value) => {
       if (/^[A-Z]{2}$/.test(value ?? "")) setProfileCountryCode(value);
@@ -1864,6 +1840,31 @@ export default function HomeScreen() {
     }
     void AsyncStorage.setItem(ACTIVE_BADGE_KEY, activeBadgeId);
   }, [activeBadgeId]);
+  useEffect(() => {
+    if (!hydrated || !activeBadgeId || !activeBadgeImage) {
+      setShowActiveBadgeNotice(false);
+      return;
+    }
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+    const showBadge = () => {
+      if (hideTimer) clearTimeout(hideTimer);
+      activeBadgeNoticeMotion.stopAnimation();
+      activeBadgeNoticeMotion.setValue(0);
+      setShowActiveBadgeNotice(true);
+      Animated.timing(activeBadgeNoticeMotion, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+      hideTimer = setTimeout(() => {
+        Animated.timing(activeBadgeNoticeMotion, { toValue: 0, duration: 420, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(() => setShowActiveBadgeNotice(false));
+      }, 5000);
+    };
+    const firstShowTimer = setTimeout(showBadge, 300);
+    const interval = setInterval(showBadge, 180000);
+    return () => {
+      clearTimeout(firstShowTimer);
+      if (hideTimer) clearTimeout(hideTimer);
+      clearInterval(interval);
+      activeBadgeNoticeMotion.stopAnimation();
+    };
+  }, [activeBadgeId, activeBadgeImage, activeBadgeNoticeMotion, hydrated]);
   useEffect(() => {
     if (authQuery.data?.name) return;
     void AsyncStorage.getItem(PROFILE_NAME_KEY).then((value) => {
@@ -4295,7 +4296,8 @@ export default function HomeScreen() {
         {hammerMode && game.waste.length > 0 ? <View pointerEvents="none" style={[styles.hammerModeHint, { top: Math.max(8, rootTopPadding + 4) }]}><Text style={styles.hammerModeHintText}>{tr("웨이스트 맨 아래로 이동 · 망치 2개", "Move waste to bottom · 2 hammers")}</Text></View> : null}
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
-        <CompanionAnchor companion={selectedCompanion} displayName={getLocalizedBattleName(selectedCompanion.id, selectedCompanion.name, language)} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} attackFlight={activePetFlight} onPress={() => undefined} anchorRef={(node) => { companionAnchorRef.current = node; }} />
+        <CompanionAnchor companion={selectedCompanion} displayName={getLocalizedBattleName(selectedCompanion.id, selectedCompanion.name, language)} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} attackFlight={undefined} onPress={() => undefined} anchorRef={(node) => { companionAnchorRef.current = node; }} />
+        {showActiveBadgeNotice && activeBadgeImage ? <Animated.View pointerEvents="none" style={{ position: "absolute", left: companionBaseLeft + Math.round(companionSize * 0.5) - 28, bottom: companionBottom + companionSize + 12, width: 56, alignItems: "center", opacity: activeBadgeNoticeMotion, transform: [{ translateY: activeBadgeNoticeMotion.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}><Image source={activeBadgeImage} resizeMode="contain" style={{ width: 56, height: 56 }} /><Text numberOfLines={2} style={{ color: "#FFF4B8", fontSize: 8, lineHeight: 10, fontWeight: "900", textAlign: "center", textShadowColor: "#1B2340", textShadowRadius: 3 }}>{getBadgeAbilityText(activeBadgeId!, language)}</Text></Animated.View> : null}
         {activePetFlight ? <FlyingPetImpact image={ATTACK_IMPACT_ART_BY_STYLE[companionAttackStyle]} impactImage={HIT_EXPLOSION_ART_BY_STYLE[companionAttackStyle]} size={Math.max(52, Math.round(companionSize * 1.35))} progress={activePetFlight.progress} rootRef={rootRef} companionRef={companionAnchorRef} targetViewRef={monsterTargetRef} companionSize={companionSize} /> : null}
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: Math.max(0, bottomControlsBottom - 5) }]}>
 
@@ -4689,7 +4691,7 @@ export default function HomeScreen() {
                   <ScrollView style={styles.badgeCollectionScroll} onStartShouldSetResponder={() => false} onMoveShouldSetResponder={() => true} contentContainerStyle={styles.badgeCollectionGrid} nestedScrollEnabled scrollEnabled alwaysBounceVertical overScrollMode="always" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator persistentScrollbar indicatorStyle="white">
                     {unlockedBossBadges.length === 0 ? <Text style={[styles.sheetCopy, compactLanguageText && styles.sheetCopyCompactLanguage]}>{tr("아직 획득한 보스 배지가 없습니다.", "No badges earned yet.")}</Text> : unlockedBossBadges.map((badgeId) => {
                       const content = getBattleContent(getBossBadgeStage(badgeId), false);
-                      return content.badgeImage ? <View key={badgeId} style={[styles.badgeCollectionItem, activeBadgeId === badgeId && styles.badgeCollectionItemActive]}><Pressable accessibilityRole="button" accessibilityLabel={`${content.monster.name} 배지 상세 보기`} onPress={() => openBadgeDetail(badgeId)} style={({ pressed }) => [pressed && styles.pressed]}><Image source={content.badgeImage} resizeMode="contain" style={styles.badgeCollectionImage} /><Text numberOfLines={2} style={styles.badgeCollectionLabel}>{getLocalizedBattleName(content.monster.id, content.monster.name, language)}</Text><Text numberOfLines={2} style={styles.badgeCollectionCondition}>{getBadgeAbilityText(badgeId, language)}</Text></Pressable><Pressable accessibilityRole="button" onPress={() => setActiveBadgeId(badgeId)} style={({ pressed }) => [styles.badgeCollectionSelect, activeBadgeId === badgeId && styles.badgeCollectionSelectActive, pressed && styles.pressed]}><Text style={styles.badgeCollectionSelectText}>{activeBadgeId === badgeId ? tr("선택됨", "Selected") : tr("선택", "Select")}</Text></Pressable></View> : null;
+                      return content.badgeImage ? <View key={badgeId} style={[styles.badgeCollectionItem, activeBadgeId === badgeId && styles.badgeCollectionItemActive]}><Pressable accessibilityRole="button" accessibilityLabel={`${content.monster.name} 배지 회전`} onPress={() => spinBadgeInCollection(badgeId)} style={({ pressed }) => [pressed && styles.pressed]}><Animated.Image source={content.badgeImage} resizeMode="contain" style={[styles.badgeCollectionImage, spinningBadgeId === badgeId && { transform: [{ rotateY: badgeCollectionMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "720deg"] }) }] }]} /><Text numberOfLines={2} style={styles.badgeCollectionLabel}>{getLocalizedBattleName(content.monster.id, content.monster.name, language)}</Text><Text numberOfLines={2} style={styles.badgeCollectionCondition}>{getBadgeAbilityText(badgeId, language)}</Text></Pressable><Pressable accessibilityRole="button" onPress={() => { setActiveBadgeId(badgeId); showTimedHint(getBadgeAbilityText(badgeId, language)); }} style={({ pressed }) => [styles.badgeCollectionSelect, activeBadgeId === badgeId && styles.badgeCollectionSelectActive, pressed && styles.pressed]}><Text style={styles.badgeCollectionSelectText}>{activeBadgeId === badgeId ? tr("선택됨", "Selected") : tr("선택", "Select")}</Text></Pressable></View> : null;
                     })}
                   </ScrollView>
                   <Pressable onPress={() => { setPaused(false); setSheet(null); }} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>{tr("닫기", "Close")}</Text></Pressable>
@@ -4874,22 +4876,6 @@ export default function HomeScreen() {
               <Pressable onPress={() => setEarnedBadge(null)} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>확인</Text></Pressable>
             </View>
           </Pressable>
-        </Modal>
-        <Modal transparent visible={selectedBadge !== null} animationType="fade" statusBarTranslucent hardwareAccelerated onRequestClose={closeBadgeDetail}>
-          <View style={styles.badgeDetailBackdrop}>
-            <Pressable accessibilityRole="button" accessibilityLabel="보스 배지 상세 닫기" style={StyleSheet.absoluteFillObject} onPress={closeBadgeDetail} />
-            <View style={styles.badgeDetailCard}>
-              <Text style={styles.badgeDetailEyebrow}>BADGE DETAIL</Text>
-              <Text style={styles.badgeDetailTitle}>{selectedBadge?.name}</Text>
-              {selectedBadge ? <Animated.Image source={selectedBadge.image} resizeMode="contain" style={[styles.badgeDetailImage, { transform: [{ translateY: badgeCollectionMotion.interpolate({ inputRange: [0, 1], outputRange: [42, 0] }) }, { scale: badgeCollectionMotion.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.55, 1.12, 1] }) }, { rotateY: badgeCollectionMotion.interpolate({ inputRange: [0, 1], outputRange: ["-18deg", "360deg"] }) }] }]} /> : null}
-              <Text style={styles.badgeDetailConditionLabel}>{tr("획득 조건", "Unlock condition")}</Text>
-              <Text style={styles.badgeDetailCondition}>{selectedBadge ? (language === "ko" ? getBossBadgeCondition(selectedBadge.id).ko : getBossBadgeCondition(selectedBadge.id).en) : ""}</Text>
-              <Text style={styles.badgeDetailConditionLabel}>{tr("특별 능력", "SPECIAL ABILITY")}</Text>
-              <Text style={styles.badgeDetailCondition}>{selectedBadge ? getBadgeAbilityText(selectedBadge.id, language) : ""}</Text>
-              {selectedBadge ? <Pressable onPress={() => { setActiveBadgeId(selectedBadge.id); showTimedHint(getBadgeAbilityText(selectedBadge.id, language)); }} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>{activeBadgeId === selectedBadge.id ? tr("선택됨", "Selected") : tr("이 배지 선택", "Select badge")}</Text></Pressable> : null}
-              <Pressable onPress={closeBadgeDetail} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>{tr("닫기", "Close")}</Text></Pressable>
-            </View>
-          </View>
         </Modal>
         <Modal transparent visible={pendingGameMode !== null} animationType="fade" onRequestClose={() => setPendingGameMode(null)}>
           <Pressable style={styles.confirmBackdrop} onPress={() => setPendingGameMode(null)}>
