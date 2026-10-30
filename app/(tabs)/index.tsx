@@ -1350,10 +1350,13 @@ export default function HomeScreen() {
   const [activeBadgeId, setActiveBadgeId] = useState<string | null>(null);
   const [spinningBadgeId, setSpinningBadgeId] = useState<string | null>(null);
   const [showActiveBadgeNotice, setShowActiveBadgeNotice] = useState(false);
+  const [badgeStartNonce, setBadgeStartNonce] = useState(0);
   const badgeCollectionMotion = useRef(new Animated.Value(0)).current;
   const activeBadgeNoticeMotion = useRef(new Animated.Value(0)).current;
   const activeBadgeAbility = activeBadgeId ? getBadgeAbility(activeBadgeId) : null;
   const activeBadgeImage = activeBadgeId ? getBattleContent(getBossBadgeStage(activeBadgeId), false).badgeImage : null;
+  const badgePeekRestoreRef = useRef<{ game: GameState; paused: boolean } | null>(null);
+  const badgePeekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const badgePreviewSpin = useRef(new Animated.Value(0)).current;
   const [attendanceDay, setAttendanceDay] = useState(0);
   const [lastAttendanceDate, setLastAttendanceDate] = useState<string | null>(null);
@@ -1877,6 +1880,48 @@ export default function HomeScreen() {
       activeBadgeNoticeMotion.stopAnimation();
     };
   }, [activeBadgeId, activeBadgeImage, activeBadgeNoticeMotion, hydrated]);
+  useEffect(() => {
+    if (!hydrated || !activeBadgeId || !activeBadgeAbility) return;
+    const abilityKind = activeBadgeAbility.kind;
+    const isStartPeek = abilityKind === "peek-3" || abilityKind === "peek-3-cards" || abilityKind === "stock-first-card";
+    if (!isStartPeek) return;
+    if (badgePeekTimerRef.current) clearTimeout(badgePeekTimerRef.current);
+    badgePeekRestoreRef.current = { game: cloneGameState(game), paused };
+    const preview = cloneGameState(game);
+    if (abilityKind === "peek-3") {
+      preview.tableau = preview.tableau.map((pile) => pile.map((card) => ({ ...card, faceUp: true })));
+    } else if (abilityKind === "peek-3-cards") {
+      let remaining = 3;
+      preview.tableau = preview.tableau.map((pile) => pile.map((card) => {
+        if (!card.faceUp && remaining > 0) {
+          remaining -= 1;
+          return { ...card, faceUp: true };
+        }
+        return card;
+      }));
+    } else if (preview.stock.length > 0) {
+      const last = preview.stock.length - 1;
+      preview.stock = preview.stock.map((card, index) => index === last ? { ...card, faceUp: true } : card);
+    }
+    gameRef.current = preview;
+    setGame(preview);
+    setPaused(true);
+    badgePeekTimerRef.current = setTimeout(() => {
+      const restore = badgePeekRestoreRef.current;
+      if (restore) {
+        gameRef.current = restore.game;
+        setGame(restore.game);
+        setPaused(restore.paused);
+      }
+      badgePeekRestoreRef.current = null;
+      badgePeekTimerRef.current = null;
+    }, 3000);
+    return () => {
+      if (badgePeekTimerRef.current) clearTimeout(badgePeekTimerRef.current);
+      badgePeekTimerRef.current = null;
+      badgePeekRestoreRef.current = null;
+    };
+  }, [activeBadgeId, badgeStartNonce, game.level, hydrated]);
   useEffect(() => {
     if (authQuery.data?.name) return;
     void AsyncStorage.getItem(PROFILE_NAME_KEY).then((value) => {
@@ -2844,6 +2889,7 @@ export default function HomeScreen() {
   }, [activeBadgeAbility, game, gameMode, hydrated, paused]);
 
   const startNewGame = (level = game.level, resetProgress = false) => {
+    setBadgeStartNonce((value) => value + 1);
     if (autoFinishTimerRef.current) clearTimeout(autoFinishTimerRef.current);
     autoFinishTimerRef.current = null;
     autoFinishRunningRef.current = false;
