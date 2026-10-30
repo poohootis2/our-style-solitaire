@@ -1,4 +1,4 @@
-﻿import { memo, useEffect, useRef, useState, type ComponentProps, type RefObject } from "react";
+import { memo, useEffect, useRef, useState, type ComponentProps, type RefObject } from "react";
 import { Alert, Animated, AppState, Easing, FlatList, Image, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text as RNText, TextInput as RNTextInput, useWindowDimensions, View, type ImageSourcePropType } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
@@ -166,6 +166,7 @@ const HIT_EXPLOSION_ART_BY_STYLE: Record<CompanionAttackStyle, ImageSourcePropTy
   orange: require("../../assets/images/attack-impacts/impact-orange.webp"),
   white: require("../../assets/images/attack-impacts/impact-white.webp"),
 };
+const HAMMER_BOOM_ART = require("../../assets/images/effects/hammer-boom.png");
 const ATTACK_STYLE_LABELS: Record<CompanionAttackStyle, string> = { red: "불꽃", blue: "빙결", orange: "번개", white: "그림자" };
 const ATTACK_SOUND_BY_STYLE = {
   red: require("../../assets/audio/attack-fire.wav"),
@@ -3730,7 +3731,7 @@ export default function HomeScreen() {
       hammerStrike.stopAnimation();
       hammerStrike.setValue(0);
       setHammerStrikeTarget(targetPosition);
-      Animated.timing(hammerStrike, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
+      Animated.timing(hammerStrike, { toValue: 1, duration: 2750, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
         if (!finished) return;
         setHammerStrikeTarget(null);
         setHammerImpactBurstTarget(targetPosition);
@@ -4327,7 +4328,7 @@ export default function HomeScreen() {
             <CardFace card={flight.card} width={cardWidth} cardRatio={renderCardRatio} chapter={battleContent.chapter} isBoss={battleContent.isBoss} markScale={isTablet ? 0.9 : 1} />
           </Animated.View>;
         })}
-        {hammerImpactBurstTarget ? <Animated.View pointerEvents="none" style={[styles.hammerImpactBurst, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.5, height: cardWidth * 1.5, transform: [{ translateX: hammerImpactBurstTarget.dx }, { translateY: hammerImpactBurstTarget.dy }, { scale: hammerImpactBurst.interpolate({ inputRange: [0, 0.28, 1], outputRange: [0.35, 1.25, 0.1] }) }, { rotate: hammerImpactBurst.interpolate({ inputRange: [0, 1], outputRange: ["-8deg", "18deg"] }) }], opacity: hammerImpactBurst.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 1, 0] }) }]}><Image source={HAMMER_IMPACT_ART} resizeMode="contain" style={styles.hammerImpactBurstImage} /><HammerFragments progress={hammerImpactBurst} size={cardWidth * 1.5} /></Animated.View> : null}
+        {hammerImpactBurstTarget ? <Animated.View pointerEvents="none" style={[styles.hammerImpactBurst, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.5, height: cardWidth * 1.5, transform: [{ translateX: hammerImpactBurstTarget.dx }, { translateY: hammerImpactBurstTarget.dy }, { scale: hammerImpactBurst.interpolate({ inputRange: [0, 0.28, 1], outputRange: [0.35, 1.25, 0.1] }) }, { rotate: hammerImpactBurst.interpolate({ inputRange: [0, 1], outputRange: ["-8deg", "18deg"] }) }], opacity: hammerImpactBurst.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 1, 0] }) }]}><Image source={HAMMER_IMPACT_ART} resizeMode="contain" style={styles.hammerImpactBurstImage} /><Animated.Image source={HAMMER_BOOM_ART} resizeMode="contain" style={[styles.hammerImpactBurstImage, { opacity: hammerImpactBurst.interpolate({ inputRange: [0, 0.14, 0.32, 1], outputRange: [0, 1, 0.95, 0] }), transform: [{ scale: hammerImpactBurst.interpolate({ inputRange: [0, 0.14, 0.3, 1], outputRange: [0.2, 1.25, 1, 0.25] }) }] }]} /><HammerFragments progress={hammerImpactBurst} size={cardWidth * 1.5} /></Animated.View> : null}
         {showAttendanceRewardFlight ? <Animated.View pointerEvents="none" style={[styles.attendanceRewardFlight, { left: hammerRewardSourceLeft, top: hammerRewardSourceTop, width: hammerRewardFlightWidth, opacity: attendanceRewardOpacity, transform: [{ translateX: hammerRewardTranslateX }, { translateY: hammerRewardTranslateY }, { scale: attendanceRewardScale }] }]}><Text style={[styles.hammerRewardFlightText, { fontSize: hammerCountFontSize * 2, lineHeight: hammerCountFontSize * 2.2 }]}>+{hammerRewardFlightAmount}</Text></Animated.View> : null}
         <VictoryFireworks visible={showFireworks} label={tr("스테이지 클리어", "STAGE CLEAR")} />
           <View style={[styles.header, styles.contentLift, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact, phoneLandscape && styles.headerPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
@@ -5761,6 +5762,8 @@ const styles = StyleSheet.create({
   confirmStart: { flex: 1, minWidth: 0, minHeight: 54, paddingHorizontal: 8, paddingVertical: 7, alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: "#FF7A66", overflow: "hidden" },
   confirmStartText: { color: "#11182C", fontSize: 15, lineHeight: 20, fontWeight: "900", textAlign: "center", flexShrink: 1 },
 });
+
+
 
 
 
