@@ -1827,6 +1827,14 @@ export default function HomeScreen() {
   const selectBadgeInCollection = (badgeId: string) => {
     if (!unlockedBossBadges.includes(badgeId)) return;
     setActiveBadgeId(badgeId);
+    setShowBadgeCollection(false);
+    setShowActiveBadgeNotice(true);
+    activeBadgeNoticeMotion.stopAnimation();
+    activeBadgeNoticeMotion.setValue(0);
+    Animated.timing(activeBadgeNoticeMotion, { toValue: 1, duration: 520, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    setTimeout(() => {
+      Animated.timing(activeBadgeNoticeMotion, { toValue: 0, duration: 520, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(() => setShowActiveBadgeNotice(false));
+    }, 5000);
     void AsyncStorage.setItem(ACTIVE_BADGE_KEY, badgeId);
     showTimedHint(getBadgeAbilityText(badgeId, language));
     haptic.success();
@@ -4301,7 +4309,7 @@ export default function HomeScreen() {
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
         <CompanionAnchor companion={selectedCompanion} displayName={getLocalizedBattleName(selectedCompanion.id, selectedCompanion.name, language)} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} attackFlight={undefined} onPress={() => undefined} anchorRef={(node) => { companionAnchorRef.current = node; }} />
-        {showActiveBadgeNotice && activeBadgeId && activeBadgeImage ? <Animated.View pointerEvents="none" style={{ position: "absolute", left: companionBaseLeft + Math.round(companionSize * 0.5) - 28, bottom: companionBottom + companionSize + 12, width: 56, alignItems: "center", opacity: activeBadgeNoticeMotion, transform: [{ translateY: activeBadgeNoticeMotion.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}><Image source={activeBadgeImage} resizeMode="contain" style={{ width: 56, height: 56 }} /><Text numberOfLines={2} style={{ color: "#FFF4B8", fontSize: 8, lineHeight: 10, fontWeight: "900", textAlign: "center", textShadowColor: "#1B2340", textShadowRadius: 3 }}>{getBadgeAbilityText(activeBadgeId, language)}</Text></Animated.View> : null}
+        {showActiveBadgeNotice && activeBadgeId && activeBadgeImage ? <Animated.View pointerEvents="none" style={{ position: "absolute", left: Math.max(4, (safeScreenWidth - (94 * 3 + 8 * 2)) / 2 + 94 * 2 + 8 + 19), bottom: Math.max(0, bottomControlsBottom - 5) + 58, width: 56, alignItems: "center", zIndex: 90, elevation: 90, opacity: activeBadgeNoticeMotion, transform: [{ translateY: activeBadgeNoticeMotion.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}><Image source={activeBadgeImage} resizeMode="contain" style={{ width: 56, height: 56 }} /><Text numberOfLines={3} style={{ color: "#FFF4B8", fontSize: 8, lineHeight: 10, fontWeight: "900", textAlign: "center", textShadowColor: "#1B2340", textShadowRadius: 3 }}>{getBadgeAbilityText(activeBadgeId, language)}</Text></Animated.View> : null}
         {activePetFlight ? <FlyingPetImpact image={ATTACK_IMPACT_ART_BY_STYLE[companionAttackStyle]} impactImage={HIT_EXPLOSION_ART_BY_STYLE[companionAttackStyle]} size={Math.max(52, Math.round(companionSize * 1.35))} progress={activePetFlight.progress} rootRef={rootRef} companionRef={companionAnchorRef} targetViewRef={monsterTargetRef} companionSize={companionSize} /> : null}
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: Math.max(0, bottomControlsBottom - 5) }]}>
 
