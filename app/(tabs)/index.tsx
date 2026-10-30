@@ -823,6 +823,61 @@ function HitExplosion({ attackStyle, progress, size }: { attackStyle: CompanionA
     <Image source={HIT_EXPLOSION_ART_BY_STYLE[attackStyle]} resizeMode="contain" style={styles.hitExplosionImage} />
   </Animated.View>;
 }
+const ComboImpactBurst = memo(function ComboImpactBurst({
+  frame,
+  attackStyle,
+  token,
+}: {
+  frame: MonsterTargetFrame;
+  attackStyle: CompanionAttackStyle;
+  token: number;
+}) {
+  const progress = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    progress.stopAnimation();
+    progress.setValue(0);
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: 3200,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }).start();
+  }, [progress, token]);
+  const offsets = [
+    { x: -0.28, y: -0.18, rotate: "-18deg" },
+    { x: 0.22, y: -0.2, rotate: "14deg" },
+    { x: -0.34, y: 0.16, rotate: "-8deg" },
+    { x: 0.3, y: 0.18, rotate: "19deg" },
+    { x: 0, y: 0, rotate: "0deg" },
+  ];
+  const size = Math.max(42, Math.min(86, frame.width * 0.62));
+  const renderBurst = (batch: 0 | 1) => offsets.map((offset, index) => {
+    const imageOpacity = batch === 0
+      ? progress.interpolate({ inputRange: [0, 0.04, 0.16, 0.28], outputRange: [0, 1, 1, 0] })
+      : progress.interpolate({ inputRange: [0, 0.66, 0.7, 0.82, 0.98, 1], outputRange: [0, 0, 1, 1, 0.35, 0] });
+    const imageScale = batch === 0
+      ? progress.interpolate({ inputRange: [0, 0.04, 0.16, 0.28], outputRange: [0.35, 0.78, 1.18, 0.72] })
+      : progress.interpolate({ inputRange: [0, 0.66, 0.72, 0.84, 1], outputRange: [0.35, 0.35, 0.82, 1.18, 0.72] });
+    const spread = size * (1 + (batch === 1 ? 0.08 : 0));
+    return <Animated.Image
+      key={`${token}-${batch}-${index}`}
+      source={HIT_EXPLOSION_ART_BY_STYLE[attackStyle]}
+      resizeMode="contain"
+      style={{
+        position: "absolute",
+        zIndex: 8000,
+
+        width: size,
+        height: size,
+        left: frame.centerX - size * 0.5 + offset.x * spread,
+        top: frame.centerY - size * 0.5 + offset.y * spread,
+        opacity: imageOpacity,
+        transform: [{ scale: imageScale }, { rotate: offset.rotate }],
+      }}
+    />;
+  });
+  return <>{renderBurst(0)}{renderBurst(1)}</>;
+});
 function HammerFragments({ progress, size }: { progress: Animated.Value; size: number }) {
   const fragments = [
     { x: -0.42, y: -0.32, color: "#FFE48A", rotate: "-28deg" },
@@ -1420,6 +1475,7 @@ export default function HomeScreen() {
   const [attackToken, setAttackToken] = useState(0);
   const [impactToken, setImpactToken] = useState(0);
   const [comboAttack, setComboAttack] = useState(false);
+  const [comboImpactBurst, setComboImpactBurst] = useState<{ token: number; frame: MonsterTargetFrame } | null>(null);
   const [selectedCompanionId, setSelectedCompanionId] = useState(DEFAULT_PET_ID);
   const [randomOwnedPetPerStage, setRandomOwnedPetPerStage] = useState(true);
   const [selectedCardBackIndex, setSelectedCardBackIndex] = useState<number | null>(null);
@@ -3406,6 +3462,9 @@ export default function HomeScreen() {
       }
       autoFinishComboPlanRef.current.finalComboCount = comboCount;
       if (comboCount >= 10 && showVisual) showHighComboImpact();
+      if (showVisual && comboCount >= 2 && monsterTargetFrameRef.current) {
+        setComboImpactBurst({ token: Date.now(), frame: monsterTargetFrameRef.current });
+      }
       if (comboScoreBonus > 0 && showVisual) showComboScoreReward(comboScoreBonus, comboCount);
     }
     if (foundationMove) {
@@ -4444,6 +4503,7 @@ export default function HomeScreen() {
         </Animated.View>
         {hammerMode && game.waste.length > 0 ? <View pointerEvents="none" style={[styles.hammerModeHint, { top: Math.max(8, rootTopPadding + 4) }]}><Text style={styles.hammerModeHintText}>{tr("웨이스트 맨 아래로 이동 · 망치 2개", "Move waste to bottom · 2 hammers")}</Text></View> : null}
 
+        {comboImpactBurst ? <ComboImpactBurst frame={comboImpactBurst.frame} attackStyle={companionAttackStyle} token={comboImpactBurst.token} /> : null}
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
         <CompanionAnchor companion={selectedCompanion} displayName={getLocalizedBattleName(selectedCompanion.id, selectedCompanion.name, language)} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} attackFlight={undefined} onPress={() => undefined} anchorRef={(node) => { companionAnchorRef.current = node; }} />
         {showActiveBadgeNotice && activeBadgeId && activeBadgeImage ? <Animated.View pointerEvents="none" style={{ position: "absolute", left: Math.max(4, (safeScreenWidth - (94 * 3 + 8 * 2)) / 2 + 94 * 2 + 8 + 19), bottom: Math.max(0, bottomControlsBottom - 5) + 58, width: 94, alignItems: "center", zIndex: 90, elevation: 90, opacity: activeBadgeNoticeMotion, transform: [{ translateY: activeBadgeNoticeMotion.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}><Image source={activeBadgeImage} resizeMode="contain" style={{ width: 94, height: 94 }} /><Text numberOfLines={4} style={{ color: "#FFF4B8", fontSize: 9, lineHeight: 11, fontWeight: "900", textAlign: "center", textShadowColor: "#1B2340", textShadowRadius: 3 }}>{getBadgeAbilityText(activeBadgeId, language)}</Text></Animated.View> : null}
