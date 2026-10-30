@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import { createPool } from "mysql2/promise";
 import { InsertUser, leaderboardEntries, leaderboardStageEntries, userGameStates, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { aggregateOverallLeaderboardRows, type LeaderboardAggregateRow } from "./leaderboard-aggregation";
@@ -10,7 +11,21 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      const connectionUrl = new URL(process.env.DATABASE_URL);
+      const isTiDbCloud = connectionUrl.hostname.endsWith("tidbcloud.com");
+      const pool = createPool({
+        host: connectionUrl.hostname,
+        port: connectionUrl.port ? Number(connectionUrl.port) : 3306,
+        user: decodeURIComponent(connectionUrl.username),
+        password: decodeURIComponent(connectionUrl.password),
+        database: decodeURIComponent(connectionUrl.pathname.replace(/^\//, "")),
+        waitForConnections: true,
+        connectionLimit: 5,
+        ssl: isTiDbCloud ? { rejectUnauthorized: true } : undefined,
+      });
+      // drizzle-orm and mysql2 can expose different Pool declaration paths;
+      // the runtime object is the compatible mysql2 promise pool.
+      _db = drizzle(pool as never);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
