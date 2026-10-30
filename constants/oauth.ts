@@ -24,10 +24,10 @@ export const OWNER_OPEN_ID = env.ownerId;
 export const OWNER_NAME = env.ownerName;
 export const API_BASE_URL = env.apiBaseUrl;
 // Native release builds cannot derive the server host from a browser location.
-// Use the persistent Vercel deployment for release builds instead of the
+// Use the persistent Render deployment for release builds instead of the
 // temporary 3000-*.manus.computer sandbox host.
 const DEPLOYED_GAME_API_BASE_URL =
-  "https://monster-solitaire-lilac.vercel.app";
+  "https://monster-solitaire-api.onrender.com";
 
 /**
  * Get the API base URL, deriving from current hostname if not set.
@@ -35,7 +35,7 @@ const DEPLOYED_GAME_API_BASE_URL =
  * URL pattern: https://PORT-sandboxid.region.domain
  */
 export function getApiBaseUrl(): string {
-  // Native release builds must always use the persistent Vercel API. Do this
+  // Native release builds must always use the persistent Render API. Do this
   // before reading EXPO_PUBLIC_API_BASE_URL so a stale local/preview value
   // cannot redirect an installed APK to a sleeping temporary server.
   if (ReactNative.Platform.OS !== "web") {
