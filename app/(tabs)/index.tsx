@@ -2143,8 +2143,8 @@ export default function HomeScreen() {
     return () => idleLoop.stop();
   }, [hammerCharges, hammerIdleMotion, hammerStrikeTarget, paused]);
 
-  const attackVisualActive = comboAttack || flyingAttacks.some((flight) => flight.variant !== "pet");
-  const activePetFlight = flyingAttacks.find((flight) => flight.variant === "pet");
+  const attackVisualActive = !hammerStrikeTarget && (comboAttack || flyingAttacks.some((flight) => flight.variant !== "pet"));
+  const activePetFlight = hammerStrikeTarget ? undefined : flyingAttacks.find((flight) => flight.variant === "pet");
   useEffect(() => {
     comboCompanionScale.stopAnimation();
     if (attackVisualActive) {
