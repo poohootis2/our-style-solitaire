@@ -4522,7 +4522,7 @@ export default function HomeScreen() {
               <Text style={styles.updateNoticeTitle}>{storeUpdateAvailable ? tr("새 버전이 있습니다", "A new version is available") : tr("새로운 모험이 도착했어요", "A new adventure has arrived")}</Text>
               <Text style={styles.updateNoticeCopy}>{storeUpdateAvailable ? tr(`Google Play에서 버전 ${storeVersion ?? "새 버전"}을(를) 설치할 수 있습니다.`, `Version ${storeVersion ?? "new"} is available on Google Play.`) : tr("이번 업데이트의 주요 변경사항을 확인해 보세요.", "Here are the highlights from this update.")}</Text>
               <View style={styles.updateNoticeList}>
-                {storeUpdateAvailable ? <Text style={[styles.updateNoticeItem, compactLanguageText && styles.updateNoticeItemCompactLanguage]}>• {tr("업데이트를 누르면 Google Play의 안전한 Flexible 업데이트가 시작됩니다.", "Tap Update to start a safe flexible update from Google Play.")}</Text> : <>
+                {storeUpdateAvailable ? <><Text style={[styles.updateNoticeItem, compactLanguageText && styles.updateNoticeItemCompactLanguage]}>• {tr("업데이트를 누르면 Google Play의 안전한 Flexible 업데이트가 시작됩니다.", "Tap Update to start a safe flexible update from Google Play.")}</Text><Text style={[styles.updateNoticeItem, styles.updateNoticeWarning, compactLanguageText && styles.updateNoticeItemCompactLanguage]}>• {tr("업데이트 후 설치에 실패하면 기존 게임 앱을 삭제한 후 다시 설치해 주세요.", "If installation fails after the update, uninstall the existing game app and install it again.")}</Text></> : <>
                   <Text style={[styles.updateNoticeItem, compactLanguageText && styles.updateNoticeItemCompactLanguage]}>• {tr("무제한·시간제한 모드 기록 분리", "Separate records for Unlimited and Time Attack")}</Text>
                   <Text style={[styles.updateNoticeItem, compactLanguageText && styles.updateNoticeItemCompactLanguage]}>• {tr("5초 비활동 시 이동 힌트 표시", "Show a move hint after 5 seconds of inactivity")}</Text>
                   <Text style={[styles.updateNoticeItem, compactLanguageText && styles.updateNoticeItemCompactLanguage]}>• {tr("팝업 화면과 기록 카드 시각 요소 개선", "Improved visuals for popups and record cards")}</Text>
@@ -5339,6 +5339,7 @@ const styles = StyleSheet.create({
   updateNoticeCopy: { color: "#D4E2F7", fontSize: 14, lineHeight: 20, fontWeight: "700", textAlign: "center", marginTop: 8 },
   updateNoticeList: { gap: 9, marginTop: 16, padding: 13, borderRadius: 14, backgroundColor: "#152542", borderWidth: 1, borderColor: "#36527A" },
   updateNoticeItem: { color: "#FFFDF8", fontSize: 13, lineHeight: 19, fontWeight: "700" },
+  updateNoticeWarning: { color: "#FFD36A" },
   updateNoticeItemCompactLanguage: { fontSize: 11, lineHeight: 16 },
   updateNoticeActions: { gap: 8, marginTop: 16 },
   updateNoticeUpdateButton: { marginTop: 0 },
