@@ -35,6 +35,13 @@ const DEPLOYED_GAME_API_BASE_URL =
  * URL pattern: https://PORT-sandboxid.region.domain
  */
 export function getApiBaseUrl(): string {
+  // Native release builds must always use the persistent Vercel API. Do this
+  // before reading EXPO_PUBLIC_API_BASE_URL so a stale local/preview value
+  // cannot redirect an installed APK to a sleeping temporary server.
+  if (ReactNative.Platform.OS !== "web") {
+    return DEPLOYED_GAME_API_BASE_URL;
+  }
+
   // If API_BASE_URL is set, use it
   if (API_BASE_URL) {
     return API_BASE_URL.replace(/\/$/, "");
@@ -48,10 +55,6 @@ export function getApiBaseUrl(): string {
     if (apiHostname !== hostname) {
       return `${protocol}//${apiHostname}`;
     }
-  }
-
-  if (ReactNative.Platform.OS !== "web") {
-    return DEPLOYED_GAME_API_BASE_URL;
   }
 
   // Fallback to empty (will use relative URL)
