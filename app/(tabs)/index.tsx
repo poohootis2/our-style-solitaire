@@ -872,15 +872,36 @@ function comboTextColor(count: number) {
   return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
 }
 
-const FlyingPetImpact = memo(function FlyingPetImpact({ image, impactImage, size, progress, launchCenterX, launchCenterY, targetCenterX, targetCenterY }: { image: ImageSourcePropType; impactImage: ImageSourcePropType; size: number; progress: Animated.Value; launchCenterX: number; launchCenterY: number; targetCenterX: number; targetCenterY: number }) {
+const FlyingPetImpact = memo(function FlyingPetImpact({ image, impactImage, size, progress, rootRef, companionRef, targetViewRef, companionSize }: { image: ImageSourcePropType; impactImage: ImageSourcePropType; size: number; progress: Animated.Value; rootRef: RefObject<View | null>; companionRef: RefObject<View | null>; targetViewRef: RefObject<View | null>; companionSize: number }) {
   const [frame, setFrame] = useState<{ left: number; top: number; dx: number; dy: number; angle: string } | null>(null);
   useEffect(() => {
-    const dx = targetCenterX - launchCenterX;
-    const dy = targetCenterY - launchCenterY;
-    const angle = Math.atan2(dy, dx);
-    const noseOffset = size * 0.34;
-    setFrame({ left: launchCenterX - size * 0.5, top: launchCenterY - size * 0.5, dx: dx - Math.cos(angle) * noseOffset, dy: dy - Math.sin(angle) * noseOffset, angle: `${angle * 180 / Math.PI}deg` });
-  }, [launchCenterX, launchCenterY, size, targetCenterX, targetCenterY]);
+    let active = true;
+    const measure = () => {
+      const root = rootRef.current;
+      const companion = companionRef.current;
+      const target = targetViewRef.current;
+      if (!root || !companion || !target) return;
+      root.measureInWindow((rootX, rootY) => {
+        companion.measureInWindow((companionX, companionY, companionWidth) => {
+          target.measureInWindow((targetX, targetY, targetWidth, targetHeight) => {
+            if (!active) return;
+            const startX = companionX - rootX + companionWidth * 0.5;
+            const startY = companionY - rootY + companionSize * 0.5;
+            const goalX = targetX - rootX + targetWidth * 0.5;
+            const goalY = targetY - rootY + targetHeight * 0.5;
+            const dx = goalX - startX;
+            const dy = goalY - startY;
+            const angle = Math.atan2(dy, dx);
+            const noseOffset = size * 0.34;
+            setFrame({ left: startX - size * 0.5, top: startY - size * 0.5, dx: dx - Math.cos(angle) * noseOffset, dy: dy - Math.sin(angle) * noseOffset, angle: `${angle * 180 / Math.PI}deg` });
+          });
+        });
+      });
+    };
+    measure();
+    const timer = setInterval(measure, TARGET_FRAME_SYNC_INTERVAL_MS);
+    return () => { active = false; clearInterval(timer); };
+  }, [companionRef, companionSize, rootRef, size, targetViewRef]);
   if (!frame) return null;
   const impactLeft = frame.left + frame.dx;
   const impactTop = frame.top + frame.dy;
@@ -1794,8 +1815,9 @@ export default function HomeScreen() {
     if (!content.badgeImage) return;
     haptic.light();
     // Render the detail in its own native Modal instead of stacking it over the
-    // sheet. This avoids Android parent-layer clipping and touch interception.
-    setSheet(null);
+    // Keep the collection sheet mounted so Android does not dismiss the detail
+    // interaction before the independent detail modal is presented.
+    setSheet("badges");
     setPaused(true);
     setSelectedBadge({ id: badgeId, name: content.monster.name, image: content.badgeImage });
   };
@@ -4273,7 +4295,7 @@ export default function HomeScreen() {
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
         <CompanionAnchor companion={selectedCompanion} displayName={getLocalizedBattleName(selectedCompanion.id, selectedCompanion.name, language)} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} attackFlight={activePetFlight} onPress={() => undefined} anchorRef={(node) => { companionAnchorRef.current = node; }} />
-        {activePetFlight ? <FlyingPetImpact image={ATTACK_IMPACT_ART_BY_STYLE[companionAttackStyle]} impactImage={HIT_EXPLOSION_ART_BY_STYLE[companionAttackStyle]} size={Math.max(52, Math.round(companionSize * 1.35))} progress={activePetFlight.progress} launchCenterX={activePetFlight.launchCenterX} launchCenterY={activePetFlight.launchCenterY} targetCenterX={activePetFlight.targetCenterX} targetCenterY={activePetFlight.targetCenterY} /> : null}
+        {activePetFlight ? <FlyingPetImpact image={ATTACK_IMPACT_ART_BY_STYLE[companionAttackStyle]} impactImage={HIT_EXPLOSION_ART_BY_STYLE[companionAttackStyle]} size={Math.max(52, Math.round(companionSize * 1.35))} progress={activePetFlight.progress} rootRef={rootRef} companionRef={companionAnchorRef} targetViewRef={monsterTargetRef} companionSize={companionSize} /> : null}
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: Math.max(0, bottomControlsBottom - 5) }]}>
 
           <Pressable accessibilityRole="button" accessibilityLabel={hammerCharges >= MAX_HAMMER_CHARGES ? `망치가 ${MAX_HAMMER_CHARGES}개라 광고 보상을 받을 수 없음` : "광고 시청 후 망치 받기"} onPress={() => { haptic.light(); void claimHammerAdReward(); }} style={({ pressed }) => [styles.cartoonActionButton, styles.cartoonHammerButton, phoneLandscape && styles.bottomButtonPhoneLandscape, pressed && styles.pressed]}>
@@ -4666,7 +4688,7 @@ export default function HomeScreen() {
                   <ScrollView style={styles.badgeCollectionScroll} onStartShouldSetResponder={() => false} onMoveShouldSetResponder={() => true} contentContainerStyle={styles.badgeCollectionGrid} nestedScrollEnabled scrollEnabled alwaysBounceVertical overScrollMode="always" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator persistentScrollbar indicatorStyle="white">
                     {unlockedBossBadges.length === 0 ? <Text style={[styles.sheetCopy, compactLanguageText && styles.sheetCopyCompactLanguage]}>{tr("아직 획득한 보스 배지가 없습니다.", "No badges earned yet.")}</Text> : unlockedBossBadges.map((badgeId) => {
                       const content = getBattleContent(getBossBadgeStage(badgeId), false);
-                      return content.badgeImage ? <Pressable key={badgeId} accessibilityRole="button" accessibilityLabel={`${content.monster.name} 배지 상세 보기`} onPress={() => openBadgeDetail(badgeId)} style={({ pressed }) => [styles.badgeCollectionItem, pressed && styles.pressed]}><Image source={content.badgeImage} resizeMode="contain" style={styles.badgeCollectionImage} /><Text numberOfLines={2} style={styles.badgeCollectionLabel}>{content.monster.name}</Text><Text numberOfLines={2} style={styles.badgeCollectionCondition}>{language === "ko" ? getBossBadgeCondition(badgeId).ko : getBossBadgeCondition(badgeId).en}</Text></Pressable> : null;
+                      return content.badgeImage ? <View key={badgeId} style={[styles.badgeCollectionItem, activeBadgeId === badgeId && styles.badgeCollectionItemActive]}><Pressable accessibilityRole="button" accessibilityLabel={`${content.monster.name} 배지 상세 보기`} onPress={() => openBadgeDetail(badgeId)} style={({ pressed }) => [pressed && styles.pressed]}><Image source={content.badgeImage} resizeMode="contain" style={styles.badgeCollectionImage} /><Text numberOfLines={2} style={styles.badgeCollectionLabel}>{getLocalizedBattleName(content.monster.id, content.monster.name, language)}</Text><Text numberOfLines={2} style={styles.badgeCollectionCondition}>{getBadgeAbilityText(badgeId, language)}</Text></Pressable><Pressable accessibilityRole="button" onPress={() => setActiveBadgeId(badgeId)} style={({ pressed }) => [styles.badgeCollectionSelect, activeBadgeId === badgeId && styles.badgeCollectionSelectActive, pressed && styles.pressed]}><Text style={styles.badgeCollectionSelectText}>{activeBadgeId === badgeId ? tr("선택됨", "Selected") : tr("선택", "Select")}</Text></Pressable></View> : null;
                     })}
                   </ScrollView>
                   <Pressable onPress={() => { setPaused(false); setSheet(null); }} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>{tr("닫기", "Close")}</Text></Pressable>
@@ -5559,9 +5581,13 @@ const styles = StyleSheet.create({
   badgeCollectionScroll: { maxHeight: 330, width: "100%" },
   badgeCollectionGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 10, paddingVertical: 8 },
   badgeCollectionItem: { width: 102, minHeight: 145, alignItems: "center", paddingVertical: 5, paddingHorizontal: 3, borderRadius: 12, borderWidth: 1, borderColor: "rgba(243, 201, 105, 0.35)", backgroundColor: "rgba(24, 45, 78, 0.58)" },
+  badgeCollectionItemActive: { borderColor: "#77D6C3", borderWidth: 2, backgroundColor: "rgba(45, 104, 105, 0.72)" },
   badgeCollectionImage: { width: 82, height: 82 },
   badgeCollectionLabel: { color: "#FFF3D1", fontSize: 10, fontWeight: "800", textAlign: "center", marginTop: 3 },
   badgeCollectionCondition: { color: "#AFC5E4", fontSize: 8, lineHeight: 10, fontWeight: "700", textAlign: "center", marginTop: 3 },
+  badgeCollectionSelect: { minWidth: 58, marginTop: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: "#F3C969", backgroundColor: "rgba(243, 201, 105, 0.12)" },
+  badgeCollectionSelectActive: { borderColor: "#77D6C3", backgroundColor: "rgba(119, 214, 195, 0.22)" },
+  badgeCollectionSelectText: { color: "#FFF3D1", fontSize: 9, fontWeight: "900", textAlign: "center" },
   badgeDetailBackdrop: { flex: 1, zIndex: 200, elevation: 200, alignItems: "center", justifyContent: "center", padding: 18, backgroundColor: "rgba(3, 7, 18, 0.86)" },
   badgeDetailCard: { zIndex: 201, elevation: 201, width: "94%", maxWidth: 360, alignItems: "center", borderRadius: 26, borderWidth: 3, borderColor: "#F3C969", backgroundColor: "#172B4C", paddingTop: 18, paddingBottom: 16, paddingHorizontal: 22, shadowColor: "#000", shadowOpacity: 0.62, shadowRadius: 24 },
   badgeDetailEyebrow: { color: "#76D9C7", fontSize: 11, fontWeight: "900", letterSpacing: 2 },
