@@ -1152,7 +1152,8 @@ const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, atta
         <Animated.View style={[styles.monsterImageLayer, { zIndex: 2, width: spriteSize, height: spriteSize, transform: [{ scale: bossEntranceScale }, { scale: threatScale }, { scaleX: facingLeft ? -1 : 1 }] }]}>
           <Image source={monsterImage} fadeDuration={0} resizeMode="contain" style={[styles.monsterSprite, { width: spriteSize, height: spriteSize }, defeatVisible && styles.monsterDefeated]} accessibilityLabel={displayName ?? monster.name} />
         </Animated.View>
-        {attackVisible ? <Animated.Text style={[styles.monsterProjectile, { color: attackColors[attackKind], transform: [{ translateX: projectileTranslate }, { scale: projectileScale }] }]}>{attackSymbols[attackKind]}</Animated.Text> : null}
+        {/* The old monster-center attack symbol was a duplicate projectile. The
+            pet projectile is the only attack visual now. */}
         {damageVisible ? <Animated.Text style={[styles.damageText, { opacity: damageOpacity, transform: [{ translateY: damageTranslateY }, { scale: damageScale }] }]}>−{damage}</Animated.Text> : null}
         {defeatVisible ? <Animated.View pointerEvents="none" style={[styles.defeatBurst, { opacity: defeatOpacity, transform: [{ scale: defeatScale }] }]}>{Array.from({ length: 12 }, (_, index) => <Text key={index} style={[styles.defeatSpark, { transform: [{ rotate: `${index * 30}deg` }, { translateY: -24 }] }]}>{index % 2 ? "✦" : "•"}</Text>)}</Animated.View> : null}
       </Animated.View>
@@ -3132,7 +3133,7 @@ export default function HomeScreen() {
     setFlyingAttacks((current) => [...current, flight].slice(-4));
     // The projectile now lives in the monster's moving native wrapper, so it can
     // safely use the native driver and always finishes at that wrapper's center.
-    const animation = Animated.timing(progress, { toValue: 1, duration: pet ? FLYING_CARD_DURATION * 1.5625 : (flaming ? FLAMING_CARD_FLIGHT_DURATION : FLYING_CARD_DURATION), easing: Easing.out(Easing.cubic), useNativeDriver: true });
+    const animation = Animated.timing(progress, { toValue: 1, duration: pet ? FLYING_CARD_DURATION * 1.42045 : (flaming ? FLAMING_CARD_FLIGHT_DURATION : FLYING_CARD_DURATION), easing: Easing.out(Easing.cubic), useNativeDriver: true });
     animation.start(({ finished }) => {
       if (!finished) return;
       triggerHitFeedback();
