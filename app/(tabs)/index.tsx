@@ -91,7 +91,7 @@ type HammerRewardFlightKind = "attendance" | "ad";
 const TIME_ATTACK_LIMIT_SECONDS = 300;
 const STORY_STAGE_COUNT = 115;
 const POST_STORY_STAGE_LIMIT = Number.MAX_SAFE_INTEGER;
-type Sheet = "menu" | "rules" | "records" | "badges" | "sound" | "companions" | "cardBacks" | "profile" | null;
+type Sheet = "menu" | "rules" | "records" | "sound" | "companions" | "cardBacks" | "profile" | null;
 type RulesTab = "basic" | "cards" | "items" | "uiGuide" | "hammerGuide";
 const RULES_TAB_COLORS: Record<RulesTab, string> = {
   basic: "#B8E0D2",
@@ -220,6 +220,7 @@ const DAILY_AD_APP_VERSION_KEY = "our-style-solitaire:daily-ad-app-version";
 const CURRENT_AD_APP_VERSION = `${Constants.expoConfig?.version ?? "2.0.0"}+${Constants.expoConfig?.android?.versionCode ?? 56}`;
 const CARD_BACK_THEME_KEY = "our-style-solitaire:card-back-theme";
 const BOSS_BADGES_KEY = "our-style-solitaire:boss-badges";
+const ACTIVE_BADGE_KEY = "our-style-solitaire:active-badge";
 const PROFILE_COUNTRY_KEY = "our-style-solitaire:profile-country";
 const PROFILE_NAME_KEY = "our-style-solitaire:profile-name";
 const LOCAL_RANKING_KEY = "our-style-solitaire:local-ranking";
@@ -229,11 +230,12 @@ const FIXED_FONT_SCALE_KEY = "our-style-solitaire:fixed-font-scale";
 const MAX_DAILY_AD_HAMMER_REWARDS = 5;
 const MAX_HAMMER_CHARGES = 30;
 const getDailyAdHammerReward = (rewardNumber: number) => rewardNumber <= 2 ? 10 : 20;
-const PREVIEW_ALL_BOSS_BADGE_IDS = [
+const ALL_BOSS_BADGE_IDS = [
   ...Array.from({ length: 9 }, (_, index) => `boss-${String(index + 1).padStart(2, "0")}`),
   ...Array.from({ length: 3 }, (_, index) => `king-boss-${String(index + 1).padStart(2, "0")}`),
   "emperor-boss",
 ];
+const PREVIEW_ALL_BOSS_BADGE_IDS = ALL_BOSS_BADGE_IDS;
 const INITIAL_UNLOCKED_PET_IDS = ["pet-004", "pet-005", "pet-006", "pet-007"];
 const DEFAULT_PET_ID = INITIAL_UNLOCKED_PET_IDS[0];
 const PHYSICAL_EDGE_INSET = 52;
@@ -1344,6 +1346,14 @@ export default function HomeScreen() {
   const [showUiGuideModal, setShowUiGuideModal] = useState(false);
   const [unlockedBossBadges, setUnlockedBossBadges] = useState<string[]>([]);
   const [earnedBadge, setEarnedBadge] = useState<{ id: string; name: string; image: number } | null>(null);
+  const [showBadgeCollection, setShowBadgeCollection] = useState(false);
+  const [activeBadgeId, setActiveBadgeId] = useState<string | null>(null);
+  const [spinningBadgeId, setSpinningBadgeId] = useState<string | null>(null);
+  const [showActiveBadgeNotice, setShowActiveBadgeNotice] = useState(false);
+  const badgeCollectionMotion = useRef(new Animated.Value(0)).current;
+  const activeBadgeNoticeMotion = useRef(new Animated.Value(0)).current;
+  const activeBadgeAbility = activeBadgeId ? getBadgeAbility(activeBadgeId) : null;
+  const activeBadgeImage = activeBadgeId ? getBattleContent(getBossBadgeStage(activeBadgeId), false).badgeImage : null;
   const badgePreviewSpin = useRef(new Animated.Value(0)).current;
   const [attendanceDay, setAttendanceDay] = useState(0);
   const [lastAttendanceDate, setLastAttendanceDate] = useState<string | null>(null);
@@ -1806,11 +1816,59 @@ export default function HomeScreen() {
     setEarnedBadge({ id: content.badgeId, name: content.monster.name, image: content.badgeImage });
     Animated.timing(badgePreviewSpin, { toValue: 1, duration: 1800, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   };
+  const spinBadgeInCollection = (badgeId: string) => {
+    if (!unlockedBossBadges.includes(badgeId)) return;
+    haptic.light();
+    badgeCollectionMotion.stopAnimation();
+    badgeCollectionMotion.setValue(0);
+    setSpinningBadgeId(badgeId);
+    Animated.timing(badgeCollectionMotion, { toValue: 1, duration: 2000, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setSpinningBadgeId(null));
+  };
+  const selectBadgeInCollection = (badgeId: string) => {
+    if (!unlockedBossBadges.includes(badgeId)) return;
+    setActiveBadgeId(badgeId);
+    void AsyncStorage.setItem(ACTIVE_BADGE_KEY, badgeId);
+    showTimedHint(getBadgeAbilityText(badgeId, language));
+    haptic.success();
+  };
   useEffect(() => {
     void AsyncStorage.getItem(PROFILE_COUNTRY_KEY).then((value) => {
       if (/^[A-Z]{2}$/.test(value ?? "")) setProfileCountryCode(value);
     });
   }, []);
+  useEffect(() => {
+    void AsyncStorage.getItem(ACTIVE_BADGE_KEY).then((value) => {
+      if (value && ALL_BOSS_BADGE_IDS.includes(value) && unlockedBossBadges.includes(value)) setActiveBadgeId(value);
+    });
+  }, [unlockedBossBadges]);
+  useEffect(() => {
+    if (activeBadgeId) void AsyncStorage.setItem(ACTIVE_BADGE_KEY, activeBadgeId);
+  }, [activeBadgeId]);
+  useEffect(() => {
+    if (!hydrated || !activeBadgeId || !activeBadgeImage) {
+      setShowActiveBadgeNotice(false);
+      return;
+    }
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+    const showBadge = () => {
+      if (hideTimer) clearTimeout(hideTimer);
+      activeBadgeNoticeMotion.stopAnimation();
+      activeBadgeNoticeMotion.setValue(0);
+      setShowActiveBadgeNotice(true);
+      Animated.timing(activeBadgeNoticeMotion, { toValue: 1, duration: 520, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+      hideTimer = setTimeout(() => {
+        Animated.timing(activeBadgeNoticeMotion, { toValue: 0, duration: 520, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(() => setShowActiveBadgeNotice(false));
+      }, 5000);
+    };
+    const firstTimer = setTimeout(showBadge, 300);
+    const interval = setInterval(showBadge, 180000);
+    return () => {
+      clearTimeout(firstTimer);
+      if (hideTimer) clearTimeout(hideTimer);
+      clearInterval(interval);
+      activeBadgeNoticeMotion.stopAnimation();
+    };
+  }, [activeBadgeId, activeBadgeImage, activeBadgeNoticeMotion, hydrated]);
   useEffect(() => {
     if (authQuery.data?.name) return;
     void AsyncStorage.getItem(PROFILE_NAME_KEY).then((value) => {
@@ -2761,7 +2819,10 @@ export default function HomeScreen() {
     const timer = setInterval(() => {
       setElapsedSeconds((seconds) => {
         const rawNextSeconds = seconds + 1;
-        const nextSeconds = rawNextSeconds;
+        const timeBadgeTick = activeBadgeAbility?.kind.startsWith("time") === true
+          && activeBadgeAbility.intervalSeconds
+          && rawNextSeconds % activeBadgeAbility.intervalSeconds === 0;
+        const nextSeconds = Math.max(0, rawNextSeconds - (timeBadgeTick ? activeBadgeAbility.value : 0));
         if (gameMode === "timeAttack" && nextSeconds >= TIME_ATTACK_LIMIT_SECONDS && !timeOutHandledRef.current) {
           timeOutHandledRef.current = true;
           setPaused(true);
@@ -2772,7 +2833,7 @@ export default function HomeScreen() {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [game, gameMode, hydrated, paused]);
+  }, [activeBadgeAbility, game, gameMode, hydrated, paused]);
 
   const startNewGame = (level = game.level, resetProgress = false) => {
     if (autoFinishTimerRef.current) clearTimeout(autoFinishTimerRef.current);
@@ -4240,6 +4301,7 @@ export default function HomeScreen() {
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
         <CompanionAnchor companion={selectedCompanion} displayName={getLocalizedBattleName(selectedCompanion.id, selectedCompanion.name, language)} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} attackFlight={undefined} onPress={() => undefined} anchorRef={(node) => { companionAnchorRef.current = node; }} />
+        {showActiveBadgeNotice && activeBadgeId && activeBadgeImage ? <Animated.View pointerEvents="none" style={{ position: "absolute", left: companionBaseLeft + Math.round(companionSize * 0.5) - 28, bottom: companionBottom + companionSize + 12, width: 56, alignItems: "center", opacity: activeBadgeNoticeMotion, transform: [{ translateY: activeBadgeNoticeMotion.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}><Image source={activeBadgeImage} resizeMode="contain" style={{ width: 56, height: 56 }} /><Text numberOfLines={2} style={{ color: "#FFF4B8", fontSize: 8, lineHeight: 10, fontWeight: "900", textAlign: "center", textShadowColor: "#1B2340", textShadowRadius: 3 }}>{getBadgeAbilityText(activeBadgeId, language)}</Text></Animated.View> : null}
         {activePetFlight ? <FlyingPetImpact image={ATTACK_IMPACT_ART_BY_STYLE[companionAttackStyle]} impactImage={HIT_EXPLOSION_ART_BY_STYLE[companionAttackStyle]} size={Math.max(52, Math.round(companionSize * 1.35))} progress={activePetFlight.progress} rootRef={rootRef} companionRef={companionAnchorRef} targetViewRef={monsterTargetRef} companionSize={companionSize} /> : null}
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: Math.max(0, bottomControlsBottom - 5) }]}>
 
@@ -4514,6 +4576,34 @@ export default function HomeScreen() {
         </Modal>
 
 
+        <Modal transparent visible={showBadgeCollection} animationType="fade" onRequestClose={() => setShowBadgeCollection(false)}>
+          <View style={styles.modalBackdropCenter}>
+            <View style={[styles.attendanceCard, { maxHeight: "88%", width: "94%" }]} onStartShouldSetResponder={() => true}>
+              <Pressable accessibilityRole="button" accessibilityLabel="배지 보관함 닫기" onPress={() => setShowBadgeCollection(false)} style={({ pressed }) => [styles.noMovesPopupClose, pressed && styles.pressed]}><Text style={styles.noMovesPopupCloseText}>×</Text></Pressable>
+              <Text style={styles.sheetEyebrow}>BOSS BADGES</Text>
+              <Text style={styles.sheetTitle}>{tr("보스 배지 도감", "Boss Badge Collection")}</Text>
+              <Text style={styles.sheetCopy}>{tr(`획득 ${unlockedBossBadges.length} / 전체 ${ALL_BOSS_BADGE_IDS.length}`, `${unlockedBossBadges.length} / ${ALL_BOSS_BADGE_IDS.length} collected`)}</Text>
+              {activeBadgeId ? <Text style={styles.sheetCopy}>{tr("현재 선택", "Active")}: {getBadgeAbilityText(activeBadgeId, language)}</Text> : <Text style={styles.sheetCopy}>{tr("배지를 선택하면 능력이 적용됩니다.", "Select an earned badge to activate its ability.")}</Text>}
+              <ScrollView style={{ width: "100%", maxHeight: 500 }} contentContainerStyle={styles.badgeCollectionGrid} nestedScrollEnabled showsVerticalScrollIndicator persistentScrollbar keyboardShouldPersistTaps="handled">
+                {ALL_BOSS_BADGE_IDS.map((badgeId) => {
+                  const earned = unlockedBossBadges.includes(badgeId);
+                  const content = getBattleContent(getBossBadgeStage(badgeId), false);
+                  if (!content.badgeImage) return null;
+                  return <View key={badgeId} style={[styles.badgeCollectionItem, activeBadgeId === badgeId && styles.badgeCollectionItemActive]}>
+                    <Pressable accessibilityRole="button" accessibilityLabel={earned ? `${content.monster.name} 배지 회전` : `${content.monster.name} 미획득 배지`} disabled={!earned} onPress={() => spinBadgeInCollection(badgeId)} style={({ pressed }) => [pressed && styles.pressed]}>
+                      <Animated.Image source={content.badgeImage} resizeMode="contain" style={[styles.badgeCollectionImage, !earned && { opacity: 0.28, tintColor: "#050A16" }, spinningBadgeId === badgeId && { transform: [{ rotateY: badgeCollectionMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "720deg"] }) }] }]} />
+                      <Text numberOfLines={2} style={styles.badgeCollectionLabel}>{earned ? getLocalizedBattleName(content.monster.id, content.monster.name, language) : "???"}</Text>
+                      <Text numberOfLines={2} style={styles.badgeCollectionCondition}>{earned ? getBadgeAbilityText(badgeId, language) : tr("미획득", "Locked")}</Text>
+                    </Pressable>
+                    <Pressable accessibilityRole="button" disabled={!earned} onPress={() => selectBadgeInCollection(badgeId)} style={({ pressed }) => [styles.badgeCollectionSelect, activeBadgeId === badgeId && styles.badgeCollectionSelectActive, !earned && { opacity: 0.35 }, pressed && styles.pressed]}><Text style={styles.badgeCollectionSelectText}>{activeBadgeId === badgeId ? tr("선택됨", "Selected") : earned ? tr("선택", "Select") : tr("잠김", "Locked")}</Text></Pressable>
+                  </View>;
+                })}
+              </ScrollView>
+              <Pressable onPress={() => setShowBadgeCollection(false)} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>{tr("닫기", "Close")}</Text></Pressable>
+            </View>
+          </View>
+        </Modal>
+
         <Modal transparent visible={sheet !== null} animationType="fade" onRequestClose={() => { setShowLanguagePicker(false); setPaused(false); setSheet(null); }}>
           <View style={styles.modalBackdrop}>
             <Pressable accessibilityRole="button" accessibilityLabel="창 닫기" style={StyleSheet.absoluteFillObject} onPress={() => { setPaused(false); setSheet(null); }} />
@@ -4549,6 +4639,7 @@ export default function HomeScreen() {
                   </View>
                   <View style={styles.sheetRow}>
                     <Pressable accessibilityRole="button" accessibilityLabel={authQuery.data ? "Google 계정 메뉴 열기" : "프로필과 Google 로그인 설정 열기"} onPress={() => { haptic.light(); setSheet("profile"); }} style={({ pressed }) => [styles.sheetSecondaryButton, styles.profileMenuButton, pressed && styles.pressed]}><View style={styles.menuButtonContent}>{authQuery.data?.avatarUrl ? <Image source={{ uri: authQuery.data.avatarUrl }} style={styles.profileMenuAvatar} /> : <Text style={styles.profileMenuFlag}>{countryFlag(profileCountryCode)}</Text>}<Text numberOfLines={2} style={styles.sheetSecondaryText}>{authQuery.data?.name ?? tr("프로필·Google 로그인", "Profile · Google")}</Text></View></Pressable>
+                    <Pressable accessibilityRole="button" accessibilityLabel="보스 배지 보관함 열기" onPress={() => { haptic.light(); setShowBadgeCollection(true); }} style={({ pressed }) => [styles.sheetSecondaryButton, styles.badgesMenuButton, pressed && styles.pressed]}><View style={styles.menuButtonContent}><MedievalIcon name="badge" size={18} accent="#FFE27A" /><Text numberOfLines={2} style={styles.sheetSecondaryText}>{tr("보스 배지 보관함", "Badge Collection")} ({unlockedBossBadges.length}/{ALL_BOSS_BADGE_IDS.length})</Text></View></Pressable>
                   </View>
                   <View style={styles.sheetRow}>
                     {showPreviewAttackTools ? <Pressable accessibilityRole="button" accessibilityLabel="보스 배지 미리보기" onPress={previewBadge} style={({ pressed }) => [styles.sheetSecondaryButton, styles.previewBadgeButton, pressed && styles.pressed]}><View style={styles.menuButtonContent}><MedievalIcon name="badge" size={18} /><Text style={styles.sheetSecondaryText}>{tr("배지 미리보기", "Badge Preview")}</Text></View></Pressable> : null}
