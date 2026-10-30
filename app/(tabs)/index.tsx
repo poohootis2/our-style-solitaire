@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState, type ComponentProps, type RefObject } from "react";
+﻿import { memo, useEffect, useRef, useState, type ComponentProps, type RefObject } from "react";
 import { Alert, Animated, AppState, Easing, FlatList, Image, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text as RNText, TextInput as RNTextInput, useWindowDimensions, View, type ImageSourcePropType } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
@@ -3730,7 +3730,7 @@ export default function HomeScreen() {
       hammerStrike.stopAnimation();
       hammerStrike.setValue(0);
       setHammerStrikeTarget(targetPosition);
-      Animated.timing(hammerStrike, { toValue: 1, duration: 1700, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
+      Animated.timing(hammerStrike, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
         if (!finished) return;
         setHammerStrikeTarget(null);
         setHammerImpactBurstTarget(targetPosition);
@@ -4079,7 +4079,7 @@ export default function HomeScreen() {
   const shuffleHelpButton = activeShuffleStep === 0 ? "무료 망치 사용" : "광고 시청 후 망치 +1";
   const hammerStartLeft = Math.max(0, (safeScreenWidth - boardWidth) * 0.5) + cardWidth * 2.25;
   const hammerStartTop = rootTopPadding + 132;
-  const hammerStrikeTranslateX = hammerStrike.interpolate({ inputRange: [0, 0.86, 1], outputRange: [0, hammerStrikeTarget?.dx ?? 0, hammerStrikeTarget?.dx ?? 0] });
+  const hammerStrikeTranslateX = hammerStrike.interpolate({ inputRange: [0, 0.55, 0.72, 0.84, 1], outputRange: [0, (hammerStrikeTarget?.dx ?? 0) * 0.92, hammerStrikeTarget?.dx ?? 0, (hammerStrikeTarget?.dx ?? 0) * 0.94, 0] });
   const hammerCountFontSize = Math.max(13, Math.round(cardWidth * 0.18) + 3);
   const hammerRewardFlightWidth = 96;
   const hammerRewardTargetLeft = hammerStartLeft + cardWidth * 0.5 - hammerRewardFlightWidth * 0.5;
@@ -4094,9 +4094,9 @@ export default function HomeScreen() {
   const hammerRewardTranslateY = attendanceRewardFlight.interpolate({ inputRange: [0, 1], outputRange: [0, hammerRewardTargetTop - hammerRewardSourceTop] });
   const attendanceRewardScale = attendanceRewardFlight.interpolate({ inputRange: [0, 1], outputRange: [1, 0.5] });
   const attendanceRewardOpacity = attendanceRewardFlight.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
-  const hammerStrikeTranslateY = hammerStrike.interpolate({ inputRange: [0, 0.86, 1], outputRange: [0, hammerStrikeTarget?.dy ?? 0, (hammerStrikeTarget?.dy ?? 0) + 8] });
-  const hammerStrikeScale = hammerStrike.interpolate({ inputRange: [0, 0.76, 0.9, 1], outputRange: [1, 2.25, 3, 2.45] });
-  const hammerStrikeRotate = hammerStrike.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "720deg"] });
+  const hammerStrikeTranslateY = hammerStrike.interpolate({ inputRange: [0, 0.55, 0.72, 0.84, 1], outputRange: [0, (hammerStrikeTarget?.dy ?? 0) * 0.92, hammerStrikeTarget?.dy ?? 0, (hammerStrikeTarget?.dy ?? 0) * 0.94, 0] });
+  const hammerStrikeScale = hammerStrike.interpolate({ inputRange: [0, 0.55, 0.72, 0.84, 1], outputRange: [1, 1.05, 1.18, 1.05, 1] });
+  const hammerStrikeRotate = hammerStrike.interpolate({ inputRange: [0, 0.55, 0.72, 0.84, 1], outputRange: ["0deg", "-20deg", "35deg", "10deg", "0deg"] });
   const hammerRevealTranslateX = hammerRevealFlightProgress.interpolate({ inputRange: [0, 1], outputRange: [hammerRevealFlight?.from.dx ?? 0, hammerRevealFlight?.to.dx ?? 0] });
   const hammerRevealTranslateY = hammerRevealFlightProgress.interpolate({ inputRange: [0, 1], outputRange: [hammerRevealFlight?.from.dy ?? 0, hammerRevealFlight?.to.dy ?? 0] });
   const hammerRevealRotate = hammerRevealFlightProgress.interpolate({ inputRange: [0, 0.5, 1], outputRange: ["0deg", "180deg", "360deg"] });
@@ -4444,7 +4444,7 @@ export default function HomeScreen() {
 
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
         <CompanionAnchor companion={selectedCompanion} displayName={getLocalizedBattleName(selectedCompanion.id, selectedCompanion.name, language)} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} attackFlight={undefined} onPress={() => undefined} anchorRef={(node) => { companionAnchorRef.current = node; }} />
-        {showActiveBadgeNotice && activeBadgeId && activeBadgeImage ? <Animated.View pointerEvents="none" style={{ position: "absolute", left: Math.max(4, (safeScreenWidth - (94 * 3 + 8 * 2)) / 2 + 94 * 2 + 8 + 19), bottom: Math.max(0, bottomControlsBottom - 5) + 58, width: 56, alignItems: "center", zIndex: 90, elevation: 90, opacity: activeBadgeNoticeMotion, transform: [{ translateY: activeBadgeNoticeMotion.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}><Image source={activeBadgeImage} resizeMode="contain" style={{ width: 56, height: 56 }} /><Text numberOfLines={3} style={{ color: "#FFF4B8", fontSize: 8, lineHeight: 10, fontWeight: "900", textAlign: "center", textShadowColor: "#1B2340", textShadowRadius: 3 }}>{getBadgeAbilityText(activeBadgeId, language)}</Text></Animated.View> : null}
+        {showActiveBadgeNotice && activeBadgeId && activeBadgeImage ? <Animated.View pointerEvents="none" style={{ position: "absolute", left: Math.max(4, (safeScreenWidth - (94 * 3 + 8 * 2)) / 2 + 94 * 2 + 8 + 19), bottom: Math.max(0, bottomControlsBottom - 5) + 58, width: 94, alignItems: "center", zIndex: 90, elevation: 90, opacity: activeBadgeNoticeMotion, transform: [{ translateY: activeBadgeNoticeMotion.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}><Image source={activeBadgeImage} resizeMode="contain" style={{ width: 94, height: 94 }} /><Text numberOfLines={4} style={{ color: "#FFF4B8", fontSize: 9, lineHeight: 11, fontWeight: "900", textAlign: "center", textShadowColor: "#1B2340", textShadowRadius: 3 }}>{getBadgeAbilityText(activeBadgeId, language)}</Text></Animated.View> : null}
         {activePetFlight ? <FlyingPetImpact image={ATTACK_IMPACT_ART_BY_STYLE[companionAttackStyle]} impactImage={HIT_EXPLOSION_ART_BY_STYLE[companionAttackStyle]} size={Math.max(52, Math.round(companionSize * 1.35))} progress={activePetFlight.progress} rootRef={rootRef} companionRef={companionAnchorRef} targetViewRef={monsterTargetRef} companionSize={companionSize} /> : null}
                 <View style={[styles.bottomControls, isLandscape && styles.bottomControlsLandscape, compactLandscape && styles.bottomControlsLandscapeCompact, phoneLandscape && styles.bottomControlsPhoneLandscape, phoneLandscape && { width: sideRailWidth }, { bottom: Math.max(0, bottomControlsBottom - 5) }]}>
 
@@ -5761,3 +5761,6 @@ const styles = StyleSheet.create({
   confirmStart: { flex: 1, minWidth: 0, minHeight: 54, paddingHorizontal: 8, paddingVertical: 7, alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: "#FF7A66", overflow: "hidden" },
   confirmStartText: { color: "#11182C", fontSize: 15, lineHeight: 20, fontWeight: "900", textAlign: "center", flexShrink: 1 },
 });
+
+
+
