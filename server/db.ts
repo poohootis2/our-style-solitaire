@@ -19,6 +19,31 @@ export async function getDb() {
   return _db;
 }
 
+/** Safe production diagnostic: exposes only table row counts, never user data. */
+export async function getDatabaseHealthSummary() {
+  const db = await getDb();
+  if (!db) return { available: false, users: 0, gameStates: 0, overallRankings: 0, stageRankings: 0 };
+
+  try {
+    const [userCount, gameStateCount, overallRankingCount, stageRankingCount] = await Promise.all([
+      db.select({ count: sql<number>`count(*)` }).from(users),
+      db.select({ count: sql<number>`count(*)` }).from(userGameStates),
+      db.select({ count: sql<number>`count(*)` }).from(leaderboardEntries),
+      db.select({ count: sql<number>`count(*)` }).from(leaderboardStageEntries),
+    ]);
+    return {
+      available: true,
+      users: Number(userCount[0]?.count ?? 0),
+      gameStates: Number(gameStateCount[0]?.count ?? 0),
+      overallRankings: Number(overallRankingCount[0]?.count ?? 0),
+      stageRankings: Number(stageRankingCount[0]?.count ?? 0),
+    };
+  } catch (error) {
+    console.error("[Database] Health summary failed", error);
+    return { available: false, users: 0, gameStates: 0, overallRankings: 0, stageRankings: 0 };
+  }
+}
+
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
     throw new Error("User openId is required for upsert");
