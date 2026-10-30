@@ -1815,11 +1815,11 @@ export default function HomeScreen() {
     if (!content.badgeImage) return;
     haptic.light();
     // Render the detail in its own native Modal instead of stacking it over the
-    // Keep the collection sheet mounted so Android does not dismiss the detail
-    // interaction before the independent detail modal is presented.
-    setSheet("badges");
+    // Dismiss the collection sheet first, then present the independent detail
+    // modal on the next frame. This avoids Android modal stacking swallowing taps.
+    setSheet(null);
     setPaused(true);
-    setSelectedBadge({ id: badgeId, name: content.monster.name, image: content.badgeImage });
+    requestAnimationFrame(() => setSelectedBadge({ id: badgeId, name: content.monster.name, image: content.badgeImage! }));
   };
   const closeBadgeDetail = () => {
     badgeCollectionMotion.stopAnimation();
@@ -2813,7 +2813,7 @@ export default function HomeScreen() {
     const timer = setInterval(() => {
       setElapsedSeconds((seconds) => {
         const rawNextSeconds = seconds + 1;
-        const timeBadgeTick = activeBadgeAbility?.kind === "time"
+        const timeBadgeTick = activeBadgeAbility?.kind.startsWith("time") === true
           && activeBadgeAbility.intervalSeconds
           && rawNextSeconds % activeBadgeAbility.intervalSeconds === 0;
         const nextSeconds = Math.max(0, rawNextSeconds - (timeBadgeTick ? activeBadgeAbility.value : 0));
@@ -3132,7 +3132,7 @@ export default function HomeScreen() {
     setFlyingAttacks((current) => [...current, flight].slice(-4));
     // The projectile now lives in the monster's moving native wrapper, so it can
     // safely use the native driver and always finishes at that wrapper's center.
-    const animation = Animated.timing(progress, { toValue: 1, duration: pet ? FLYING_CARD_DURATION * 0.625 : (flaming ? FLAMING_CARD_FLIGHT_DURATION : FLYING_CARD_DURATION), easing: Easing.out(Easing.cubic), useNativeDriver: true });
+    const animation = Animated.timing(progress, { toValue: 1, duration: pet ? FLYING_CARD_DURATION * 1.5625 : (flaming ? FLAMING_CARD_FLIGHT_DURATION : FLYING_CARD_DURATION), easing: Easing.out(Easing.cubic), useNativeDriver: true });
     animation.start(({ finished }) => {
       if (!finished) return;
       triggerHitFeedback();

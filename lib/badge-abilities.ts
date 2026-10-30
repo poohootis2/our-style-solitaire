@@ -1,6 +1,25 @@
 import type { SupportedLanguage } from "./i18n";
 
-export type BadgeAbilityKind = "time" | "score" | "hammer" | "peek";
+export type BadgeAbilityKind =
+  | "time-180"
+  | "score-move"
+  | "hammer-20"
+  | "peek-3"
+  | "foundation-score"
+  | "first-move-score"
+  | "combo-score"
+  | "peek-2"
+  | "time-bonus"
+  | "boss-score"
+  | "hammer-10"
+  | "free-recycle"
+  | "combo-time"
+  | "score-multiplier"
+  | "starting-hammer"
+  | "peek-2-short"
+  | "time-90"
+  | "foundation-bonus"
+  | "boss-hammer";
 
 export type BadgeAbility = {
   kind: BadgeAbilityKind;
@@ -9,38 +28,54 @@ export type BadgeAbility = {
 };
 
 const ABILITIES: Record<string, BadgeAbility> = {
-  "boss-01": { kind: "time", value: 1, intervalSeconds: 180 },
-  "boss-02": { kind: "score", value: 20 },
-  "boss-03": { kind: "hammer", value: 1, intervalSeconds: 20 },
-  "boss-04": { kind: "peek", value: 3 },
-  "boss-05": { kind: "time", value: 1, intervalSeconds: 180 },
-  "boss-06": { kind: "score", value: 25 },
-  "boss-07": { kind: "hammer", value: 1, intervalSeconds: 20 },
-  "boss-08": { kind: "peek", value: 3 },
-  "boss-09": { kind: "time", value: 1, intervalSeconds: 180 },
-  "boss-10": { kind: "score", value: 30 },
-  "boss-11": { kind: "hammer", value: 1, intervalSeconds: 20 },
-  "boss-12": { kind: "peek", value: 3 },
-  "boss-13": { kind: "time", value: 1, intervalSeconds: 180 },
-  "boss-14": { kind: "score", value: 35 },
-  "boss-15": { kind: "hammer", value: 1, intervalSeconds: 20 },
-  "king-boss-01": { kind: "peek", value: 3 },
-  "king-boss-02": { kind: "time", value: 1, intervalSeconds: 180 },
-  "king-boss-03": { kind: "score", value: 40 },
-  "emperor-boss": { kind: "hammer", value: 1, intervalSeconds: 20 },
+  "boss-01": { kind: "time-180", value: 1, intervalSeconds: 180 },
+  "boss-02": { kind: "score-move", value: 20 },
+  "boss-03": { kind: "hammer-20", value: 1, intervalSeconds: 20 },
+  "boss-04": { kind: "peek-3", value: 3 },
+  "boss-05": { kind: "foundation-score", value: 5 },
+  "boss-06": { kind: "first-move-score", value: 50 },
+  "boss-07": { kind: "combo-score", value: 10 },
+  "boss-08": { kind: "peek-2", value: 2 },
+  "boss-09": { kind: "time-bonus", value: 1, intervalSeconds: 5 },
+  "boss-10": { kind: "boss-score", value: 5 },
+  "boss-11": { kind: "hammer-10", value: 1, intervalSeconds: 10 },
+  "boss-12": { kind: "free-recycle", value: 1 },
+  "boss-13": { kind: "combo-time", value: 2 },
+  "boss-14": { kind: "score-multiplier", value: 5 },
+  "boss-15": { kind: "starting-hammer", value: 1 },
+  "king-boss-01": { kind: "peek-2-short", value: 2 },
+  "king-boss-02": { kind: "time-90", value: 1, intervalSeconds: 90 },
+  "king-boss-03": { kind: "foundation-bonus", value: 1 },
+  "emperor-boss": { kind: "boss-hammer", value: 2 },
 };
 
-const TEXT: Record<BadgeAbilityKind, Record<SupportedLanguage, string>> = {
-  time: { ko: "3분마다 1초 단축", en: "-1 second every 3 minutes", th: "ลดเวลา 1 วินาทีทุก 3 นาที", ja: "3分ごとに1秒短縮", fr: "-1 seconde toutes les 3 minutes", de: "Alle 3 Minuten 1 Sekunde kürzer", es: "-1 segundo cada 3 minutos", hi: "हर 3 मिनट में 1 सेकंड कम", vi: "Giảm 1 giây mỗi 3 phút", ru: "-1 секунда каждые 3 минуты", "es-MX": "-1 segundo cada 3 minutos", id: "-1 detik setiap 3 menit", it: "-1 secondo ogni 3 minuti", "zh-CN": "每3分钟缩短1秒" },
-  score: { ko: "정상 정리마다 +점수", en: "+score for clean moves", th: "+คะแนนเมื่อจัดไพ่ถูกต้อง", ja: "正しい整理で加点", fr: "+score pour chaque rangement", de: "+Punkte für korrekte Züge", es: "+puntos por orden correcto", hi: "सही चाल पर अतिरिक्त अंक", vi: "+điểm khi xếp đúng", ru: "+очки за правильную сортировку", "es-MX": "+puntos por orden correcto", id: "+skor untuk langkah benar", it: "+punti per riordino corretto", "zh-CN": "正确整理时加分" },
-  hammer: { ko: "정상 이동 20회마다 망치 +1", en: "+1 hammer every 20 clean moves", th: "+ค้อน 1 อันทุก 20 ครั้ง", ja: "正しい移動20回ごとにハンマー+1", fr: "+1 marteau toutes les 20 actions", de: "+1 Hammer alle 20 Züge", es: "+1 martillo cada 20 movimientos", hi: "हर 20 सही चाल पर +1 हथौड़ा", vi: "+1 búa mỗi 20 nước", ru: "+1 молот каждые 20 ходов", "es-MX": "+1 martillo cada 20 movimientos", id: "+1 palu setiap 20 langkah", it: "+1 martello ogni 20 mosse", "zh-CN": "每20次正确移动获得锤子+1" },
-  peek: { ko: "시작 시 뒤집힌 카드 3초 공개", en: "Reveal face-down cards for 3 seconds", th: "เปิดไพ่คว่ำ 3 วินาทีเมื่อเริ่ม", ja: "開始時に裏向きカードを3秒表示", fr: "Révèle les cartes 3 secondes au début", de: "Verdeckte Karten 3 Sekunden zeigen", es: "Revela cartas 3 segundos al inicio", hi: "शुरू में छिपे कार्ड 3 सेकंड दिखाएं", vi: "Lật bài úp trong 3 giây khi bắt đầu", ru: "Показать закрытые карты на 3 секунды", "es-MX": "Revela cartas 3 segundos al inicio", id: "Buka kartu tertutup 3 detik saat mulai", it: "Mostra le carte coperte per 3 secondi", "zh-CN": "开始时显示背面牌3秒" },
+const TEXT: Record<BadgeAbilityKind, { ko: string; en: string }> = {
+  "time-180": { ko: "3분마다 경과시간 1초 단축", en: "Reduce elapsed time by 1 second every 3 minutes" },
+  "score-move": { ko: "정상 카드 이동마다 +20점", en: "+20 score for each correct card move" },
+  "hammer-20": { ko: "정상 이동 20회마다 망치 +1", en: "+1 hammer every 20 correct moves" },
+  "peek-3": { ko: "게임 시작 시 뒤집힌 카드 3초 공개", en: "Reveal face-down cards for 3 seconds at start" },
+  "foundation-score": { ko: "파운데이션 정리 카드마다 +5점", en: "+5 score for each foundation card" },
+  "first-move-score": { ko: "첫 정상 이동에 +50점", en: "+50 score on the first correct move" },
+  "combo-score": { ko: "10콤보 달성 시 +10점 추가", en: "+10 score when reaching a 10-combo" },
+  "peek-2": { ko: "게임 시작 시 카드 2장 공개", en: "Reveal 2 cards at game start" },
+  "time-bonus": { ko: "정상 이동 5회마다 시간 1초 보너스", en: "+1 second every 5 correct moves" },
+  "boss-score": { ko: "보스 명중마다 +5점", en: "+5 score for each boss hit" },
+  "hammer-10": { ko: "정상 이동 10회마다 망치 +1", en: "+1 hammer every 10 correct moves" },
+  "free-recycle": { ko: "첫 스톡 순환 1회 무료", en: "The first stock recycle is free" },
+  "combo-time": { ko: "10콤보마다 콤보 시간 2초 연장", en: "+2 seconds to the combo timer at 10-combo" },
+  "score-multiplier": { ko: "정리 점수 +5% 보너스", en: "+5% bonus to clear score" },
+  "starting-hammer": { ko: "게임 시작 시 망치 +1", en: "+1 hammer at game start" },
+  "peek-2-short": { ko: "게임 시작 시 카드 2장 2초 공개", en: "Reveal 2 cards for 2 seconds at start" },
+  "time-90": { ko: "90초마다 경과시간 1초 단축", en: "Reduce elapsed time by 1 second every 90 seconds" },
+  "foundation-bonus": { ko: "파운데이션 완성 시 +1 보너스", en: "+1 bonus when completing a foundation" },
+  "boss-hammer": { ko: "보스 클리어 시 망치 +2", en: "+2 hammers after clearing a boss" },
 };
 
 export function getBadgeAbility(id: string): BadgeAbility {
-  return ABILITIES[id] ?? { kind: "score", value: 10 };
+  return ABILITIES[id] ?? { kind: "score-move", value: 10 };
 }
 
 export function getBadgeAbilityText(id: string, language: SupportedLanguage): string {
-  return TEXT[getBadgeAbility(id).kind][language] ?? TEXT[getBadgeAbility(id).kind].en;
+  const text = TEXT[getBadgeAbility(id).kind];
+  return language === "ko" ? text.ko : text.en;
 }
