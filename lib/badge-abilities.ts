@@ -47,7 +47,7 @@ const ABILITIES: Record<string, BadgeAbility> = {
   "king-boss-01": { kind: "random-peek-2", value: 2 },
   "king-boss-02": { kind: "time-90", value: 1, intervalSeconds: 90 },
   "king-boss-03": { kind: "foundation-bonus", value: 1 },
-  "emperor-boss": { kind: "boss-hammer", value: 1 },
+  "emperor-boss": { kind: "boss-hammer", value: 2 },
 };
 
 const TEXT: Record<BadgeAbilityKind, { ko: string; en: string }> = {
@@ -69,7 +69,7 @@ const TEXT: Record<BadgeAbilityKind, { ko: string; en: string }> = {
   "random-peek-2": { ko: "3분마다 랜덤 카드 2장을 2초간 공개", en: "Reveal 2 random cards for 2 seconds every 3 minutes" },
   "time-90": { ko: "90초마다 경과시간 1초 단축", en: "Reduce elapsed time by 1 second every 90 seconds" },
   "foundation-bonus": { ko: "파운데이션 완성 시 +1 보너스", en: "+1 bonus when completing a foundation" },
-  "boss-hammer": { ko: "보스 클리어 시 망치 +2", en: "+2 hammers after clearing a boss" },
+  "boss-hammer": { ko: "보스 클리어 시 추가 망치 +2", en: "+2 additional hammers after clearing a boss" },
 };
 
 export function getBadgeAbility(id: string): BadgeAbility {
