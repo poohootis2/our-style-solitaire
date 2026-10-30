@@ -1390,6 +1390,12 @@ export default function HomeScreen() {
   const comboStreakRef = useRef(0);
   const lastAttackAtRef = useRef(0);
   const comboResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const badgeMoveCountRef = useRef(0);
+  const badgeCleanMoveCountRef = useRef(0);
+  const badgeFirstMoveAwardedRef = useRef(false);
+  const badgeMoveRewardStepsRef = useRef(new Set<number>());
+  const badgeFoundationRewardStepsRef = useRef(new Set<number>());
+  const badgeFreeRecycleUsedRef = useRef(false);
   const [hintMessage, setHintMessage] = useState<string | null>(null);
   const [autoMoveHintIds, setAutoMoveHintIds] = useState<string[]>([]);
   const [timeBonusText, setTimeBonusText] = useState<string | null>(null);
@@ -1882,6 +1888,9 @@ export default function HomeScreen() {
   }, [activeBadgeId, activeBadgeImage, activeBadgeNoticeMotion, hydrated]);
   useEffect(() => {
     if (!hydrated || !activeBadgeId || !activeBadgeAbility) return;
+    if (activeBadgeAbility.kind === "starting-hammer") {
+      setHammerCharges((charges) => Math.min(MAX_HAMMER_CHARGES, charges + activeBadgeAbility.value));
+    }
     const abilityKind = activeBadgeAbility.kind;
     const isStartPeek = abilityKind === "peek-3" || abilityKind === "peek-3-cards" || abilityKind === "stock-first-card";
     if (!isStartPeek) return;
@@ -2887,6 +2896,38 @@ export default function HomeScreen() {
     }, 1000);
     return () => clearInterval(timer);
   }, [activeBadgeAbility, game, gameMode, hydrated, paused]);
+  useEffect(() => {
+    if (!hydrated || activeBadgeAbility?.kind !== "random-peek-2") return;
+    const timer = setInterval(() => {
+      const original = cloneGameState(gameRef.current);
+      const preview = cloneGameState(original);
+      const hidden: Array<{ column: number; index: number }> = [];
+      preview.tableau.forEach((pile, column) => pile.forEach((card, index) => {
+        if (!card.faceUp) hidden.push({ column, index });
+      }));
+      for (const target of hidden.sort(() => Math.random() - 0.5).slice(0, 2)) {
+        const card = preview.tableau[target.column][target.index];
+        preview.tableau[target.column][target.index] = { ...card, faceUp: true };
+      }
+      if (hidden.length === 0) return;
+      badgePeekRestoreRef.current = { game: original, paused };
+      gameRef.current = preview;
+      setGame(preview);
+      setPaused(true);
+      if (badgePeekTimerRef.current) clearTimeout(badgePeekTimerRef.current);
+      badgePeekTimerRef.current = setTimeout(() => {
+        const restore = badgePeekRestoreRef.current;
+        if (restore) {
+          gameRef.current = restore.game;
+          setGame(restore.game);
+          setPaused(restore.paused);
+        }
+        badgePeekRestoreRef.current = null;
+        badgePeekTimerRef.current = null;
+      }, 2000);
+    }, 180000);
+    return () => clearInterval(timer);
+  }, [activeBadgeAbility, hydrated, paused]);
 
   const startNewGame = (level = game.level, resetProgress = false) => {
     setBadgeStartNonce((value) => value + 1);
@@ -3236,6 +3277,7 @@ export default function HomeScreen() {
       haptic.error();
       return;
     }
+    badgeCleanMoveCountRef.current = 0;
     const previousGame = previousEntry.game;
     const restoredHammerCount = Math.max(0, previousEntry.hammerCharges - hammerCharges);
     setGame(cloneGameState(previousGame));
@@ -3356,6 +3398,11 @@ export default function HomeScreen() {
       const comboCount = registerSuccessfulAttack(showVisual);
       const comboMultiplier = comboCount >= 20 ? Math.min(2.5, 1.5 + Math.floor((comboCount - 20) / 5) * 0.1) : 1;
       comboScoreBonus = comboCount >= 2 ? Math.round(comboCount * 5 * comboMultiplier) : 0;
+      if (activeBadgeAbility?.kind === "combo-score" && comboCount % 10 === 0) comboScoreBonus += activeBadgeAbility.value;
+      if (activeBadgeAbility?.kind === "combo-time" && comboCount % 10 === 0 && gameMode === "timeAttack") {
+        setElapsedSeconds((seconds) => Math.max(0, seconds - activeBadgeAbility.value));
+        elapsedSecondsRef.current = Math.max(0, elapsedSecondsRef.current - activeBadgeAbility.value);
+      }
       autoFinishComboPlanRef.current.finalComboCount = comboCount;
       if (comboCount >= 10 && showVisual) showHighComboImpact();
       if (comboScoreBonus > 0 && showVisual) showComboScoreReward(comboScoreBonus, comboCount);
@@ -3374,6 +3421,41 @@ export default function HomeScreen() {
       setAttackKind(movedCard.suit);
       setComboAttack(false);
       setAttackToken((token) => token + 1);
+    }
+    if (movedCard) {
+      badgeMoveCountRef.current += 1;
+      badgeCleanMoveCountRef.current += 1;
+      const ability = activeBadgeAbility;
+      if (ability?.kind === "score-move-10") {
+        const step = Math.floor(badgeMoveCountRef.current / 10);
+        if (step > 0 && !badgeMoveRewardStepsRef.current.has(step)) {
+          badgeMoveRewardStepsRef.current.add(step);
+          comboScoreBonus += ability.value;
+        }
+      }
+      if (ability?.kind === "first-move-score" && !badgeFirstMoveAwardedRef.current) {
+        badgeFirstMoveAwardedRef.current = true;
+        comboScoreBonus += ability.value;
+      }
+      if (ability?.kind === "foundation-score-1" && foundationMove) comboScoreBonus += ability.value;
+      if (ability?.kind === "boss-score-1" && battleContent.isBoss) comboScoreBonus += ability.value;
+      if (ability?.kind === "clean-time-5" && badgeCleanMoveCountRef.current % 5 === 0) {
+        setElapsedSeconds((seconds) => Math.max(0, seconds - ability.value));
+        elapsedSecondsRef.current = Math.max(0, elapsedSecondsRef.current - ability.value);
+      }
+      if (ability?.kind === "hammer-clean-30" && badgeCleanMoveCountRef.current % 30 === 0) {
+        setHammerCharges((charges) => Math.min(MAX_HAMMER_CHARGES, charges + ability.value));
+        showFloatingReward(`+${ability.value} 망치`);
+      }
+    }
+    if (activeBadgeAbility?.kind === "foundation-bonus") {
+      for (const suit of SUITS) {
+        const foundationIndex = SUITS.indexOf(suit);
+        if (nextGame.foundations[suit].length === 13 && !badgeFoundationRewardStepsRef.current.has(foundationIndex)) {
+          badgeFoundationRewardStepsRef.current.add(foundationIndex);
+          comboScoreBonus += activeBadgeAbility.value;
+        }
+      }
     }
     if (comboScoreBonus > 0) {
       nextGame = { ...nextGame, score: nextGame.score + comboScoreBonus };
@@ -3426,16 +3508,20 @@ export default function HomeScreen() {
       if (previewTimeAttackOpenTableau) {
         setPaused(true);
         showTimedHint(tr("미리보기 테스트를 완료했습니다. 기록·보상·랭킹에는 반영되지 않습니다.", "Preview test complete. No records, rewards, or rankings were updated."));
-        setTimeout(() => startNewGame(nextGame.level, false), 900);
+        setTimeout(() => startNewGame(nextGame!.level, false), 900);
         return;
       }
       const clearedNextStage = Math.min(POST_STORY_STAGE_LIMIT, nextGame.level + 1);
       modeProgressRef.current[gameMode] = Math.max(modeProgressRef.current[gameMode] ?? 1, clearedNextStage);
       setProgressRevision((revision) => revision + 1);
       AsyncStorage.setItem(MODE_PROGRESS_KEY, JSON.stringify(modeProgressRef.current)).catch(() => undefined);
+      if (activeBadgeAbility?.kind === "score-multiplier") {
+        nextGame = { ...nextGame, score: Math.round(nextGame.score * (1 + activeBadgeAbility.value / 100)) };
+      }
       saveWin(nextGame);
-      setHammerCharges((charges) => Math.min(MAX_HAMMER_CHARGES, charges + 10));
-      showFloatingReward("+10 망치 · 스테이지 클리어");
+      const bossHammerBonus = battleContent.isBoss && activeBadgeAbility?.kind === "boss-hammer" ? activeBadgeAbility.value : 0;
+      setHammerCharges((charges) => Math.min(MAX_HAMMER_CHARGES, charges + 10 + bossHammerBonus));
+      showFloatingReward(`+${10 + bossHammerBonus} 망치 · 스테이지 클리어`);
       showTimedHint(tr("스테이지 클리어! 망치 +10", "Stage clear! Bonus hammers +10"));
       const petRewardCount = battleContent.isBoss ? 3 : currentGame.level <= 10 ? 2 : 1;
       unlockRandomPets(petRewardCount);
@@ -3635,6 +3721,7 @@ export default function HomeScreen() {
       return;
     }
     setHammerMode(false);
+    badgeCleanMoveCountRef.current = 0;
     setHammerCharges((charges) => Math.max(0, charges - hammerCost));
     setShowHammerOffer(false);
     playEffect("foundationAttack");
@@ -3816,14 +3903,16 @@ export default function HomeScreen() {
   const recycleStockWithHammerAction = () => {
     if (paused) return;
     if (game.stock.length > 0 || game.waste.length === 0) return;
-    if (hammerCharges < 2) {
+    const freeRecycle = activeBadgeAbility?.kind === "free-recycle" && !badgeFreeRecycleUsedRef.current;
+    if (!freeRecycle && hammerCharges < 2) {
       showTimedHint(`추가 스톡 순환에는 망치 2개가 필요합니다. 현재 ${hammerCharges}개입니다.`);
       haptic.error();
       return;
     }
     const recycledGame = recycleStockWithHammer(game);
     if (!recycledGame) return;
-    setHammerCharges((charges) => Math.max(0, charges - 2));
+    if (freeRecycle) badgeFreeRecycleUsedRef.current = true;
+    else setHammerCharges((charges) => Math.max(0, charges - 2));
     applyGame(recycledGame, false, undefined, hammerCharges);
     showTimedHint("망치 2개를 사용해 스톡을 한 바퀴 추가로 열 수 있습니다.");
     playEffect("shuffle");
