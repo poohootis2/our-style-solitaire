@@ -222,6 +222,7 @@ const CURRENT_AD_APP_VERSION = `${Constants.expoConfig?.version ?? "2.0.0"}+${Co
 const CARD_BACK_THEME_KEY = "our-style-solitaire:card-back-theme";
 const BOSS_BADGES_KEY = "our-style-solitaire:boss-badges";
 const ACTIVE_BADGE_KEY = "our-style-solitaire:active-badge";
+const GOOGLE_LOGIN_PROMPT_DATE_KEY = "our-style-solitaire:google-login-prompt-date";
 const PROFILE_COUNTRY_KEY = "our-style-solitaire:profile-country";
 const PROFILE_NAME_KEY = "our-style-solitaire:profile-name";
 const LOCAL_RANKING_KEY = "our-style-solitaire:local-ranking";
@@ -1605,6 +1606,7 @@ export default function HomeScreen() {
   const [googleAuthPending, setGoogleAuthPending] = useState(false);
   const [googleAuthMessage, setGoogleAuthMessage] = useState<string | null>(null);
   const [googleSessionUser, setGoogleSessionUser] = useState<Auth.User | null>(null);
+  const [showGoogleLoginPrompt, setShowGoogleLoginPrompt] = useState(false);
   const googleSessionRestoreStartedRef = useRef(false);
   const [cloudSyncMessage, setCloudSyncMessage] = useState<string | null>(null);
   const getCurrentDailyAdRewardCount = () => {
@@ -1818,6 +1820,21 @@ export default function HomeScreen() {
   // A ref intentionally limits recovery to one attempt per app launch.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authQuery.data]);
+  useEffect(() => {
+    if (!hydrated || authQuery.isLoading || authQuery.data || googleSessionUser) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void AsyncStorage.getItem(GOOGLE_LOGIN_PROMPT_DATE_KEY).then((lastShown) => {
+        if (cancelled || authQuery.data || googleSessionUser || lastShown === localDateKey()) return;
+        void AsyncStorage.setItem(GOOGLE_LOGIN_PROMPT_DATE_KEY, localDateKey());
+        setShowGoogleLoginPrompt(true);
+      });
+    }, 700);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [authQuery.data, authQuery.isLoading, googleSessionUser, hydrated]);
   const [hammerStrikeTarget, setHammerStrikeTarget] = useState<{ dx: number; dy: number } | null>(null);
   const [hammerRevealFlight, setHammerRevealFlight] = useState<{ card: Card; from: { dx: number; dy: number }; to: { dx: number; dy: number } } | null>(null);
   const [hammerLandingDustTarget, setHammerLandingDustTarget] = useState<{ dx: number; dy: number } | null>(null);
@@ -3790,12 +3807,12 @@ export default function HomeScreen() {
       hammerStrike.stopAnimation();
       hammerStrike.setValue(0);
       setHammerStrikeTarget(targetPosition);
-      Animated.timing(hammerStrike, { toValue: 1, duration: 2750, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
+      Animated.timing(hammerStrike, { toValue: 1, duration: 1830, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
         if (!finished) return;
         setHammerStrikeTarget(null);
         setHammerImpactBurstTarget(targetPosition);
         hammerImpactBurst.setValue(0);
-        Animated.timing(hammerImpactBurst, { toValue: 1, duration: 360, easing: Easing.out(Easing.back(1.2)), useNativeDriver: true }).start(() => setHammerImpactBurstTarget(null));
+        Animated.timing(hammerImpactBurst, { toValue: 1, duration: 720, easing: Easing.out(Easing.back(1.2)), useNativeDriver: true }).start(() => setHammerImpactBurstTarget(null));
         if (gameStateFingerprint(gameRef.current) !== hammerBaseFingerprint) {
           showTimedHint("현재 진행 상태가 바뀌어 오래된 망치 동작을 적용하지 않았습니다. 망치 사용량은 유지됩니다.");
           return;
@@ -3994,8 +4011,9 @@ export default function HomeScreen() {
     } else if (hammerMode) {
       const boardLeft = Math.max(0, (safeScreenWidth - boardWidth) * 0.5);
       const hammerLeft = boardLeft + cardWidth * 2.25;
-      const targetLeft = boardLeft + column * (cardWidth + tableauGap);
-      const targetTop = rootTopPadding + 220 + index * stackOffset;
+      // Aim the shark's nose at the right-center of the selected card.
+      const targetLeft = boardLeft + column * (cardWidth + tableauGap) + cardWidth * 0.82;
+      const targetTop = rootTopPadding + 220 + index * stackOffset + cardWidth * renderCardRatio * 0.34;
       useHammerOnCard({ kind: "tableau", column, index }, { dx: targetLeft - hammerLeft, dy: targetTop - (rootTopPadding + 132) });
       return;
     }
@@ -4156,7 +4174,7 @@ export default function HomeScreen() {
   const attendanceRewardOpacity = attendanceRewardFlight.interpolate({ inputRange: [0, 0.78, 1], outputRange: [1, 1, 0] });
   const hammerStrikeTranslateY = hammerStrike.interpolate({ inputRange: [0, 0.55, 0.72, 0.84, 1], outputRange: [0, (hammerStrikeTarget?.dy ?? 0) * 0.92, hammerStrikeTarget?.dy ?? 0, (hammerStrikeTarget?.dy ?? 0) * 0.94, 0] });
   const hammerStrikeScale = hammerStrike.interpolate({ inputRange: [0, 0.55, 0.72, 0.84, 1], outputRange: [1, 1.05, 1.18, 1.05, 1] });
-  const hammerStrikeRotate = hammerStrike.interpolate({ inputRange: [0, 0.55, 0.72, 0.84, 1], outputRange: ["0deg", "25deg", "50deg", "25deg", "0deg"] });
+  const hammerStrikeRotate = hammerStrike.interpolate({ inputRange: [0, 0.42, 0.66, 0.78, 1], outputRange: ["0deg", "-32deg", "50deg", "18deg", "0deg"] });
   const hammerRevealTranslateX = hammerRevealFlightProgress.interpolate({ inputRange: [0, 1], outputRange: [hammerRevealFlight?.from.dx ?? 0, hammerRevealFlight?.to.dx ?? 0] });
   const hammerRevealTranslateY = hammerRevealFlightProgress.interpolate({ inputRange: [0, 1], outputRange: [hammerRevealFlight?.from.dy ?? 0, hammerRevealFlight?.to.dy ?? 0] });
   const hammerRevealRotate = hammerRevealFlightProgress.interpolate({ inputRange: [0, 0.5, 1], outputRange: ["0deg", "180deg", "360deg"] });
@@ -4388,7 +4406,7 @@ export default function HomeScreen() {
           </Animated.View>;
         })}
         {hammerImpactBurstTarget ? <Animated.View pointerEvents="none" style={[styles.hammerImpactBurst, { left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.5, height: cardWidth * 1.5, transform: [{ translateX: hammerImpactBurstTarget.dx }, { translateY: hammerImpactBurstTarget.dy }, { scale: hammerImpactBurst.interpolate({ inputRange: [0, 0.28, 1], outputRange: [0.35, 1.25, 0.1] }) }, { rotate: hammerImpactBurst.interpolate({ inputRange: [0, 1], outputRange: ["-8deg", "18deg"] }) }], opacity: hammerImpactBurst.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 1, 0] }) }]}><Image source={HAMMER_IMPACT_ART} resizeMode="contain" style={styles.hammerImpactBurstImage} /><HammerFragments progress={hammerImpactBurst} size={cardWidth * 1.5} /></Animated.View> : null}
-        {hammerImpactBurstTarget ? <Animated.View pointerEvents="none" style={{ position: "absolute", left: hammerStartLeft, top: hammerStartTop, width: cardWidth * 1.5, height: cardWidth * 1.5, zIndex: 7000 }}><Animated.Image source={HAMMER_BOOM_ART} resizeMode="contain" style={{ width: "100%", height: "100%", opacity: hammerImpactBurst.interpolate({ inputRange: [0, 0.14, 0.32, 1], outputRange: [0, 1, 0.95, 0] }), transform: [{ translateX: hammerImpactBurstTarget.dx }, { translateY: hammerImpactBurstTarget.dy }, { scale: hammerImpactBurst.interpolate({ inputRange: [0, 0.14, 0.3, 1], outputRange: [0.2, 1.25, 1, 0.25] }) }] }} /></Animated.View> : null}
+        {hammerImpactBurstTarget ? <Animated.View pointerEvents="none" style={{ position: "absolute", left: hammerStartLeft + hammerImpactBurstTarget.dx - cardWidth * 0.75, top: hammerStartTop + hammerImpactBurstTarget.dy - cardWidth * 0.75, width: cardWidth * 1.5, height: cardWidth * 1.5, zIndex: 7000, elevation: 7000, alignItems: "center", justifyContent: "center" }}><Animated.Image source={HAMMER_BOOM_ART} resizeMode="contain" style={{ width: "100%", height: "100%", opacity: hammerImpactBurst.interpolate({ inputRange: [0, 0.12, 0.28, 1], outputRange: [0, 1, 0.98, 0] }), transform: [{ scale: hammerImpactBurst.interpolate({ inputRange: [0, 0.12, 0.28, 1], outputRange: [0.2, 1.25, 1, 0.25] }) }] }} /></Animated.View> : null}
         {showAttendanceRewardFlight ? <Animated.View pointerEvents="none" style={[styles.attendanceRewardFlight, { left: hammerRewardSourceLeft, top: hammerRewardSourceTop, width: hammerRewardFlightWidth, opacity: attendanceRewardOpacity, transform: [{ translateX: hammerRewardTranslateX }, { translateY: hammerRewardTranslateY }, { scale: attendanceRewardScale }] }]}><Text style={[styles.hammerRewardFlightText, { fontSize: hammerCountFontSize * 2, lineHeight: hammerCountFontSize * 2.2 }]}>+{hammerRewardFlightAmount}</Text></Animated.View> : null}
         <VictoryFireworks visible={showFireworks} label={tr("스테이지 클리어", "STAGE CLEAR")} />
           <View style={[styles.header, styles.contentLift, isLandscape && styles.headerLandscape, compactLandscape && styles.headerLandscapeCompact, phoneLandscape && styles.headerPhoneLandscape, phoneLandscape && { width: sideRailWidth }]}>
@@ -4542,6 +4560,37 @@ export default function HomeScreen() {
         {petPreservationNotice ? <View pointerEvents="none" style={styles.petPreservationNotice}><Text style={styles.petPreservationNoticeText}>펫 도감은 안전하게 보존되었습니다</Text></View> : null}
 
 
+
+        <Modal transparent visible={showGoogleLoginPrompt} animationType="fade" onRequestClose={() => setShowGoogleLoginPrompt(false)}>
+          <Pressable style={styles.confirmBackdrop} onPress={() => setShowGoogleLoginPrompt(false)}>
+            <View style={styles.timeOutCard} onStartShouldSetResponder={() => true}>
+              <Text style={styles.sheetEyebrow}>ACCOUNT SAVE</Text>
+              <Text style={[styles.sheetTitle, compactLanguageText && styles.sheetTitleCompactLanguage]}>
+                {tr("게임 기록을 안전하게 저장하세요", "Keep your game progress safe")}
+              </Text>
+              <Text style={[styles.sheetCopy, compactLanguageText && styles.sheetCopyCompactLanguage]}>
+                {tr("Google 로그인하면 게임 진행 상황과 랭킹을 안전하게 저장할 수 있습니다.", "Sign in with Google to safely save your progress and rankings.")}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={tr("Google 로그인", "Sign in with Google")}
+                disabled={googleAuthPending}
+                onPress={() => { setShowGoogleLoginPrompt(false); void loginWithGoogle(); }}
+                style={({ pressed }) => [styles.sheetPrimaryButton, googleAuthPending && styles.googleLoginButtonDisabled, pressed && styles.pressed]}
+              >
+                <Text style={styles.sheetPrimaryText}>{googleAuthPending ? tr("처리 중…", "Working…") : tr("Google 로그인", "Sign in with Google")}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={tr("나중에 하기", "Maybe later")}
+                onPress={() => setShowGoogleLoginPrompt(false)}
+                style={({ pressed }) => [styles.confirmCancel, { marginTop: 10 }, pressed && styles.pressed]}
+              >
+                <Text style={styles.confirmCancelText}>{tr("나중에 하기", "Maybe later")}</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Modal>
 
         <Modal transparent visible={showRankingPopup} animationType="fade" onRequestClose={() => setShowRankingPopup(false)}>
           <View style={styles.rankingModalBackdrop}>
