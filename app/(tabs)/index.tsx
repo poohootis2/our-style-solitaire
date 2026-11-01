@@ -861,6 +861,7 @@ const ComboImpactBurst = memo(function ComboImpactBurst({
       : progress.interpolate({ inputRange: [0, 0.66, 0.72, 0.84, 1], outputRange: [0.35, 0.35, 0.82, 1.18, 0.72] });
     const spread = size * (1 + (batch === 1 ? 0.08 : 0));
     return <Animated.Image
+      pointerEvents="none"
       key={`${token}-${batch}-${index}`}
       source={HIT_EXPLOSION_ART_BY_STYLE[attackStyle]}
       resizeMode="contain"
@@ -964,8 +965,8 @@ const FlyingPetImpact = memo(function FlyingPetImpact({ image, impactImage, size
   const impactLeft = frame.left + frame.dx;
   const impactTop = frame.top + frame.dy;
   return <>
-    <Animated.Image source={image} resizeMode="contain" style={{ position: "absolute", zIndex: 6000, width: size, height: size, left: frame.left, top: frame.top, opacity: progress.interpolate({ inputRange: [0, 0.82, 0.98, 1], outputRange: [1, 1, 1, 0] }), transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [0, frame.dx] }) }, { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [0, frame.dy] }) }, { rotate: frame.angle }, { scale: progress.interpolate({ inputRange: [0, 0.72, 1], outputRange: [0.5, 0.82, 1.1] }) }] }} />
-    <Animated.Image source={impactImage} resizeMode="contain" style={{ position: "absolute", zIndex: 6010, width: size * 1.25, height: size * 1.25, left: impactLeft - size * 0.125, top: impactTop - size * 0.125, opacity: progress.interpolate({ inputRange: [0, 0.82, 0.92, 1], outputRange: [0, 0, 1, 0] }), transform: [{ scale: progress.interpolate({ inputRange: [0, 0.82, 0.92, 1], outputRange: [0.45, 0.45, 1, 1.2] }) }] }} />
+    <Animated.Image pointerEvents="none" source={image} resizeMode="contain" style={{ position: "absolute", zIndex: 6000, width: size, height: size, left: frame.left, top: frame.top, opacity: progress.interpolate({ inputRange: [0, 0.82, 0.98, 1], outputRange: [1, 1, 1, 0] }), transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [0, frame.dx] }) }, { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [0, frame.dy] }) }, { rotate: frame.angle }, { scale: progress.interpolate({ inputRange: [0, 0.72, 1], outputRange: [0.5, 0.82, 1.1] }) }] }} />
+    <Animated.Image pointerEvents="none" source={impactImage} resizeMode="contain" style={{ position: "absolute", zIndex: 6010, width: size * 1.25, height: size * 1.25, left: impactLeft - size * 0.125, top: impactTop - size * 0.125, opacity: progress.interpolate({ inputRange: [0, 0.82, 0.92, 1], outputRange: [0, 0, 1, 0] }), transform: [{ scale: progress.interpolate({ inputRange: [0, 0.82, 0.92, 1], outputRange: [0.45, 0.45, 1, 1.2] }) }] }} />
   </>;
 });
 const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, attackToken, impactToken, attackStyle, combo, paused = false, compact = false, portraitNarrow = false, landscape = false, phoneLandscape = false, androidPortrait = false, safeWidth = 360, travelDistance = 24, leftTravelExtension = 100, verticalTravel = 0, monster, displayName, isBoss, cardSize, motionValue, rootRef, monsterTargetRef, monsterTargetFrameRef, flyingAttacks, recycleWarning = false, remainingRecycles = 0 }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; impactToken: number; attackStyle: CompanionAttackStyle; combo: boolean; paused?: boolean; compact?: boolean; portraitNarrow?: boolean; landscape?: boolean; phoneLandscape?: boolean; androidPortrait?: boolean; safeWidth?: number; travelDistance?: number; leftTravelExtension?: number; verticalTravel?: number; monster: BattleAsset; displayName?: string; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; rootRef?: RefObject<View | null>; monsterTargetRef: RefObject<View | null>; monsterTargetFrameRef: { current: MonsterTargetFrame | null }; flyingAttacks: ActiveFlight[]; recycleWarning?: boolean; remainingRecycles?: number }) {
@@ -3309,11 +3310,18 @@ export default function HomeScreen() {
     // safely use the native driver and always finishes at that wrapper's center.
     const animation = Animated.timing(progress, { toValue: 1, duration: pet ? FLYING_CARD_DURATION * 1.42045 : (flaming ? FLAMING_CARD_FLIGHT_DURATION : FLYING_CARD_DURATION), easing: Easing.out(Easing.cubic), useNativeDriver: true });
     animation.start(({ finished }) => {
+      // Always remove the flight, including an interrupted animation. Leaving
+      // an interrupted flight in state keeps the projectile mounted forever.
+      setFlyingAttacks((current) => current.filter((active) => active.id !== id));
       if (!finished) return;
       triggerHitFeedback();
       setImpactToken((token) => token + 1);
-      setFlyingAttacks((current) => current.filter((active) => active.id !== id));
     });
+    // Native-driver callbacks can be skipped during a screen transition. This
+    // bounded fallback prevents a ghost projectile from surviving that case.
+    setTimeout(() => {
+      setFlyingAttacks((current) => current.filter((active) => active.id !== id));
+    }, (pet ? FLYING_CARD_DURATION * 1.42045 : (flaming ? FLAMING_CARD_FLIGHT_DURATION : FLYING_CARD_DURATION)) + 180);
   };
 
   const cardFromSource = (source: CardSource, sourceGame: typeof game = game): Card | undefined => {
@@ -3807,41 +3815,43 @@ export default function HomeScreen() {
       hammerStrike.stopAnimation();
       hammerStrike.setValue(0);
       setHammerStrikeTarget(targetPosition);
-      Animated.timing(hammerStrike, { toValue: 1, duration: 1830, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
+      // The impact happens around progress 0.72. Apply the card state there,
+      // instead of waiting for the hammer to return to its idle position.
+      Animated.timing(hammerStrike, { toValue: 0.72, duration: 1040, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
         if (!finished) return;
-        setHammerStrikeTarget(null);
         setHammerImpactBurstTarget(targetPosition);
         hammerImpactBurst.setValue(0);
-        Animated.timing(hammerImpactBurst, { toValue: 1, duration: 720, easing: Easing.out(Easing.back(1.2)), useNativeDriver: true }).start(() => setHammerImpactBurstTarget(null));
+        Animated.timing(hammerImpactBurst, { toValue: 1, duration: 520, easing: Easing.out(Easing.back(1.2)), useNativeDriver: true }).start(() => setHammerImpactBurstTarget(null));
         if (gameStateFingerprint(gameRef.current) !== hammerBaseFingerprint) {
           showTimedHint("현재 진행 상태가 바뀌어 오래된 망치 동작을 적용하지 않았습니다. 망치 사용량은 유지됩니다.");
+          Animated.timing(hammerStrike, { toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setHammerStrikeTarget(null));
           return;
         }
+        // Commit immediately at impact. Any following card flight is only a
+        // visual flourish and must not delay gameplay or input readiness.
         if (source.kind === "tableau" && !target.faceUp) {
+          applyGame(revealedGame, false, target, hammerCharges);
           const boardLeft = Math.max(0, (safeScreenWidth - boardWidth) * 0.5);
           const wasteLeft = boardLeft + cardWidth * 1.08;
           const wasteTarget = { dx: wasteLeft - hammerStartLeft, dy: 0 };
           setHammerRevealFlight({ card: { ...target, faceUp: true }, from: targetPosition, to: wasteTarget });
           hammerRevealFlightProgress.stopAnimation();
           hammerRevealFlightProgress.setValue(0);
-          Animated.timing(hammerRevealFlightProgress, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }).start(({ finished: flightFinished }) => {
+          Animated.timing(hammerRevealFlightProgress, { toValue: 1, duration: 620, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }).start(({ finished: flightFinished }) => {
             setHammerRevealFlight(null);
             setHammerLandingDustTarget(wasteTarget);
             hammerLandingDustProgress.stopAnimation();
             hammerLandingDustProgress.setValue(0);
-            Animated.timing(hammerLandingDustProgress, { toValue: 1, duration: 520, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setHammerLandingDustTarget(null));
+            Animated.timing(hammerLandingDustProgress, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setHammerLandingDustTarget(null));
             if (!flightFinished) return;
-            if (gameStateFingerprint(gameRef.current) !== hammerBaseFingerprint) {
-              showTimedHint("현재 진행 상태가 바뀌어 오래된 카드 이동을 적용하지 않았습니다. 망치 사용량은 유지됩니다.");
-              return;
-            }
-            applyGame(revealedGame, false, target, hammerCharges);
             showTimedHint(`${cardLabel(target)} 카드를 공개해 웨이스트로 이동했습니다.`);
           });
+          Animated.timing(hammerStrike, { toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setHammerStrikeTarget(null));
           return;
         }
         applyGame(revealedGame, false, target, hammerCharges);
         showTimedHint(source.kind === "waste" ? `${cardLabel(target)} 웨이스트 카드를 망치로 파괴했습니다.` : `${cardLabel(target)} 카드를 공개해 웨이스트에 놓았습니다.`);
+        Animated.timing(hammerStrike, { toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => setHammerStrikeTarget(null));
       });
       return;
     }
