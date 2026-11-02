@@ -828,10 +828,12 @@ const ComboImpactBurst = memo(function ComboImpactBurst({
   frame,
   attackStyle,
   token,
+  lowPerformance = false,
 }: {
   frame: MonsterTargetFrame;
   attackStyle: CompanionAttackStyle;
   token: number;
+  lowPerformance?: boolean;
 }) {
   const progress = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -839,11 +841,11 @@ const ComboImpactBurst = memo(function ComboImpactBurst({
     progress.setValue(0);
     Animated.timing(progress, {
       toValue: 1,
-      duration: 3200,
+      duration: lowPerformance ? 1000 : 3200,
       easing: Easing.linear,
       useNativeDriver: true,
     }).start();
-  }, [progress, token]);
+  }, [lowPerformance, progress, token]);
   const offsets = [
     { x: -0.28, y: -0.18, rotate: "-18deg" },
     { x: 0.22, y: -0.2, rotate: "14deg" },
@@ -852,7 +854,7 @@ const ComboImpactBurst = memo(function ComboImpactBurst({
     { x: 0, y: 0, rotate: "0deg" },
   ];
   const size = Math.max(42, Math.min(86, frame.width * 0.62));
-  const renderBurst = (batch: 0 | 1) => offsets.map((offset, index) => {
+  const renderBurst = (batch: 0 | 1) => (lowPerformance ? offsets.slice(0, 3) : offsets).map((offset, index) => {
     const imageOpacity = batch === 0
       ? progress.interpolate({ inputRange: [0, 0.04, 0.16, 0.28], outputRange: [0, 1, 1, 0] })
       : progress.interpolate({ inputRange: [0, 0.66, 0.7, 0.82, 0.98, 1], outputRange: [0, 0, 1, 1, 0.35, 0] });
@@ -878,7 +880,7 @@ const ComboImpactBurst = memo(function ComboImpactBurst({
       }}
     />;
   });
-  return <>{renderBurst(0)}{renderBurst(1)}</>;
+  return <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { zIndex: 9000, elevation: 9000 }]}>{renderBurst(0)}{renderBurst(1)}</View>;
 });
 function HammerFragments({ progress, size }: { progress: Animated.Value; size: number }) {
   const fragments = [
@@ -957,6 +959,8 @@ const FlyingPetImpact = memo(function FlyingPetImpact({ image, impactImage, size
         });
       });
     };
+    // Follow the monster while the shot is alive. The parent still renders
+    // only one pet flight, so tracking does not create a second projectile.
     measure();
     const timer = setInterval(measure, TARGET_FRAME_SYNC_INTERVAL_MS);
     return () => { active = false; clearInterval(timer); };
@@ -964,10 +968,10 @@ const FlyingPetImpact = memo(function FlyingPetImpact({ image, impactImage, size
   if (!frame) return null;
   const impactLeft = frame.left + frame.dx;
   const impactTop = frame.top + frame.dy;
-  return <>
-    <Animated.Image pointerEvents="none" source={image} resizeMode="contain" style={{ position: "absolute", zIndex: 6000, width: size, height: size, left: frame.left, top: frame.top, opacity: progress.interpolate({ inputRange: [0, 0.82, 0.98, 1], outputRange: [1, 1, 1, 0] }), transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [0, frame.dx] }) }, { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [0, frame.dy] }) }, { rotate: frame.angle }, { scale: progress.interpolate({ inputRange: [0, 0.72, 1], outputRange: [0.5, 0.82, 1.1] }) }] }} />
-    <Animated.Image pointerEvents="none" source={impactImage} resizeMode="contain" style={{ position: "absolute", zIndex: 6010, width: size * 1.25, height: size * 1.25, left: impactLeft - size * 0.125, top: impactTop - size * 0.125, opacity: progress.interpolate({ inputRange: [0, 0.82, 0.92, 1], outputRange: [0, 0, 1, 0] }), transform: [{ scale: progress.interpolate({ inputRange: [0, 0.82, 0.92, 1], outputRange: [0.45, 0.45, 1, 1.2] }) }] }} />
-  </>;
+  return <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { zIndex: 9000, elevation: 9000 }]}>
+    <Animated.Image pointerEvents="none" source={image} resizeMode="contain" style={{ position: "absolute", zIndex: 9000, elevation: 9000, width: size, height: size, left: frame.left, top: frame.top, opacity: progress.interpolate({ inputRange: [0, 0.82, 0.98, 1], outputRange: [1, 1, 1, 0] }), transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [0, frame.dx] }) }, { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [0, frame.dy] }) }, { rotate: frame.angle }, { scale: progress.interpolate({ inputRange: [0, 0.72, 1], outputRange: [0.5, 0.82, 1.1] }) }] }} />
+    <Animated.Image pointerEvents="none" source={impactImage} resizeMode="contain" style={{ position: "absolute", zIndex: 9010, elevation: 9010, width: size * 1.25, height: size * 1.25, left: impactLeft - size * 0.125, top: impactTop - size * 0.125, opacity: progress.interpolate({ inputRange: [0, 0.82, 0.92, 1], outputRange: [0, 0, 1, 0] }), transform: [{ scale: progress.interpolate({ inputRange: [0, 0.82, 0.92, 1], outputRange: [0.45, 0.45, 1, 1.2] }) }] }} />
+  </View>;
 });
 const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, attackToken, impactToken, attackStyle, combo, paused = false, compact = false, portraitNarrow = false, landscape = false, phoneLandscape = false, androidPortrait = false, safeWidth = 360, travelDistance = 24, leftTravelExtension = 100, verticalTravel = 0, monster, displayName, isBoss, cardSize, motionValue, rootRef, monsterTargetRef, monsterTargetFrameRef, flyingAttacks, recycleWarning = false, remainingRecycles = 0 }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; impactToken: number; attackStyle: CompanionAttackStyle; combo: boolean; paused?: boolean; compact?: boolean; portraitNarrow?: boolean; landscape?: boolean; phoneLandscape?: boolean; androidPortrait?: boolean; safeWidth?: number; travelDistance?: number; leftTravelExtension?: number; verticalTravel?: number; monster: BattleAsset; displayName?: string; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; rootRef?: RefObject<View | null>; monsterTargetRef: RefObject<View | null>; monsterTargetFrameRef: { current: MonsterTargetFrame | null }; flyingAttacks: ActiveFlight[]; recycleWarning?: boolean; remainingRecycles?: number }) {
   const battleRef = useRef<View | null>(null);
@@ -1430,6 +1434,7 @@ export default function HomeScreen() {
   const [backgroundMusicVolume, setBackgroundMusicVolume] = useState(0.2);
   const [cardSelectVibrationEnabled, setCardSelectVibrationEnabled] = useState(true);
   const [screenShakeEnabled, setScreenShakeEnabled] = useState(false);
+  const [lowPerformanceMode, setLowPerformanceMode] = useState(false);
   const [fixedFontScale, setFixedFontScale] = useState(false);
   const [pendingGameMode, setPendingGameMode] = useState<GameMode | null>(null);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
@@ -1441,6 +1446,36 @@ export default function HomeScreen() {
   const [flyingCard, setFlyingCard] = useState<Card | null>(null);
   const [showFireworks, setShowFireworks] = useState(false);
   const [replayResult, setReplayResult] = useState<{ stage: number; previousScore: number; newScore: number; previousTime: number | null; newTime: number } | null>(null);
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const constants = Platform.constants as { isLowRamDevice?: boolean; TotalMemory?: number; totalMemory?: number };
+    const totalMemory = Number(constants.TotalMemory ?? constants.totalMemory ?? 0);
+    if (constants.isLowRamDevice === true || (totalMemory > 0 && totalMemory <= 3 * 1024 * 1024 * 1024)) {
+      setLowPerformanceMode(true);
+      return;
+    }
+    let frameCount = 0;
+    let droppedFrames = 0;
+    let previousTime = 0;
+    let frameId: number | null = null;
+    const sample = (timestamp: number) => {
+      if (previousTime > 0) {
+        const gap = timestamp - previousTime;
+        if (gap >= 50) droppedFrames += 1;
+      }
+      previousTime = timestamp;
+      frameCount += 1;
+      if (frameCount >= 30) {
+        setLowPerformanceMode(droppedFrames >= 4);
+        return;
+      }
+      frameId = requestAnimationFrame(sample);
+    };
+    frameId = requestAnimationFrame(sample);
+    return () => {
+      if (frameId !== null) cancelAnimationFrame(frameId);
+    };
+  }, []);
   const [comboBanner, setComboBanner] = useState<{ count: number } | null>(null);
   const comboBannerOpacity = useRef(new Animated.Value(0)).current;
   const comboBannerScale = useRef(new Animated.Value(0.72)).current;
@@ -1970,8 +2005,12 @@ export default function HomeScreen() {
     const isStartPeek = abilityKind === "peek-3" || abilityKind === "peek-3-cards" || abilityKind === "stock-first-card";
     if (!isStartPeek) return;
     if (badgePeekTimerRef.current) clearTimeout(badgePeekTimerRef.current);
-    badgePeekRestoreRef.current = { game: cloneGameState(game), paused };
-    const preview = cloneGameState(game);
+    // Always snapshot the last validated real board. If the effect is
+    // re-entered while a preview is visible, using `game` here would save the
+    // already-open preview and make all cards stay face up permanently.
+    const baseGame = cloneGameState(lastValidGameRef.current);
+    badgePeekRestoreRef.current = { game: baseGame, paused };
+    const preview = cloneGameState(baseGame);
     if (abilityKind === "peek-3") {
       preview.tableau = preview.tableau.map((pile) => pile.map((card) => ({ ...card, faceUp: true })));
     } else if (abilityKind === "peek-3-cards") {
@@ -2003,6 +2042,15 @@ export default function HomeScreen() {
     return () => {
       if (badgePeekTimerRef.current) clearTimeout(badgePeekTimerRef.current);
       badgePeekTimerRef.current = null;
+      // If the effect is restarted while the 3-second preview is visible,
+      // restore the real board before dropping the snapshot. Otherwise the
+      // temporary all-face-up board can become the permanent game state.
+      const restore = badgePeekRestoreRef.current;
+      if (restore && restore.game.level === game.level) {
+        gameRef.current = restore.game;
+        setGame(restore.game);
+        setPaused(restore.paused);
+      }
       badgePeekRestoreRef.current = null;
     };
   }, [activeBadgeId, badgeStartNonce, game.level, hydrated]);
@@ -3001,8 +3049,19 @@ export default function HomeScreen() {
         badgePeekTimerRef.current = null;
       }, 2000);
     }, 180000);
-    return () => clearInterval(timer);
-  }, [activeBadgeAbility, hydrated, paused]);
+    return () => {
+      clearInterval(timer);
+      if (badgePeekTimerRef.current) clearTimeout(badgePeekTimerRef.current);
+      badgePeekTimerRef.current = null;
+      const restore = badgePeekRestoreRef.current;
+      if (restore && restore.game.level === game.level) {
+        gameRef.current = restore.game;
+        setGame(restore.game);
+        setPaused(restore.paused);
+      }
+      badgePeekRestoreRef.current = null;
+    };
+  }, [activeBadgeAbility, hydrated]);
 
   const startNewGame = (level = game.level, resetProgress = false) => {
     setBadgeStartNonce((value) => value + 1);
@@ -3266,15 +3325,8 @@ export default function HomeScreen() {
   };
 
   const triggerHitFeedback = () => {
-    screenShake.stopAnimation();
-    screenShake.setValue(0);
-    const shakeAnimation = screenShakeEnabled ? Animated.sequence([
-        Animated.timing(screenShake, { toValue: 1, duration: 38, useNativeDriver: true }),
-        Animated.timing(screenShake, { toValue: -0.8, duration: 48, useNativeDriver: true }),
-        Animated.timing(screenShake, { toValue: 0.55, duration: 42, useNativeDriver: true }),
-        Animated.timing(screenShake, { toValue: 0, duration: 62, useNativeDriver: true }),
-      ]) : Animated.delay(0);
-    shakeAnimation.start();
+    // Screen shake was removed globally; keep this hook as a no-op so combat
+    // timing and card logic do not depend on a visual-only effect.
   };
 
   const animateFlight = (card: Card, flaming = false, pet = false) => {
@@ -3305,7 +3357,9 @@ export default function HomeScreen() {
     };
     // Keep gameplay and damage intact, but cap only the visual projectiles so
     // rapid card moves cannot create an unbounded animated image stack.
-    setFlyingAttacks((current) => [...current, flight].slice(-4));
+    // Keep exactly one live pet shot. A second shot must replace an interrupted
+    // or still-flying visual instead of revealing it later as a ghost shot.
+    setFlyingAttacks((current) => [...current.filter((active) => pet ? active.variant !== "pet" : true), flight].slice(-4));
     // The projectile now lives in the monster's moving native wrapper, so it can
     // safely use the native driver and always finishes at that wrapper's center.
     const animation = Animated.timing(progress, { toValue: 1, duration: pet ? FLYING_CARD_DURATION * 1.42045 : (flaming ? FLAMING_CARD_FLIGHT_DURATION : FLYING_CARD_DURATION), easing: Easing.out(Easing.cubic), useNativeDriver: true });
@@ -4270,22 +4324,12 @@ export default function HomeScreen() {
     bossWarningStageRef.current = battleContent.stage;
     setShowBossWarning(true);
     bossIntroProgress.setValue(0);
-    screenShake.setValue(0);
     const warning = Animated.timing(bossIntroProgress, { toValue: 1, duration: 1150, easing: Easing.out(Easing.cubic), useNativeDriver: true });
-    const shake = screenShakeEnabled ? Animated.sequence([
-      Animated.delay(110),
-      Animated.timing(screenShake, { toValue: 1, duration: 80, useNativeDriver: true }),
-      Animated.timing(screenShake, { toValue: -1, duration: 80, useNativeDriver: true }),
-      Animated.timing(screenShake, { toValue: 0.75, duration: 70, useNativeDriver: true }),
-      Animated.timing(screenShake, { toValue: -0.55, duration: 70, useNativeDriver: true }),
-      Animated.timing(screenShake, { toValue: 0.3, duration: 60, useNativeDriver: true }),
-      Animated.timing(screenShake, { toValue: 0, duration: 90, useNativeDriver: true }),
-    ]) : Animated.delay(0);
-    Animated.parallel([warning, shake]).start(({ finished }) => {
+    warning.start(({ finished }) => {
       if (finished) setShowBossWarning(false);
     });
-    return () => { warning.stop(); shake.stop(); };
-  }, [battleContent.isBoss, battleContent.stage, bossIntroProgress, hydrated, screenShake]);
+    return () => { warning.stop(); };
+  }, [battleContent.isBoss, battleContent.stage, bossIntroProgress, hydrated]);
 
   const snapshotRankingRows = (leaderboardSnapshotQuery.data?.rows ?? []) as RankingRow[];
   const topRankingRows = (leaderboardQuery.data ?? []) as RankingRow[];
@@ -4393,7 +4437,7 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
-        <Animated.View ref={rootRef} style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding, transform: screenShakeEnabled ? [{ translateX: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [-5, 5] }) }, { translateY: screenShake.interpolate({ inputRange: [-1, 1], outputRange: [2, -2] }) }] : undefined }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
+        <Animated.View ref={rootRef} style={[styles.root, { paddingTop: rootTopPadding, paddingBottom: rootBottomPadding }, isLandscape && styles.rootLandscape, phoneLandscape && styles.rootPhoneLandscape]}>
         <MedievalBackdrop source={battleContent.background} />
         {showBossWarning ? <Animated.View pointerEvents="none" style={[styles.bossWarning, { opacity: bossWarningOpacity, transform: [{ scale: bossWarningScale }] }]}><Text style={styles.bossWarningEyebrow}>WARNING · BOSS INCOMING</Text><Text style={styles.bossWarningTitle}>{battleContent.monster.name}</Text><Text style={styles.bossWarningCopy}>새로운 수호자가 전장에 나타났습니다</Text></Animated.View> : null}
         {showBossPrepReward ? <View style={styles.bossPrepRewardPopup}><Text style={styles.bossPrepRewardTitle}>보스 준비 보너스 획득!</Text><Text style={styles.bossPrepRewardCopy}>망치 +1</Text></View> : null}
@@ -4531,7 +4575,7 @@ export default function HomeScreen() {
         </Animated.View>
         {hammerMode && game.waste.length > 0 ? <View pointerEvents="none" style={[styles.hammerModeHint, { top: Math.max(8, rootTopPadding + 4) }]}><Text style={styles.hammerModeHintText}>{tr("웨이스트 맨 아래로 이동 · 망치 2개", "Move waste to bottom · 2 hammers")}</Text></View> : null}
 
-        {comboImpactBurst ? <ComboImpactBurst frame={comboImpactBurst.frame} attackStyle={companionAttackStyle} token={comboImpactBurst.token} /> : null}
+        {comboImpactBurst ? <ComboImpactBurst frame={comboImpactBurst.frame} attackStyle={companionAttackStyle} token={comboImpactBurst.token} lowPerformance={lowPerformanceMode} /> : null}
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
         <CompanionAnchor companion={selectedCompanion} displayName={getLocalizedBattleName(selectedCompanion.id, selectedCompanion.name, language)} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} attackFlight={undefined} onPress={() => undefined} anchorRef={(node) => { companionAnchorRef.current = node; }} />
         {showActiveBadgeNotice && activeBadgeId && activeBadgeImage ? <Animated.View pointerEvents="none" style={{ position: "absolute", left: Math.max(4, (safeScreenWidth - (94 * 3 + 8 * 2)) / 2 + 94 * 2 + 8 + 19), bottom: Math.max(0, bottomControlsBottom - 5) + 58, width: 94, alignItems: "center", zIndex: 90, elevation: 90, opacity: activeBadgeNoticeMotion, transform: [{ translateY: activeBadgeNoticeMotion.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}><Image source={activeBadgeImage} resizeMode="contain" style={{ width: 94, height: 94 }} /><Text numberOfLines={4} style={{ color: "#FFF4B8", fontSize: 9, lineHeight: 11, fontWeight: "900", textAlign: "center", textShadowColor: "#1B2340", textShadowRadius: 3 }}>{getBadgeAbilityText(activeBadgeId, language)}</Text></Animated.View> : null}
@@ -4555,7 +4599,6 @@ export default function HomeScreen() {
           <Text style={styles.autoFinishSummaryEyebrow}>{tr("자동 정리 완료", "AUTO FINISH COMPLETE")}</Text>
           <Text style={styles.autoFinishSummaryTitle}>{tr("최종 콤보", "FINAL COMBO")}</Text>
           <Text style={styles.autoFinishSummaryCombo}>×{formatLocalizedNumber(autoFinishSummary.comboCount, language)}</Text>
-          <View style={styles.autoFinishSummaryDivider} />
           <Text style={styles.autoFinishSummaryScoreLabel}>{tr("총 획득 점수", "TOTAL SCORE GAIN")}</Text>
           <Text style={styles.autoFinishSummaryScore}>+{formatLocalizedNumber(autoFinishSummary.totalScore, language)}</Text>
         </Animated.View> : null}
@@ -4997,10 +5040,6 @@ export default function HomeScreen() {
                     <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: cardSelectVibrationEnabled }} onPress={() => setCardSelectVibrationPreference(!cardSelectVibrationEnabled)} style={({ pressed }) => [styles.audioOption, pressed && styles.pressed]}>
                       <View style={[styles.checkBox, cardSelectVibrationEnabled && styles.checkBoxChecked]}>{cardSelectVibrationEnabled ? <Text style={styles.checkMark}>✓</Text> : null}</View><MedievalIcon name="vibration" size={23} />
                       <View style={styles.audioOptionCopy}><Text style={[styles.audioOptionTitle, compactLanguageText && styles.audioOptionTitleCompactLanguage]}>{tr("카드 선택 진동", "Card Vibration")}</Text><Text style={[styles.audioOptionSubtitle, compactLanguageText && styles.audioOptionSubtitleCompactLanguage]}>{tr("카드를 선택할 때 가볍게 진동", "Light vibration when selecting cards")}</Text></View>
-                    </Pressable>
-                    <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: screenShakeEnabled }} onPress={() => setScreenShakePreference(!screenShakeEnabled)} style={({ pressed }) => [styles.audioOption, pressed && styles.pressed]}>
-                      <View style={[styles.checkBox, screenShakeEnabled && styles.checkBoxChecked]}>{screenShakeEnabled ? <Text style={styles.checkMark}>✓</Text> : null}</View><MedievalIcon name="shake" size={23} />
-                      <View style={styles.audioOptionCopy}><Text style={[styles.audioOptionTitle, compactLanguageText && styles.audioOptionTitleCompactLanguage]}>{tr("타격 화면 흔들림", "Hit Screen Shake")}</Text><Text style={[styles.audioOptionSubtitle, compactLanguageText && styles.audioOptionSubtitleCompactLanguage]}>{tr("공격 명중 시 화면 흔들림 효과", "Shake the screen on hit")}</Text></View>
                     </Pressable>
                   </View>
                   <Pressable onPress={() => { setPaused(false); setSheet(null); }} style={({ pressed }) => [styles.sheetPrimaryButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>{tr("닫기", "Close")}</Text></Pressable>
@@ -5464,12 +5503,11 @@ const styles = StyleSheet.create({
   bottomButtonText: { color: "#FFFDF8", fontSize: 12, fontWeight: "900", letterSpacing: 0.7 },
   bottomButtonContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   comboImpactBorder: { ...StyleSheet.absoluteFillObject, zIndex: 680, elevation: 680, borderWidth: 7, borderColor: "#FFD45A", borderRadius: 14, shadowColor: "#FF8A3D", shadowOpacity: 0.9, shadowRadius: 12 },
-  autoFinishSummary: { position: "absolute", top: "29%", left: 24, right: 24, zIndex: 760, elevation: 760, alignItems: "center", alignSelf: "center", paddingHorizontal: 24, paddingVertical: 18, borderRadius: 24, borderWidth: 3, borderColor: "#FFD45A", backgroundColor: "rgba(20, 34, 65, 0.96)", shadowColor: "#FFB84D", shadowOpacity: 0.82, shadowRadius: 18 },
+  autoFinishSummary: { position: "absolute", top: "29%", left: 24, right: 24, zIndex: 760, elevation: 760, alignItems: "center", alignSelf: "center" },
   autoFinishSummaryLandscape: { top: "22%" },
   autoFinishSummaryEyebrow: { color: "#77D6C3", fontSize: 11, fontWeight: "900", letterSpacing: 1.8, textAlign: "center" },
   autoFinishSummaryTitle: { color: "#FFF3B0", fontSize: 17, fontWeight: "900", marginTop: 5, letterSpacing: 1 },
   autoFinishSummaryCombo: { color: "#FFFFFF", fontSize: 52, lineHeight: 58, fontWeight: "900", textShadowColor: "#FF8A3D", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
-  autoFinishSummaryDivider: { width: 120, height: 2, marginVertical: 5, backgroundColor: "#F3C969" },
   autoFinishSummaryScoreLabel: { color: "#BBD0E9", fontSize: 11, fontWeight: "800", letterSpacing: 0.8 },
   autoFinishSummaryScore: { color: "#FFE27A", fontSize: 28, fontWeight: "900", marginTop: 3, textShadowColor: "#6B2B1E", textShadowOffset: { width: 1, height: 2 }, textShadowRadius: 5 },
   timeBonusFloat: { position: "absolute", top: "16%", left: 0, right: 0, zIndex: 710, elevation: 710, alignItems: "center" },
