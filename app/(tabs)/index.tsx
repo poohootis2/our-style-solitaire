@@ -220,6 +220,7 @@ const DAILY_AD_HAMMER_REWARD_KEY = "our-style-solitaire:daily-ad-hammer-reward";
 const DAILY_AD_APP_VERSION_KEY = "our-style-solitaire:daily-ad-app-version";
 const CURRENT_AD_APP_VERSION = `${Constants.expoConfig?.version ?? "2.0.0"}+${Constants.expoConfig?.android?.versionCode ?? 56}`;
 const CARD_BACK_THEME_KEY = "our-style-solitaire:card-back-theme";
+const PERFORMANCE_MODE_KEY = "our-style-solitaire:performance-mode";
 const BOSS_BADGES_KEY = "our-style-solitaire:boss-badges";
 const ACTIVE_BADGE_KEY = "our-style-solitaire:active-badge";
 const GOOGLE_LOGIN_PROMPT_DATE_KEY = "our-style-solitaire:google-login-prompt-date";
@@ -1422,6 +1423,7 @@ export default function HomeScreen() {
   const [previewTimeAttackOpenTableau, setPreviewTimeAttackOpenTableau] = useState(false);
   const timeAttackPreviewDealMotion = useRef(new Animated.Value(1)).current;
   const [showUiGuideModal, setShowUiGuideModal] = useState(false);
+  const [showPerformanceModePrompt, setShowPerformanceModePrompt] = useState(false);
   const [unlockedBossBadges, setUnlockedBossBadges] = useState<string[]>([]);
   const [earnedBadge, setEarnedBadge] = useState<{ id: string; name: string; image: number } | null>(null);
   const [showBadgeCollection, setShowBadgeCollection] = useState(false);
@@ -1450,7 +1452,8 @@ export default function HomeScreen() {
   const [backgroundMusicVolume, setBackgroundMusicVolume] = useState(0.2);
   const [cardSelectVibrationEnabled, setCardSelectVibrationEnabled] = useState(true);
   const [screenShakeEnabled, setScreenShakeEnabled] = useState(false);
-  const [lowPerformanceMode, setLowPerformanceMode] = useState(false);
+  const [performanceMode, setPerformanceMode] = useState<"high" | "low">("high");
+  const lowPerformanceMode = performanceMode === "low";
   const [fixedFontScale, setFixedFontScale] = useState(false);
   const [pendingGameMode, setPendingGameMode] = useState<GameMode | null>(null);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
@@ -1462,36 +1465,6 @@ export default function HomeScreen() {
   const [flyingCard, setFlyingCard] = useState<Card | null>(null);
   const [showFireworks, setShowFireworks] = useState(false);
   const [replayResult, setReplayResult] = useState<{ stage: number; previousScore: number; newScore: number; previousTime: number | null; newTime: number } | null>(null);
-  useEffect(() => {
-    if (Platform.OS !== "android") return;
-    const constants = Platform.constants as { isLowRamDevice?: boolean; TotalMemory?: number; totalMemory?: number };
-    const totalMemory = Number(constants.TotalMemory ?? constants.totalMemory ?? 0);
-    if (constants.isLowRamDevice === true || (totalMemory > 0 && totalMemory <= 3 * 1024 * 1024 * 1024)) {
-      setLowPerformanceMode(true);
-      return;
-    }
-    let frameCount = 0;
-    let droppedFrames = 0;
-    let previousTime = 0;
-    let frameId: number | null = null;
-    const sample = (timestamp: number) => {
-      if (previousTime > 0) {
-        const gap = timestamp - previousTime;
-        if (gap >= 50) droppedFrames += 1;
-      }
-      previousTime = timestamp;
-      frameCount += 1;
-      if (frameCount >= 30) {
-        setLowPerformanceMode(droppedFrames >= 4);
-        return;
-      }
-      frameId = requestAnimationFrame(sample);
-    };
-    frameId = requestAnimationFrame(sample);
-    return () => {
-      if (frameId !== null) cancelAnimationFrame(frameId);
-    };
-  }, []);
   const [comboBanner, setComboBanner] = useState<{ count: number } | null>(null);
   const comboBannerOpacity = useRef(new Animated.Value(0)).current;
   const comboBannerScale = useRef(new Animated.Value(0.72)).current;
@@ -2537,6 +2510,12 @@ export default function HomeScreen() {
     showTimedHint(enabled ? "타격 화면 흔들림을 켰습니다." : "타격 화면 흔들림을 껐습니다.");
     haptic.light();
   };
+  const setPerformanceModePreference = (mode: "high" | "low") => {
+    setPerformanceMode(mode);
+    void AsyncStorage.setItem(PERFORMANCE_MODE_KEY, mode);
+    showTimedHint(mode === "high" ? "고사양 모드로 설정했습니다." : "저사양 모드로 설정했습니다.");
+    haptic.light();
+  };
 
   useEffect(() => () => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -2552,7 +2531,7 @@ export default function HomeScreen() {
     let mounted = true;
     const loadLocalGame = async () => {
       try {
-        const [activeGameValue, recordsValue, updateNoticeValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, cardSelectVibrationValue, screenShakeValue, selectedCompanionValue, unlockedPetsValue, randomOwnedPetPerStageValue, bossPrepValue, attendanceValue, hammerChargesValue, dailyAdRewardValue, dailyAdAppVersionValue, cardBackThemeValue, languageValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, UPDATE_NOTICE_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, CARD_SELECT_VIBRATION_KEY, SCREEN_SHAKE_ENABLED_KEY, SELECTED_COMPANION_KEY, UNLOCKED_PETS_KEY, RANDOM_OWNED_PET_PER_STAGE_KEY, BOSS_PREP_BONUSES_KEY, ATTENDANCE_KEY, HAMMER_CHARGES_KEY, DAILY_AD_HAMMER_REWARD_KEY, DAILY_AD_APP_VERSION_KEY, CARD_BACK_THEME_KEY, LANGUAGE_KEY]);
+        const [activeGameValue, recordsValue, updateNoticeValue, soundEffectsValue, backgroundMusicValue, soundEffectsVolumeValue, backgroundMusicVolumeValue, cardSelectVibrationValue, screenShakeValue, selectedCompanionValue, unlockedPetsValue, randomOwnedPetPerStageValue, bossPrepValue, attendanceValue, hammerChargesValue, dailyAdRewardValue, dailyAdAppVersionValue, cardBackThemeValue, performanceModeValue, languageValue] = await AsyncStorage.multiGet([ACTIVE_GAME_KEY, RECORDS_KEY, UPDATE_NOTICE_KEY, SOUND_ENABLED_KEY, BACKGROUND_MUSIC_ENABLED_KEY, SOUND_EFFECTS_VOLUME_KEY, BACKGROUND_MUSIC_VOLUME_KEY, CARD_SELECT_VIBRATION_KEY, SCREEN_SHAKE_ENABLED_KEY, SELECTED_COMPANION_KEY, UNLOCKED_PETS_KEY, RANDOM_OWNED_PET_PER_STAGE_KEY, BOSS_PREP_BONUSES_KEY, ATTENDANCE_KEY, HAMMER_CHARGES_KEY, DAILY_AD_HAMMER_REWARD_KEY, DAILY_AD_APP_VERSION_KEY, CARD_BACK_THEME_KEY, PERFORMANCE_MODE_KEY, LANGUAGE_KEY]);
         const [modeProgressValue, bossBadgesValue, stageAccessRepairValue] = await Promise.all([AsyncStorage.getItem(MODE_PROGRESS_KEY), AsyncStorage.getItem(BOSS_BADGES_KEY), AsyncStorage.getItem(STAGE_ACCESS_REPAIR_KEY)]);
         if (bossBadgesValue) {
           const savedBadges = JSON.parse(bossBadgesValue);
@@ -2627,6 +2606,7 @@ export default function HomeScreen() {
         if (backgroundMusicVolumeValue[1]) setBackgroundMusicVolume(clampVolume(Number(backgroundMusicVolumeValue[1])));
         if (cardSelectVibrationValue[1]) setCardSelectVibrationEnabled(cardSelectVibrationValue[1] === "true");
         if (screenShakeValue[1]) setScreenShakeEnabled(screenShakeValue[1] === "true");
+        if (performanceModeValue[1] === "low" || performanceModeValue[1] === "high") setPerformanceMode(performanceModeValue[1]);
         if (randomOwnedPetPerStageValue[1]) setRandomOwnedPetPerStage(randomOwnedPetPerStageValue[1] === "true");
         if (languageValue[1] === "es-MX") {
           // Keep older Mexican-Spanish preferences compatible with the single Spanish picker entry.
@@ -2691,6 +2671,11 @@ export default function HomeScreen() {
     loadLocalGame();
     return () => { mounted = false; };
   }, []);
+  useEffect(() => {
+    if (!hydrated) return;
+    const timer = setTimeout(() => setShowPerformanceModePrompt(true), 350);
+    return () => clearTimeout(timer);
+  }, [hydrated]);
   useEffect(() => {
     const userId = authQuery.data?.id;
     if (!hydrated || !userId || !cloudStateQuery.isFetched || cloudHydratedUserRef.current === userId) return;
@@ -4638,6 +4623,17 @@ export default function HomeScreen() {
 
 
 
+        <Modal transparent visible={showPerformanceModePrompt} animationType="fade" onRequestClose={() => setShowPerformanceModePrompt(false)}>
+          <View style={styles.confirmBackdrop}>
+            <View style={styles.timeOutCard} onStartShouldSetResponder={() => true}>
+              <Text style={styles.sheetEyebrow}>PERFORMANCE MODE</Text>
+              <Text style={[styles.sheetTitle, compactLanguageText && styles.sheetTitleCompactLanguage]}>{tr("게임 성능 모드 선택", "Choose performance mode")}</Text>
+              <Text style={[styles.sheetCopy, compactLanguageText && styles.sheetCopyCompactLanguage]}>{tr("기본값은 고사양 모드입니다. 저사양 기기에서 콤보가 끊기면 저사양 모드를 선택하세요.", "High mode is the default. Choose Low mode if combos stutter on a lower-end device.")}</Text>
+              <Pressable accessibilityRole="button" onPress={() => { setPerformanceModePreference("high"); setShowPerformanceModePrompt(false); }} style={({ pressed }) => [styles.sheetPrimaryButton, performanceMode === "high" && styles.performanceModeSelectedButton, pressed && styles.pressed]}><Text style={styles.sheetPrimaryText}>{tr("고사양 모드", "High Performance")}</Text></Pressable>
+              <Pressable accessibilityRole="button" onPress={() => { setPerformanceModePreference("low"); setShowPerformanceModePrompt(false); }} style={({ pressed }) => [styles.sheetSecondaryButton, styles.performanceLowButton, performanceMode === "low" && styles.performanceModeSelectedButton, { marginTop: 9 }, pressed && styles.pressed]}><Text style={styles.sheetSecondaryText}>{tr("저사양 모드", "Low Performance")}</Text></Pressable>
+            </View>
+          </View>
+        </Modal>
         <Modal transparent visible={showGoogleLoginPrompt} animationType="fade" onRequestClose={() => setShowGoogleLoginPrompt(false)}>
           <Pressable style={styles.confirmBackdrop} onPress={() => setShowGoogleLoginPrompt(false)}>
             <View style={styles.timeOutCard} onStartShouldSetResponder={() => true}>
@@ -4974,7 +4970,8 @@ export default function HomeScreen() {
                   </View>
                   <View style={styles.sheetRow}>
                     {showPreviewAttackTools ? <Pressable accessibilityRole="button" accessibilityLabel="보스 배지 미리보기" onPress={previewBadge} style={({ pressed }) => [styles.sheetSecondaryButton, styles.previewBadgeButton, pressed && styles.pressed]}><View style={styles.menuButtonContent}><MedievalIcon name="badge" size={18} /><Text style={styles.sheetSecondaryText}>{tr("배지 미리보기", "Badge Preview")}</Text></View></Pressable> : null}
-                    <Pressable accessibilityRole="button" accessibilityLabel="카드 뒷면 디자인 선택" onPress={() => { haptic.light(); setSheet("cardBacks"); }} style={({ pressed }) => [styles.sheetSecondaryButton, styles.cardBacksMenuButton, pressed && styles.pressed]}><View style={styles.menuButtonContent}><MedievalIcon name="card" size={18} accent="#A9B8FF" /><Text numberOfLines={2} style={styles.sheetSecondaryText}>{tr("카드 뒷면 디자인", "Card Back Designs")}</Text></View></Pressable>
+                    <Pressable accessibilityRole="button" accessibilityLabel="카드 뒷면 디자인 선택" onPress={() => { haptic.light(); setSheet("cardBacks"); }} style={({ pressed }) => [styles.sheetSecondaryButton, styles.cardBacksMenuButton, { flex: 0.5, minHeight: 38, paddingHorizontal: 5 }, pressed && styles.pressed]}><View style={styles.menuButtonContent}><MedievalIcon name="card" size={15} accent="#A9B8FF" /><Text numberOfLines={2} style={[styles.sheetSecondaryText, { fontSize: 10 }]}>{tr("카드 뒷면", "Card Back")}</Text></View></Pressable>
+                    <Pressable accessibilityRole="button" accessibilityLabel="성능 모드 전환" onPress={() => setPerformanceModePreference(performanceMode === "high" ? "low" : "high")} style={({ pressed }) => [styles.sheetSecondaryButton, styles.cardBacksMenuButton, { flex: 0.5, minHeight: 38, paddingHorizontal: 5 }, performanceMode === "low" && styles.performanceLowButton, pressed && styles.pressed]}><View style={styles.menuButtonContent}><MedievalIcon name="auto" size={15} accent={performanceMode === "high" ? "#FFD166" : "#9DEBFF"} /><Text numberOfLines={2} style={[styles.sheetSecondaryText, { fontSize: 10 }]}>{performanceMode === "high" ? tr("고사양", "High") : tr("저사양", "Low")}</Text></View></Pressable>
                   </View>
                   {showPreviewAttackTools ? <Pressable accessibilityRole="button" accessibilityLabel="랭킹 스테이지 클리어 미리보기" onPress={runPreviewRankingDemo} style={({ pressed }) => [styles.sheetSecondaryButton, styles.previewBadgeButton, pressed && styles.pressed]}><View style={styles.menuButtonContent}><MedievalIcon name="records" size={18} accent="#77D6C3" /><Text numberOfLines={2} style={styles.sheetSecondaryText}>{tr("랭킹 클리어 테스트", "Ranking Clear Test")}</Text></View></Pressable> : null}
                   {showPreviewAttackTools ? <Pressable accessibilityRole="button" accessibilityLabel="타임어택 오픈 태블로 미리보기 시작" onPress={runPreviewTimeAttackOpenTableau} style={({ pressed }) => [styles.sheetSecondaryButton, styles.previewTimeAttackButton, pressed && styles.pressed]}><View style={styles.menuButtonContent}><MedievalIcon name="card" size={18} accent="#9DEBFF" /><Text numberOfLines={2} style={styles.sheetSecondaryText}>{tr("타임어택 오픈카드 테스트", "Time Attack Open-Card Test")}</Text></View></Pressable> : null}
@@ -5782,6 +5779,8 @@ const styles = StyleSheet.create({
   profileMenuButton: { backgroundColor: "#244D78", borderColor: "#FFE08A" },
   badgesMenuButton: { backgroundColor: "#675528", borderColor: "#FFE27A" },
   cardBacksMenuButton: { backgroundColor: "#414579", borderColor: "#A9B8FF" },
+  performanceLowButton: { backgroundColor: "#24536A", borderColor: "#9DEBFF" },
+  performanceModeSelectedButton: { borderWidth: 2, borderColor: "#FFE27A" },
   menuButtonContent: { width: "100%", minHeight: 34, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
   profileMenuAvatar: { width: 23, height: 23, borderRadius: 12, borderWidth: 1.5, borderColor: "#FFF0B3" },
   menuCompanionIcon: { width: 22, height: 22 },
