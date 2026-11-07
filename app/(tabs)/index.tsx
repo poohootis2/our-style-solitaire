@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState, type ComponentProps, type RefObject } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ComponentProps, type RefObject } from "react";
 import { Alert, Animated, AppState, Easing, FlatList, Image, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text as RNText, TextInput as RNTextInput, useWindowDimensions, View, type ImageSourcePropType } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
@@ -84,6 +84,7 @@ type ActiveFlight = {
 };
 type FoundationMoveFlight = { id: number; card: Card; fromLeft: number; fromTop: number; deltaX: number; deltaY: number; progress: Animated.Value };
 type MonsterTargetFrame = { centerX: number; centerY: number; width: number; height: number };
+type MonsterAvoidRect = { left: number; top: number; width: number; height: number };
 type GameMode = "unlimited" | "timeAttack";
 type RankingViewMode = "stage" | "overall";
 type Language = SupportedLanguage;
@@ -457,14 +458,14 @@ const CompanionAnchor = memo(function CompanionAnchor({ companion, displayName, 
   const attackTranslateY = 0;
   const flightScale = attackFlight ? attackFlight.progress.interpolate({ inputRange: [0, 0.75, 1, 2, 2.35, 3], outputRange: [1.44, 1.84, 2, 2, 1.8, 1.44] }) : 1;
   const companionImage = getResponsiveBattleImage(companion, size);
-  return <Animated.View ref={anchorRef} pointerEvents="none" onLayout={onLayout} style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom, transform: [{ translateX: horizontalShift }, { scale: attackScale }] }]}> 
+  return <Animated.View ref={anchorRef} pointerEvents="none" onLayout={onLayout} style={[styles.companionAnchor, { width: size, height: size + 58, left, bottom, transform: [{ translateX: horizontalShift }, { scale: attackScale }] }]}>
     <Pressable pointerEvents="none" accessibilityRole="button" accessibilityLabel={`${displayName ?? companion.name}, 막힘 도움 보기`} onPress={onPress} style={({ pressed }) => [styles.companionPressTarget, pressed && styles.companionPressed]}>
-      <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX: attackTranslateX }, { translateY: attackTranslateY }, { scale: flightScale }, { translateX }, { translateY }, { rotate }] }]}> 
+      <Animated.View pointerEvents="none" style={[styles.companionImageFrame, { width: size, height: size, left: 0, top: 0, transform: [{ translateX: attackTranslateX }, { translateY: attackTranslateY }, { scale: flightScale }, { translateX }, { translateY }, { rotate }] }]}>
         <View pointerEvents="none" style={[styles.companionGroundShadow, { width: size * 0.7, height: Math.max(5, size * 0.12), left: size * 0.15, top: size * 0.82 }]} />
         <Image source={companionImage} fadeDuration={0} resizeMode="contain" style={{ width: size, height: size }} accessibilityLabel={`${companion.name}, 전투 동료`} />
       </Animated.View>
     </Pressable>
-    <View pointerEvents="none" accessibilityLabel={`현재 펫 ${displayName ?? companion.name}, 속성 ${ATTACK_STYLE_LABELS[attackStyle]}`} style={[styles.companionAttributeLabel, { top: size + 4, width: getCompanionLabelWidth(displayName ?? companion.name, size) }]}> 
+    <View pointerEvents="none" accessibilityLabel={`현재 펫 ${displayName ?? companion.name}, 속성 ${ATTACK_STYLE_LABELS[attackStyle]}`} style={[styles.companionAttributeLabel, { top: size + 4, width: getCompanionLabelWidth(displayName ?? companion.name, size) }]}>
       <View style={[styles.companionAttributeDot, { backgroundColor: companionAttackColors[attackStyle] }]} />
       <Text style={styles.companionAttributeText} numberOfLines={1}>{displayName ?? companion.name}</Text>
     </View>
@@ -827,16 +828,19 @@ function HitExplosion({ attackStyle, progress, size }: { attackStyle: CompanionA
 }
 const ComboImpactBurst = memo(function ComboImpactBurst({
   frame,
+  frameRef,
   attackStyle,
   token,
   lowPerformance = false,
 }: {
   frame: MonsterTargetFrame;
+  frameRef?: { current: MonsterTargetFrame | null };
   attackStyle: CompanionAttackStyle;
   token: number;
   lowPerformance?: boolean;
 }) {
   const progress = useRef(new Animated.Value(0)).current;
+  const [liveFrame, setLiveFrame] = useState<MonsterTargetFrame | null>(frameRef?.current ?? frame);
   useEffect(() => {
     progress.stopAnimation();
     progress.setValue(0);
@@ -847,6 +851,16 @@ const ComboImpactBurst = memo(function ComboImpactBurst({
       useNativeDriver: true,
     }).start();
   }, [lowPerformance, progress, token]);
+  useEffect(() => {
+    if (!frameRef) return;
+    setLiveFrame(frameRef.current ?? frame);
+    const timer = setInterval(() => {
+      const next = frameRef.current;
+      if (next) setLiveFrame(next);
+    }, lowPerformance ? 120 : 50);
+    return () => clearInterval(timer);
+  }, [frame, frameRef, lowPerformance, token]);
+  const renderFrame = liveFrame ?? frame;
   const offsets = [
     { x: -0.28, y: -0.18, rotate: "-18deg" },
     { x: 0.22, y: -0.2, rotate: "14deg" },
@@ -854,7 +868,7 @@ const ComboImpactBurst = memo(function ComboImpactBurst({
     { x: 0.3, y: 0.18, rotate: "19deg" },
     { x: 0, y: 0, rotate: "0deg" },
   ];
-  const size = Math.max(42, Math.min(86, frame.width * 0.62));
+  const size = Math.max(42, Math.min(86, renderFrame.width * 0.62));
   const renderBurst = (batch: 0 | 1) => (lowPerformance ? offsets.slice(0, 3) : offsets).map((offset, index) => {
     const imageOpacity = batch === 0
       ? progress.interpolate({ inputRange: [0, 0.04, 0.16, 0.28], outputRange: [0, 1, 1, 0] })
@@ -864,7 +878,6 @@ const ComboImpactBurst = memo(function ComboImpactBurst({
       : progress.interpolate({ inputRange: [0, 0.66, 0.72, 0.84, 1], outputRange: [0.35, 0.35, 0.82, 1.18, 0.72] });
     const spread = size * (1 + (batch === 1 ? 0.08 : 0));
     return <Animated.Image
-      pointerEvents="none"
       key={`${token}-${batch}-${index}`}
       source={HIT_EXPLOSION_ART_BY_STYLE[attackStyle]}
       resizeMode="contain"
@@ -874,8 +887,8 @@ const ComboImpactBurst = memo(function ComboImpactBurst({
 
         width: size,
         height: size,
-        left: frame.centerX - size * 0.5 + offset.x * spread,
-        top: frame.centerY - size * 0.5 + offset.y * spread,
+        left: renderFrame.centerX - size * 0.5 + offset.x * spread,
+        top: renderFrame.centerY - size * 0.5 + offset.y * spread,
         opacity: imageOpacity,
         transform: [{ scale: imageScale }, { rotate: offset.rotate }],
       }}
@@ -970,11 +983,11 @@ const FlyingPetImpact = memo(function FlyingPetImpact({ image, impactImage, size
   const impactLeft = frame.left + frame.dx;
   const impactTop = frame.top + frame.dy;
   return <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { zIndex: 9000, elevation: 9000 }]}>
-    <Animated.Image pointerEvents="none" source={image} resizeMode="contain" style={{ position: "absolute", zIndex: 9000, elevation: 9000, width: size, height: size, left: frame.left, top: frame.top, opacity: progress.interpolate({ inputRange: [0, 0.82, 0.98, 1], outputRange: [1, 1, 1, 0] }), transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [0, frame.dx] }) }, { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [0, frame.dy] }) }, { rotate: frame.angle }, { scale: progress.interpolate({ inputRange: [0, 0.72, 1], outputRange: [0.5, 0.82, 1.1] }) }] }} />
-    <Animated.Image pointerEvents="none" source={impactImage} resizeMode="contain" style={{ position: "absolute", zIndex: 9010, elevation: 9010, width: size * 1.25, height: size * 1.25, left: impactLeft - size * 0.125, top: impactTop - size * 0.125, opacity: progress.interpolate({ inputRange: [0, 0.82, 0.92, 1], outputRange: [0, 0, 1, 0] }), transform: [{ scale: progress.interpolate({ inputRange: [0, 0.82, 0.92, 1], outputRange: [0.45, 0.45, 1, 1.2] }) }] }} />
+    <Animated.Image source={image} resizeMode="contain" style={{ position: "absolute", zIndex: 9000, width: size, height: size, left: frame.left, top: frame.top, opacity: progress.interpolate({ inputRange: [0, 0.82, 0.98, 1], outputRange: [1, 1, 1, 0] }), transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [0, frame.dx] }) }, { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [0, frame.dy] }) }, { rotate: frame.angle }, { scale: progress.interpolate({ inputRange: [0, 0.72, 1], outputRange: [0.5, 0.82, 1.1] }) }] }} />
+    <Animated.Image source={impactImage} resizeMode="contain" style={{ position: "absolute", zIndex: 9010, width: size * 1.25, height: size * 1.25, left: impactLeft - size * 0.125, top: impactTop - size * 0.125, opacity: progress.interpolate({ inputRange: [0, 0.82, 0.92, 1], outputRange: [0, 0, 1, 0] }), transform: [{ scale: progress.interpolate({ inputRange: [0, 0.82, 0.92, 1], outputRange: [0.45, 0.45, 1, 1.2] }) }] }} />
   </View>;
 });
-const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, attackToken, impactToken, attackStyle, combo, paused = false, compact = false, portraitNarrow = false, landscape = false, phoneLandscape = false, androidPortrait = false, safeWidth = 360, travelDistance = 24, leftTravelExtension = 100, verticalTravel = 0, lowPerformance = false, monster, displayName, isBoss, cardSize, motionValue, rootRef, monsterTargetRef, monsterTargetFrameRef, flyingAttacks, recycleWarning = false, remainingRecycles = 0 }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; impactToken: number; attackStyle: CompanionAttackStyle; combo: boolean; paused?: boolean; compact?: boolean; portraitNarrow?: boolean; landscape?: boolean; phoneLandscape?: boolean; androidPortrait?: boolean; safeWidth?: number; travelDistance?: number; leftTravelExtension?: number; verticalTravel?: number; lowPerformance?: boolean; monster: BattleAsset; displayName?: string; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; rootRef?: RefObject<View | null>; monsterTargetRef: RefObject<View | null>; monsterTargetFrameRef: { current: MonsterTargetFrame | null }; flyingAttacks: ActiveFlight[]; recycleWarning?: boolean; remainingRecycles?: number }) {
+const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, attackToken, impactToken, attackStyle, combo, paused = false, compact = false, portraitNarrow = false, landscape = false, phoneLandscape = false, androidPortrait = false, safeWidth = 360, travelDistance = 24, leftTravelExtension = 100, verticalTravel = 0, lowPerformance = false, avoidRects = [], monster, displayName, isBoss, cardSize, motionValue, rootRef, monsterTargetRef, monsterTargetFrameRef, flyingAttacks, recycleWarning = false, remainingRecycles = 0 }: { hp: number; damage: number; attackKind: AttackKind; attackToken: number; impactToken: number; attackStyle: CompanionAttackStyle; combo: boolean; paused?: boolean; compact?: boolean; portraitNarrow?: boolean; landscape?: boolean; phoneLandscape?: boolean; androidPortrait?: boolean; safeWidth?: number; travelDistance?: number; leftTravelExtension?: number; verticalTravel?: number; lowPerformance?: boolean; avoidRects?: MonsterAvoidRect[]; monster: BattleAsset; displayName?: string; isBoss: boolean; cardSize: number; motionValue?: Animated.Value; rootRef?: RefObject<View | null>; monsterTargetRef: RefObject<View | null>; monsterTargetFrameRef: { current: MonsterTargetFrame | null }; flyingAttacks: ActiveFlight[]; recycleWarning?: boolean; remainingRecycles?: number }) {
   const battleRef = useRef<View | null>(null);
   const internalMonsterMotion = useRef(new Animated.Value(1)).current;
   const monsterMotion = motionValue ?? internalMonsterMotion;
@@ -984,6 +997,7 @@ const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, atta
   const threatScale = verticalMonsterMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 2.5] });
   const attackProgress = useRef(new Animated.Value(0)).current;
   const [facingLeft, setFacingLeft] = useState(true);
+  const [safePositionReady, setSafePositionReady] = useState(false);
   const [attackVisible, setAttackVisible] = useState(false);
   const [damageVisible, setDamageVisible] = useState(false);
   const [defeatVisible, setDefeatVisible] = useState(false);
@@ -1004,54 +1018,47 @@ const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, atta
 
   useEffect(() => {
     let cancelled = false;
-    if (lowPerformance) {
-      monsterMotion.stopAnimation();
-      const chooseRestingPosition = () => {
-        if (cancelled || paused) return;
-        // Keep the low-end position inside the upper battle lane. This avoids
-        // the lower tableau/card area while removing continuous patrol work.
-        const target = 0.28 + Math.random() * 0.44;
-        setFacingLeft(target < monsterMotionValueRef.current);
-        Animated.timing(monsterMotion, { toValue: target, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
-          if (!finished || cancelled || paused) return;
-          setTimeout(chooseRestingPosition, 1700 + Math.round(Math.random() * 1500));
-        });
-      };
-      chooseRestingPosition();
-      return () => { cancelled = true; monsterMotion.stopAnimation((value) => { monsterMotionValueRef.current = value; }); };
-    }
-    const segmentDuration = 12258;
-    const moveBetweenEdges = (from = monsterMotionValueRef.current) => {
+    let restTimer: ReturnType<typeof setTimeout> | null = null;
+    monsterMotion.stopAnimation();
+    const monsterBoxSize = Math.max(34, Math.round(cardSize * 0.9 * 1.3));
+    const overlaps = (left: number, top: number, size: number, obstacle: MonsterAvoidRect) => left < obstacle.left + obstacle.width && left + size > obstacle.left && top < obstacle.top + obstacle.height && top + size > obstacle.top;
+    const chooseSafePosition = () => {
       if (cancelled || paused) return;
-      const goingLeft = from > 0.5;
-      const target = goingLeft ? 0 : 1;
-      const duration = Math.max(1200, Math.round(segmentDuration * Math.abs(target - from)));
-      setFacingLeft(goingLeft);
-      Animated.timing(monsterMotion, { toValue: target, duration, easing: Easing.inOut(Easing.sin), useNativeDriver: true }).start(({ finished }) => {
-        if (finished && !cancelled) moveBetweenEdges(target);
+      setSafePositionReady(false);
+      const maxLeft = Math.max(0, battleFrame.width - monsterBoxSize);
+      const maxTop = Math.max(0, Math.min(verticalTravel, battleFrame.height - monsterBoxSize));
+      const candidates = Array.from({ length: 32 }, (_, index) => {
+        const ratio = index === 0 ? 0.5 : Math.random();
+        const verticalRatio = index % 4 === 0 ? 0 : Math.random() * 0.72;
+        return { left: ratio * maxLeft, top: verticalRatio * maxTop };
       });
+      const safe = candidates.find((candidate) => {
+        const absoluteLeft = battleOriginInRootRef.current.x + candidate.left;
+        const absoluteTop = battleOriginInRootRef.current.y + candidate.top;
+        return !avoidRects.some((obstacle) => overlaps(absoluteLeft, absoluteTop, monsterBoxSize, obstacle));
+      });
+      if (!safe) {
+        setSafePositionReady(false);
+        return;
+      }
+      const target = maxLeft > 0 ? Math.max(0, Math.min(1, safe.left / maxLeft)) : 0.5;
+      setFacingLeft(target < monsterMotionValueRef.current);
+      monsterMotion.stopAnimation();
+      verticalMonsterMotion.stopAnimation();
+      monsterMotion.setValue(target);
+      verticalMonsterMotion.setValue(maxTop > 0 ? safe.top / maxTop : 0);
+      monsterMotionValueRef.current = target;
+      verticalMotionValueRef.current = maxTop > 0 ? safe.top / maxTop : 0;
+      setSafePositionReady(true);
+      const hold = lowPerformance ? 2200 : 850;
+      restTimer = setTimeout(chooseSafePosition, hold);
     };
-    moveBetweenEdges(monsterMotionValueRef.current);
-    return () => { cancelled = true; monsterMotion.stopAnimation((value) => { monsterMotionValueRef.current = value; }); };
-  }, [lowPerformance, monsterMotion, paused]);
+    if (battleFrame.width > 0) chooseSafePosition();
+    return () => { cancelled = true; if (restTimer) clearTimeout(restTimer); monsterMotion.stopAnimation((value) => { monsterMotionValueRef.current = value; }); verticalMonsterMotion.stopAnimation(); };
+  }, [avoidRects, battleFrame.height, battleFrame.width, cardSize, lowPerformance, monsterMotion, paused, verticalMonsterMotion, verticalTravel]);
   // Keep the original motion-effect dependency markers for the combat regression test.
   // Pause/resume is intentionally handled by the paused dependency above.
   // Legacy motion dependencies: }, [monsterMotion]); and }, [verticalMonsterMotion, verticalTravel]);
-  useEffect(() => {
-    let cancelled = false;
-    verticalMonsterMotion.stopAnimation((value) => { verticalMotionValueRef.current = value; });
-    if (lowPerformance || verticalTravel <= 0 || paused) return;
-    const moveVertical = (from = verticalMotionValueRef.current) => {
-      if (cancelled) return;
-      const target = from > 0.5 ? 0 : 1;
-      Animated.timing(verticalMonsterMotion, { toValue: target, duration: Math.max(1400, Math.round(7600 * Math.abs(target - from))), easing: Easing.inOut(Easing.sin), useNativeDriver: true }).start(({ finished }) => {
-        if (finished && !cancelled) moveVertical(target);
-      });
-    };
-    moveVertical(verticalMotionValueRef.current);
-    return () => { cancelled = true; verticalMonsterMotion.stopAnimation((value) => { verticalMotionValueRef.current = value; }); };
-  }, [lowPerformance, paused, verticalMonsterMotion, verticalTravel]);
-
   useEffect(() => {
     if (!attackToken) return;
     setAttackVisible(true);
@@ -1141,7 +1148,10 @@ const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, atta
   const publishSynchronizedTargetFrame = () => {
     const layout = monsterLayoutRef.current;
     if (!battleOriginReadyRef.current || layout.width <= 0 || layout.height <= 0) return;
-    const horizontalDelta = (monsterMotionValueRef.current - 1) * (boundedTravelDistance + leftTravelDistance);
+    // Match the exact interpolation used by monsterTranslate. The previous
+    // formula subtracted the left travel distance twice, placing impacts far
+    // away from the rendered monster during combos.
+    const horizontalDelta = -leftTravelDistance + monsterMotionValueRef.current * (leftTravelDistance + rightTravelDistance);
     const verticalDelta = verticalMotionValueRef.current * verticalTravel;
     monsterTargetFrameRef.current = {
       centerX: battleOriginInRootRef.current.x + layout.x + layout.width * 0.5 + horizontalDelta,
@@ -1215,7 +1225,7 @@ const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, atta
     }} style={[styles.monsterBattle, styles.monsterBattleFront, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
               <Animated.View ref={monsterTargetRef} onLayout={({ nativeEvent }) => {
                 const { x, y, width, height } = nativeEvent.layout;
-                const currentHorizontalDelta = (monsterMotionValueRef.current - 1) * (boundedTravelDistance + leftTravelDistance);
+                const currentHorizontalDelta = -leftTravelDistance + monsterMotionValueRef.current * (leftTravelDistance + rightTravelDistance);
                 const currentVerticalDelta = verticalMotionValueRef.current * verticalTravel;
                 monsterLayoutRef.current = {
                   x: x - currentHorizontalDelta,
@@ -1224,7 +1234,7 @@ const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, atta
                   height,
                 };
                 publishSynchronizedTargetFrame();
-              }} style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, left: 0, top: 0, transform: [{ translateX: monsterTranslate }, { translateY: Animated.add(bossEntranceTranslateY, verticalMonsterMotion.interpolate({ inputRange: [0, 1], outputRange: [0, verticalTravel] })) }] }]}>
+              }} style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: safePositionReady ? bossEntranceOpacity : 0, left: 0, top: 0, transform: [{ translateX: monsterTranslate }, { translateY: Animated.add(bossEntranceTranslateY, verticalMonsterMotion.interpolate({ inputRange: [0, 1], outputRange: [0, verticalTravel] })) }] }]}>
         <View pointerEvents="none" style={[styles.monsterGroundShadow, { width: spriteSize * 0.72, height: Math.max(5, spriteSize * 0.13), left: spriteSize * 0.14, top: spriteSize * 0.82 }]} />
         <View pointerEvents="none" style={[styles.monsterProjectileAnchor, { left: spriteSize * 0.5, top: spriteSize * 0.5 }]}>
         </View>
@@ -4443,6 +4453,15 @@ export default function HomeScreen() {
     .map(Number)
     .filter((stage) => Number.isInteger(stage) && stage >= 1 && stage <= STORY_STAGE_COUNT)
     .sort((a, b) => b - a);
+  const boardLeft = Math.max(0, (safeScreenWidth - boardWidth) * 0.5);
+  const pileTop = rootTopPadding + 132;
+  const tableauTop = rootTopPadding + 220;
+  const monsterAvoidRects = useMemo<MonsterAvoidRect[]>(() => [
+    { left: boardLeft, top: pileTop, width: cardWidth * 2 + 6, height: cardWidth * renderCardRatio },
+    { left: hammerStartLeft - 4, top: hammerStartTop - 4, width: cardWidth + 8, height: cardWidth * renderCardRatio + 8 },
+    { left: boardLeft + cardWidth * 2.5, top: pileTop, width: Math.max(0, boardWidth - cardWidth * 2.5), height: cardWidth * renderCardRatio },
+    ...game.tableau.flatMap((pile, column) => pile.map((card, index) => ({ left: boardLeft + column * (cardWidth + tableauGap), top: tableauTop + index * stackOffset, width: cardWidth, height: cardWidth * renderCardRatio }))),
+  ], [boardLeft, boardWidth, cardWidth, game.tableau, hammerStartLeft, hammerStartTop, pileTop, renderCardRatio, stackOffset, tableauGap, tableauTop]);
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
@@ -4513,7 +4532,7 @@ export default function HomeScreen() {
             <View onLayout={(event) => { const { x, width } = event.nativeEvent.layout; const right = x + width; if (timeAnchorRight !== right) setTimeAnchorRight(right); }}><Text style={[styles.statValue, gameMode === "timeAttack" && timeAttackRemaining <= 30 && styles.timeAttackStatWarning, { fontSize: Math.round(15 * uiScale * (narrowCover ? 0.88 : 1)) }]}>{formatDuration(displayedTime, language)}</Text><Text style={styles.statLabel}>{gameMode === "timeAttack" ? tr("남은시간", "Remaining") : tr("시간", "Time")}</Text></View>
           </View>
         {!isLandscape && timeAnchorRight !== null ? <LiveRankingPanel language={language} mode={gameMode} narrow={narrowCover} liveRows={homeRankingRows} myRank={homeMyRank} myTimeSeconds={homeMyTimeSeconds} myStage={homeMyStage} stageRanked={homeUsesStageRanking} onPress={() => { setRankingPopupMode(gameMode); setRankingPopupViewMode("overall"); setSelectedStageRanking(null); setShowReplayStageList(false); setShowStageRankingList(false); setShowRankingPopup(true); }} left={timeAnchorRight + 10} /> : null}
-          <MonsterBattle paused={paused} lowPerformance={lowPerformanceMode} recycleWarning={recycleWarning} remainingRecycles={remainingRecycles} compact={compact || compactLandscape} portraitNarrow={narrowCover} landscape={isLandscape} phoneLandscape={phoneLandscape} androidPortrait={Platform.OS === "android" && !isLandscape} safeWidth={safeScreenWidth} travelDistance={monsterTravelDistance} verticalTravel={monsterVerticalTravel} leftTravelExtension={isTablet ? 130 : 100} motionValue={monsterMotion} rootRef={rootRef} monsterTargetRef={monsterTargetRef} monsterTargetFrameRef={monsterTargetFrameRef} flyingAttacks={flyingAttacks} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} impactToken={impactToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} displayName={getLocalizedBattleName(battleContent.monster.id, battleContent.monster.name, language)} isBoss={battleContent.isBoss} cardSize={cardWidth} />
+          <MonsterBattle paused={paused} lowPerformance={lowPerformanceMode} avoidRects={monsterAvoidRects} recycleWarning={recycleWarning} remainingRecycles={remainingRecycles} compact={compact || compactLandscape} portraitNarrow={narrowCover} landscape={isLandscape} phoneLandscape={phoneLandscape} androidPortrait={Platform.OS === "android" && !isLandscape} safeWidth={safeScreenWidth} travelDistance={monsterTravelDistance} verticalTravel={monsterVerticalTravel} leftTravelExtension={isTablet ? 130 : 100} motionValue={monsterMotion} rootRef={rootRef} monsterTargetRef={monsterTargetRef} monsterTargetFrameRef={monsterTargetFrameRef} flyingAttacks={flyingAttacks} damage={lastDamage} hp={Math.max(0, 100 - ((SUITS.reduce((total, suit) => total + game.foundations[suit].length, 0) + (game.destroyedCards?.length ?? 0)) / 52) * 100)} attackKind={attackKind} attackToken={attackToken} impactToken={impactToken} attackStyle={companionAttackStyle} combo={comboAttack} monster={battleContent.monster} displayName={getLocalizedBattleName(battleContent.monster.id, battleContent.monster.name, language)} isBoss={battleContent.isBoss} cardSize={cardWidth} />
         </View>
 
         <Animated.View style={[styles.boardTransition, styles.boardTransitionFront, { opacity: layoutTransition, transform: [{ translateY: -24 }, { scale: layoutTransition }, { translateX: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 5] }) }, { rotate: shuffleMotion.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "0.7deg"] }) }] }]}>
@@ -4584,7 +4603,7 @@ export default function HomeScreen() {
         </Animated.View>
         {hammerMode && game.waste.length > 0 ? <View pointerEvents="none" style={[styles.hammerModeHint, { top: Math.max(8, rootTopPadding + 4) }]}><Text style={styles.hammerModeHintText}>{tr("웨이스트 맨 아래로 이동 · 망치 2개", "Move waste to bottom · 2 hammers")}</Text></View> : null}
 
-        {comboImpactBurst ? <ComboImpactBurst frame={comboImpactBurst.frame} attackStyle={companionAttackStyle} token={comboImpactBurst.token} lowPerformance={lowPerformanceMode} /> : null}
+        {comboImpactBurst ? <ComboImpactBurst frame={comboImpactBurst.frame} frameRef={monsterTargetFrameRef} attackStyle={companionAttackStyle} token={comboImpactBurst.token} lowPerformance={lowPerformanceMode} /> : null}
         {!isLandscape ? <View style={[styles.portraitAdBanner, { bottom: portraitBannerBottom }]}><AdBanner /></View> : null}
         <CompanionAnchor companion={selectedCompanion} displayName={getLocalizedBattleName(selectedCompanion.id, selectedCompanion.name, language)} attackStyle={companionAttackStyle} size={companionSize} left={companionBaseLeft} bottom={companionBottom} horizontalShift={companionAvoidanceShift} comboScale={comboCompanionScale} attackFlight={undefined} onPress={() => undefined} anchorRef={(node) => { companionAnchorRef.current = node; }} />
         {showActiveBadgeNotice && activeBadgeId && activeBadgeImage ? <Animated.View pointerEvents="none" style={{ position: "absolute", left: Math.max(4, (safeScreenWidth - (94 * 3 + 8 * 2)) / 2 + 94 * 2 + 8 + 19), bottom: Math.max(0, bottomControlsBottom - 5) + 58, width: 94, alignItems: "center", zIndex: 90, elevation: 90, opacity: activeBadgeNoticeMotion, transform: [{ translateY: activeBadgeNoticeMotion.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}><Image source={activeBadgeImage} resizeMode="contain" style={{ width: 94, height: 94 }} /><Text numberOfLines={4} style={{ color: "#FFF4B8", fontSize: 9, lineHeight: 11, fontWeight: "900", textAlign: "center", textShadowColor: "#1B2340", textShadowRadius: 3 }}>{getBadgeAbilityText(activeBadgeId, language)}</Text></Animated.View> : null}
