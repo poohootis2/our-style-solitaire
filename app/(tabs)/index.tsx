@@ -1021,6 +1021,7 @@ const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, atta
     let restTimer: ReturnType<typeof setTimeout> | null = null;
     monsterMotion.stopAnimation();
     const monsterBoxSize = Math.max(34, Math.round(cardSize * 0.9 * 1.3));
+    const namePanelReserve = Math.max(64, Math.round(cardSize * 1.02));
     const boundedDistance = battleFrame.width > 0 ? Math.min(travelDistance, Math.max(0, Math.floor((battleFrame.width - monsterBoxSize) * 0.5))) : travelDistance;
     const safeLeftDistance = boundedDistance + Math.round(leftTravelExtension * 1.2);
     const safeRightDistance = Math.round(boundedDistance * 0.8);
@@ -1032,7 +1033,9 @@ const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, atta
         return;
       }
       setSafePositionReady(false);
-      const maxLeft = Math.max(0, battleFrame.width - monsterBoxSize);
+      // The right side of MonsterBattle contains the fixed name/HP panel.
+      // Never choose that panel as a resting lane, especially in low mode.
+      const maxLeft = Math.max(0, battleFrame.width - monsterBoxSize - namePanelReserve);
       const maxTop = Math.max(0, Math.min(verticalTravel, battleFrame.height - monsterBoxSize));
       const candidates = Array.from({ length: 32 }, (_, index) => {
         const ratio = index === 0 ? 0.5 : Math.random();
@@ -1061,6 +1064,7 @@ const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, atta
       verticalMonsterMotion.setValue(verticalTravel > 0 ? Math.max(0, Math.min(1, desiredTranslateY / verticalTravel)) : 0);
       monsterMotionValueRef.current = target;
       verticalMotionValueRef.current = verticalTravel > 0 ? Math.max(0, Math.min(1, desiredTranslateY / verticalTravel)) : 0;
+      publishSynchronizedTargetFrame();
       setSafePositionReady(true);
       const hold = lowPerformance ? 2200 : 850;
       restTimer = setTimeout(chooseSafePosition, hold);
@@ -5418,7 +5422,10 @@ const styles = StyleSheet.create({
   monsterBattle: { flex: 1, minWidth: 0, marginLeft: 10, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", overflow: "visible" },
   // The monster intentionally travels across the tableau as part of the battle scene.
   // pointerEvents="none" keeps the card board interactive beneath the animation.
-  monsterBattleFront: { zIndex: 220, elevation: 220 },
+  // Keep the monster and its combat effects above the board/cards and normal
+  // labels. This layer is independent of the card stack; position selection
+  // must not change this ordering.
+  monsterBattleFront: { zIndex: 10000, elevation: 10000 },
   monsterBattleLandscape: { flex: 1, minWidth: 250, maxWidth: 9999 },
   monsterBattleCompact: { flex: 1, minWidth: 0, marginLeft: 4 },
   monsterBattlePhoneLandscape: { flex: 1, minWidth: 0, maxWidth: 9999, marginLeft: 0, marginTop: 12, justifyContent: "flex-end" },
