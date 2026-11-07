@@ -1000,13 +1000,16 @@ const MonsterBattle = memo(function MonsterBattle({ hp, compact = false, portrai
   </View>;
 });
 
-function measureViewInWindow(view: View | null): Promise<PlacementRect | null> {
+function measureViewInWindow(view: View | null, allowZeroHeight = false): Promise<PlacementRect | null> {
   if (!view) return Promise.resolve(null);
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve(null), 250);
     view.measureInWindow((left, top, width, height) => {
       clearTimeout(timeout);
-      resolve(width > 0 && height > 0 ? { left, top, width, height } : null);
+      // Absolute-positioned tableau columns legitimately have a zero-height
+      // layout box. Only its origin/width are needed; occupiedHeight is the
+      // actual card stack size, calculated independently below.
+      resolve(width > 0 && (height > 0 || (allowZeroHeight && height === 0)) ? { left, top, width, height } : null);
     });
   });
 }
@@ -3305,9 +3308,11 @@ export default function HomeScreen() {
     // Ordinary player moves still attack the monster, but never advance the combo counter.
     let comboScoreBonus = 0;
     if ((foundationCard || movedCard) && autoFinishRunningRef.current) {
-      // The numeric combo and score advance for every card. Only the visual
-      // banner is sampled into at most 20 evenly distributed time segments.
-      const showVisual = shouldShowAutoFinishCombo();
+      // Combo cleanup is intentionally card-and-score focused. Keep the
+      // numeric combo banner visible for every automatic card movement, but
+      // do not create projectile or impact imagery during the sequence.
+      shouldShowAutoFinishCombo();
+      const showVisual = true;
       const comboCount = registerSuccessfulAttack(showVisual);
       const comboMultiplier = comboCount >= 20 ? Math.min(2.5, 1.5 + Math.floor((comboCount - 20) / 5) * 0.1) : 1;
       comboScoreBonus = comboCount >= 2 ? Math.round(comboCount * 5 * comboMultiplier) : 0;
@@ -3317,18 +3322,15 @@ export default function HomeScreen() {
         elapsedSecondsRef.current = Math.max(0, elapsedSecondsRef.current - activeBadgeAbility.value);
       }
       autoFinishComboPlanRef.current.finalComboCount = comboCount;
-      if (!lowPerformanceMode && comboCount >= 10 && showVisual) showHighComboImpact();
-      if (!lowPerformanceMode && showVisual && comboCount >= 2 && monsterTargetFrameRef.current) {
-        setComboImpactBurst({ token: Date.now(), frame: monsterTargetFrameRef.current });
-      }
       if (!lowPerformanceMode && comboScoreBonus > 0 && showVisual) showComboScoreReward(comboScoreBonus, comboCount);
     }
     if (foundationMove) {
       const damage = (nextFoundationCount - previousFoundationCount) * 5;
-      const isCombo = wasAutoFinishRunning;
       setLastDamage(damage);
       setAttackKind(changedSuit);
-      setComboAttack(isCombo);
+      // Automatic cleanup should emphasize consecutive card movement and
+      // score, not a separate monster attack animation.
+      setComboAttack(false);
       setAttackToken((token) => token + 1);
     } else if (movedCard) {
       // Tableau/waste moves also launch an attack card. Keep the monster's
@@ -3406,10 +3408,7 @@ export default function HomeScreen() {
     if (foundationCard || movedCard) {
       const attackCard = foundationCard ?? movedCard;
       if (attackCard) {
-        if (wasAutoFinishRunning) {
-          playEffect("foundationAttack");
-          animateFlight(attackCard, Boolean(foundationCard));
-        } else {
+        if (!wasAutoFinishRunning) {
           playEffect("companionAttack");
           animateFlight(attackCard, false, true);
         }
@@ -4214,12 +4213,15 @@ export default function HomeScreen() {
   const monsterTableauHeights = game.tableau.map((pile) => pile.length).join(",");
   useEffect(() => {
     let cancelled = false;
+    let measurementAttempts = 0;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     const updateGeometry = async () => {
       const views = [rootRef.current, monsterHeaderRef.current, monsterStatsRef.current, monsterRankingRef.current, monsterTopPilesRef.current, monsterTableauRef.current, monsterControlsRef.current, monsterBannerRef.current];
-      const [root, header, stats, ranking, piles, tableau, controls, banner] = await Promise.all(views.map(measureViewInWindow));
+      const [root, header, stats, ranking, piles, tableau, controls, banner] = await Promise.all(views.map((view, index) => measureViewInWindow(view, index === 5)));
       if (cancelled) return;
       if (!root || !header || !stats || !piles || !tableau || !controls) {
+        measurementAttempts += 1;
+        if (measurementAttempts === 1 || measurementAttempts === 5) console.warn("[MonsterDiagnostic] measurement missing", JSON.stringify({ root, header, stats, piles, tableau, controls }));
         retryTimer = setTimeout(updateGeometry, 300);
         return;
       }
@@ -4228,6 +4230,7 @@ export default function HomeScreen() {
       if (ranking) uiRects.push(ranking);
       if (banner) uiRects.push(banner);
       const geometry = buildMonsterGeometry(root, uiRects, tableau, occupiedHeight, controls, Math.max(34, Math.round(cardWidth * 1.17)), rootTopPadding);
+      console.info("[MonsterDiagnostic] geometry", JSON.stringify(geometry));
       setMonsterGeometry((current) => JSON.stringify(current) === JSON.stringify(geometry) ? current : geometry);
     };
     const timer = setTimeout(updateGeometry, 100);
