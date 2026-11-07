@@ -1047,15 +1047,12 @@ const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, atta
         const absoluteTop = battleOriginInRootRef.current.y + candidate.top;
         return !avoidRects.some((obstacle) => overlaps(absoluteLeft, absoluteTop, monsterBoxSize, obstacle));
       });
-      if (!safe) {
-        setSafePositionReady(false);
-        restTimer = setTimeout(chooseSafePosition, lowPerformance ? 500 : 250);
-        return;
-      }
+      const fallback = { left: Math.max(0, Math.min(maxLeft, Math.round(maxLeft * 0.5))), top: 0 };
+      const nextPosition = safe ?? fallback;
       const baseLeft = monsterLayoutRef.current.x;
       const baseTop = monsterLayoutRef.current.y;
-      const desiredTranslateX = safe.left - baseLeft;
-      const desiredTranslateY = safe.top - baseTop;
+      const desiredTranslateX = nextPosition.left - baseLeft;
+      const desiredTranslateY = nextPosition.top - baseTop;
       const target = Math.max(0, Math.min(1, (desiredTranslateX + safeLeftDistance) / (safeLeftDistance + safeRightDistance)));
       setFacingLeft(target < monsterMotionValueRef.current);
       monsterMotion.stopAnimation();
@@ -1241,16 +1238,9 @@ const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, atta
     }} style={[styles.monsterBattle, styles.monsterBattleFront, landscape && styles.monsterBattleLandscape, compact && !landscape && styles.monsterBattleCompact, phoneLandscape && styles.monsterBattlePhoneLandscape]} accessibilityLabel={`몬스터 체력 ${Math.round(hp)}퍼센트`}>
               <Animated.View ref={monsterTargetRef} onLayout={({ nativeEvent }) => {
                 const { x, y, width, height } = nativeEvent.layout;
-                const currentHorizontalDelta = -leftTravelDistance + monsterMotionValueRef.current * (leftTravelDistance + rightTravelDistance);
-                const currentVerticalDelta = verticalMotionValueRef.current * verticalTravel;
-                monsterLayoutRef.current = {
-                  x: x - currentHorizontalDelta,
-                  y: y - currentVerticalDelta,
-                  width,
-                  height,
-                };
+                monsterLayoutRef.current = { x, y, width, height };
                 publishSynchronizedTargetFrame();
-              }} style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: safePositionReady ? bossEntranceOpacity : 0, left: 0, top: 0, transform: [{ translateX: monsterTranslate }, { translateY: Animated.add(bossEntranceTranslateY, verticalMonsterMotion.interpolate({ inputRange: [0, 1], outputRange: [0, verticalTravel] })) }] }]}>
+              }} style={[styles.monsterSpriteWrap, compact && styles.monsterSpriteWrapCompact, { width: spriteSize, height: spriteSize, opacity: bossEntranceOpacity, left: 0, top: 0, transform: [{ translateX: monsterTranslate }, { translateY: Animated.add(bossEntranceTranslateY, verticalMonsterMotion.interpolate({ inputRange: [0, 1], outputRange: [0, verticalTravel] })) }] }]}>
         <View pointerEvents="none" style={[styles.monsterGroundShadow, { width: spriteSize * 0.72, height: Math.max(5, spriteSize * 0.13), left: spriteSize * 0.14, top: spriteSize * 0.82 }]} />
         <View pointerEvents="none" style={[styles.monsterProjectileAnchor, { left: spriteSize * 0.5, top: spriteSize * 0.5 }]}>
         </View>
