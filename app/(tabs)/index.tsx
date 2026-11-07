@@ -1021,9 +1021,16 @@ const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, atta
     let restTimer: ReturnType<typeof setTimeout> | null = null;
     monsterMotion.stopAnimation();
     const monsterBoxSize = Math.max(34, Math.round(cardSize * 0.9 * 1.3));
+    const boundedDistance = battleFrame.width > 0 ? Math.min(travelDistance, Math.max(0, Math.floor((battleFrame.width - monsterBoxSize) * 0.5))) : travelDistance;
+    const safeLeftDistance = boundedDistance + Math.round(leftTravelExtension * 1.2);
+    const safeRightDistance = Math.round(boundedDistance * 0.8);
     const overlaps = (left: number, top: number, size: number, obstacle: MonsterAvoidRect) => left < obstacle.left + obstacle.width && left + size > obstacle.left && top < obstacle.top + obstacle.height && top + size > obstacle.top;
     const chooseSafePosition = () => {
       if (cancelled || paused) return;
+      if (!battleOriginReadyRef.current) {
+        restTimer = setTimeout(chooseSafePosition, 120);
+        return;
+      }
       setSafePositionReady(false);
       const maxLeft = Math.max(0, battleFrame.width - monsterBoxSize);
       const maxTop = Math.max(0, Math.min(verticalTravel, battleFrame.height - monsterBoxSize));
@@ -1039,23 +1046,28 @@ const MonsterBattle = memo(function MonsterBattle({ hp, damage, attackKind, atta
       });
       if (!safe) {
         setSafePositionReady(false);
+        restTimer = setTimeout(chooseSafePosition, lowPerformance ? 500 : 250);
         return;
       }
-      const target = maxLeft > 0 ? Math.max(0, Math.min(1, safe.left / maxLeft)) : 0.5;
+      const baseLeft = monsterLayoutRef.current.x;
+      const baseTop = monsterLayoutRef.current.y;
+      const desiredTranslateX = safe.left - baseLeft;
+      const desiredTranslateY = safe.top - baseTop;
+      const target = Math.max(0, Math.min(1, (desiredTranslateX + safeLeftDistance) / (safeLeftDistance + safeRightDistance)));
       setFacingLeft(target < monsterMotionValueRef.current);
       monsterMotion.stopAnimation();
       verticalMonsterMotion.stopAnimation();
       monsterMotion.setValue(target);
-      verticalMonsterMotion.setValue(maxTop > 0 ? safe.top / maxTop : 0);
+      verticalMonsterMotion.setValue(verticalTravel > 0 ? Math.max(0, Math.min(1, desiredTranslateY / verticalTravel)) : 0);
       monsterMotionValueRef.current = target;
-      verticalMotionValueRef.current = maxTop > 0 ? safe.top / maxTop : 0;
+      verticalMotionValueRef.current = verticalTravel > 0 ? Math.max(0, Math.min(1, desiredTranslateY / verticalTravel)) : 0;
       setSafePositionReady(true);
       const hold = lowPerformance ? 2200 : 850;
       restTimer = setTimeout(chooseSafePosition, hold);
     };
     if (battleFrame.width > 0) chooseSafePosition();
     return () => { cancelled = true; if (restTimer) clearTimeout(restTimer); monsterMotion.stopAnimation((value) => { monsterMotionValueRef.current = value; }); verticalMonsterMotion.stopAnimation(); };
-  }, [avoidRects, battleFrame.height, battleFrame.width, cardSize, lowPerformance, monsterMotion, paused, verticalMonsterMotion, verticalTravel]);
+  }, [avoidRects, battleFrame.height, battleFrame.width, cardSize, leftTravelExtension, lowPerformance, monsterMotion, paused, travelDistance, verticalMonsterMotion, verticalTravel]);
   // Keep the original motion-effect dependency markers for the combat regression test.
   // Pause/resume is intentionally handled by the paused dependency above.
   // Legacy motion dependencies: }, [monsterMotion]); and }, [verticalMonsterMotion, verticalTravel]);
