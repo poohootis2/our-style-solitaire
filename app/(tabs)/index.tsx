@@ -231,10 +231,15 @@ const PROFILE_NAME_KEY = "our-style-solitaire:profile-name";
 const LOCAL_RANKING_KEY = "our-style-solitaire:local-ranking";
 const RANKING_SYNC_AT_KEY = "our-style-solitaire:ranking-sync-at";
 const RANKING_SYNC_INTERVAL_MS = 60 * 60 * 1000;
+// Cloud saves contain the complete game snapshot. Do not upload that snapshot
+// on every elapsed-second tick; one save per minute is sufficient for resume
+// protection while keeping Render/TiDB outbound traffic bounded.
+const CLOUD_SAVE_MIN_INTERVAL_MS = 60 * 1000;
+const RANKING_REFETCH_INTERVAL_MS = 5 * 60 * 1000;
 const FIXED_FONT_SCALE_KEY = "our-style-solitaire:fixed-font-scale";
-const MAX_DAILY_AD_HAMMER_REWARDS = 5;
+const MAX_DAILY_AD_HAMMER_REWARDS = 20;
 const MAX_HAMMER_CHARGES = 30;
-const getDailyAdHammerReward = (rewardNumber: number) => rewardNumber <= 2 ? 10 : 20;
+const getDailyAdHammerReward = (_rewardNumber: number) => 10;
 const ALL_BOSS_BADGE_IDS = [
   ...Array.from({ length: 9 }, (_, index) => `boss-${String(index + 1).padStart(2, "0")}`),
   ...Array.from({ length: 3 }, (_, index) => `king-boss-${String(index + 1).padStart(2, "0")}`),
@@ -1350,10 +1355,17 @@ export default function HomeScreen() {
   });
   const saveCloudGameState = async () => {
     if (!authQuery.data?.id || cloudHydratedUserRef.current !== authQuery.data.id) return;
+    if (cloudSaveInFlightRef.current) return;
+    const now = Date.now();
+    if (now - cloudLastSavedAtRef.current < CLOUD_SAVE_MIN_INTERVAL_MS) return;
+    cloudSaveInFlightRef.current = true;
     try {
       await cloudStateSaveMutation.mutateAsync({ payload: JSON.stringify(buildCloudGameState()) });
+      cloudLastSavedAtRef.current = Date.now();
     } catch {
       setCloudSyncMessage(tr("클라우드 저장에 실패했습니다. 로컬 데이터는 유지됩니다.", "Cloud save failed. Local data is still safe."));
+    } finally {
+      cloudSaveInFlightRef.current = false;
     }
   };
   const setFixedFontScalePreference = (enabled: boolean) => {
@@ -1416,12 +1428,12 @@ export default function HomeScreen() {
   const authQuery = trpc.auth.me.useQuery();
   const cloudStateQuery = trpc.gameState.get.useQuery(undefined, { enabled: Boolean(authQuery.data?.id), staleTime: 30000 });
   const cloudStateSaveMutation = trpc.gameState.save.useMutation();
-  const leaderboardQuery = trpc.leaderboard.top.useQuery({ mode: gameMode }, { refetchInterval: 15000, staleTime: 10000 });
-  const leaderboardSnapshotQuery = trpc.leaderboard.snapshot.useQuery({ mode: gameMode }, { enabled: Boolean(authQuery.data?.id), refetchInterval: 15000, staleTime: 10000 });
-  const currentStageRankingQuery = trpc.leaderboard.byStage.useQuery({ mode: gameMode, stage: game.level }, { refetchInterval: 15000, staleTime: 10000 });
-  const currentStageRankingSnapshotQuery = trpc.leaderboard.stageSnapshot.useQuery({ mode: gameMode, stage: game.level }, { enabled: Boolean(authQuery.data?.id), refetchInterval: 15000, staleTime: 10000 });
-  const rankingPopupQuery = trpc.leaderboard.top.useQuery({ mode: rankingPopupMode }, { enabled: showRankingPopup, refetchInterval: 15000, staleTime: 10000 });
-  const rankingPopupSnapshotQuery = trpc.leaderboard.snapshot.useQuery({ mode: rankingPopupMode }, { enabled: showRankingPopup && Boolean(authQuery.data?.id), refetchInterval: 15000, staleTime: 10000 });
+  const leaderboardQuery = trpc.leaderboard.top.useQuery({ mode: gameMode }, { refetchInterval: RANKING_REFETCH_INTERVAL_MS, staleTime: RANKING_REFETCH_INTERVAL_MS });
+  const leaderboardSnapshotQuery = trpc.leaderboard.snapshot.useQuery({ mode: gameMode }, { enabled: Boolean(authQuery.data?.id), refetchInterval: RANKING_REFETCH_INTERVAL_MS, staleTime: RANKING_REFETCH_INTERVAL_MS });
+  const currentStageRankingQuery = trpc.leaderboard.byStage.useQuery({ mode: gameMode, stage: game.level }, { refetchInterval: RANKING_REFETCH_INTERVAL_MS, staleTime: RANKING_REFETCH_INTERVAL_MS });
+  const currentStageRankingSnapshotQuery = trpc.leaderboard.stageSnapshot.useQuery({ mode: gameMode, stage: game.level }, { enabled: Boolean(authQuery.data?.id), refetchInterval: RANKING_REFETCH_INTERVAL_MS, staleTime: RANKING_REFETCH_INTERVAL_MS });
+  const rankingPopupQuery = trpc.leaderboard.top.useQuery({ mode: rankingPopupMode }, { enabled: showRankingPopup, refetchInterval: RANKING_REFETCH_INTERVAL_MS, staleTime: RANKING_REFETCH_INTERVAL_MS });
+  const rankingPopupSnapshotQuery = trpc.leaderboard.snapshot.useQuery({ mode: rankingPopupMode }, { enabled: showRankingPopup && Boolean(authQuery.data?.id), refetchInterval: RANKING_REFETCH_INTERVAL_MS, staleTime: RANKING_REFETCH_INTERVAL_MS });
   const stageRankingQuery = trpc.leaderboard.byStage.useQuery(
     { mode: rankingPopupMode, stage: selectedStageRanking ?? game.level },
     {
@@ -1887,6 +1899,8 @@ export default function HomeScreen() {
   const companionAnchorRef = useRef<View | null>(null);
   const cloudHydratedUserRef = useRef<number | null>(null);
   const cloudSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cloudLastSavedAtRef = useRef(0);
+  const cloudSaveInFlightRef = useRef(false);
   const tableauCardRefs = useRef<Record<string, View | null>>({});
   const companionAvoidanceShift = useRef(new Animated.Value(0)).current;
   const companionAvoidanceTargetRef = useRef(0);
@@ -2561,9 +2575,18 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!hydrated || !authQuery.data?.id || cloudHydratedUserRef.current !== authQuery.data.id || previewTimeAttackOpenTableau) return;
     if (cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
-    cloudSaveTimerRef.current = setTimeout(() => { void saveCloudGameState(); cloudSaveTimerRef.current = null; }, 900);
+    const elapsedSinceSave = Date.now() - cloudLastSavedAtRef.current;
+    const waitMs = cloudLastSavedAtRef.current === 0
+      ? 900
+      : Math.max(900, CLOUD_SAVE_MIN_INTERVAL_MS - elapsedSinceSave);
+    cloudSaveTimerRef.current = setTimeout(() => { void saveCloudGameState(); cloudSaveTimerRef.current = null; }, waitMs);
     return () => { if (cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current); };
-  }, [authQuery.data?.id, attendanceDay, claimedBossPrepStages, dailyAdHammerRewards, dailyAdRewardDate, dailyAdRewardStartedAt, elapsedSeconds, game, gameMode, hammerCharges, hydrated, previewTimeAttackOpenTableau, randomOwnedPetPerStage, records, selectedCardBackIndex, selectedCompanionId, unlockedBossBadges, unlockedPetIds]);
+  }, [authQuery.data?.id, attendanceDay, claimedBossPrepStages, dailyAdHammerRewards, dailyAdRewardDate, dailyAdRewardStartedAt, game, gameMode, hammerCharges, hydrated, previewTimeAttackOpenTableau, randomOwnedPetPerStage, records, selectedCardBackIndex, selectedCompanionId, unlockedBossBadges, unlockedPetIds]);
+
+  useEffect(() => {
+    cloudLastSavedAtRef.current = 0;
+    cloudSaveInFlightRef.current = false;
+  }, [authQuery.data?.id]);
 
   useEffect(() => {
     if (!hydrated || Platform.OS !== "android" || __DEV__) return;
@@ -3540,7 +3563,7 @@ export default function HomeScreen() {
     setShowTwoTouch(false);
     setShowNoMovesPopup(false);
     beginHammerMode(true);
-    showTimedHint(`원하는 카드를 클릭하세요 (오늘 광고 ${dailyRewardNumber}/5 · 망치 +${rewardAmount})`);
+    showTimedHint(`원하는 카드를 클릭하세요 (오늘 광고 ${dailyRewardNumber}/${MAX_DAILY_AD_HAMMER_REWARDS} · 망치 +${rewardAmount})`);
   };
 
   const recordDailyAdHammerReward = () => {
@@ -4596,14 +4619,14 @@ export default function HomeScreen() {
               <Pressable accessibilityRole="button" accessibilityLabel="망치 안내 닫기" onPress={() => setShowHammerOffer(false)} style={({ pressed }) => [styles.noMovesPopupClose, pressed && styles.pressed]}><Text style={styles.noMovesPopupCloseText}>×</Text></Pressable>
               {getCurrentDailyAdRewardCount() >= MAX_DAILY_AD_HAMMER_REWARDS ? <>
                 <Text style={styles.hammerOfferTitle}>일일 광고 보상이 소진되었습니다.</Text>
-                <Text style={styles.hammerOfferCopy}>오늘 광고 5회 보상이 모두 소진되었습니다. 1·2회차는 망치 10개, 3·4·5회차는 망치 20개를 받으며, 망치는 최대 30개까지 보유할 수 있습니다. 내일 광고 보상이 다시 열리고 현재 스테이지와 펫 도감은 유지됩니다.</Text>
+        <Text style={styles.hammerOfferCopy}>오늘 광고 {MAX_DAILY_AD_HAMMER_REWARDS}회 보상이 모두 소진되었습니다. 광고를 볼 때마다 망치 10개를 받으며, 망치는 최대 {MAX_HAMMER_CHARGES}개까지 보유할 수 있습니다. 내일 광고 보상이 다시 열리고 현재 스테이지와 펫 도감은 유지됩니다.</Text>
                 <View style={styles.noMovesPopupActions}>
                   <Pressable accessibilityRole="button" accessibilityLabel="현재 Stage 새로 시작" onPress={() => { setShowHammerOffer(false); requestCurrentStageRestart(); }} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>이 Stage 재시작</Text></Pressable>
                   <Pressable accessibilityRole="button" accessibilityLabel="Stage 1로 돌아가기" onPress={() => { setShowHammerOffer(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>Stage 1로</Text></Pressable>
                 </View>
               </> : <>
                 <Text style={styles.hammerOfferTitle}>히든 카드를 열어 길을 만들까요?</Text>
-                <Text style={styles.hammerOfferCopy}>망치로 히든 카드 1장을 즉시 공개할 수 있습니다. 광고 보상은 하루 5회이며, 1·2회차는 망치 +10, 3·4·5회차는 망치 +20입니다. 망치는 최대 30개까지 적립됩니다.</Text>
+                <Text style={styles.hammerOfferCopy}>망치로 히든 카드 1장을 즉시 공개할 수 있습니다. 광고 보상은 하루 {MAX_DAILY_AD_HAMMER_REWARDS}회이며, 광고를 볼 때마다 망치 +10을 받습니다. 망치는 최대 {MAX_HAMMER_CHARGES}개까지 적립됩니다.</Text>
                 <View style={styles.noMovesPopupActions}>
                   <Pressable accessibilityRole="button" accessibilityLabel="망치 사용" onPress={() => { setHammerCharges((charges) => Math.min(MAX_HAMMER_CHARGES, charges + 1)); beginHammerMode(true); }} style={({ pressed }) => [styles.hammerOfferPrimary, pressed && styles.pressed]}><Text style={styles.noMovesPopupPrimaryText}>망치 사용</Text></Pressable>
                   <Pressable accessibilityRole="button" accessibilityLabel="새로 시작" onPress={() => { setShowHammerOffer(false); requestNewGame(); }} style={({ pressed }) => [styles.noMovesPopupSecondary, pressed && styles.pressed]}><Text style={styles.noMovesPopupSecondaryText}>새로 시작</Text></Pressable>
