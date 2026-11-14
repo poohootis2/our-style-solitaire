@@ -1106,6 +1106,12 @@ export default function HomeScreen() {
   const safeScreenWidth = Math.max(260, screenWidth - insets.left - insets.right);
   const safeScreenHeight = Math.max(220, screenHeight - insets.top - insets.bottom);
   const deviceModel = Platform.OS === "android" ? String((Platform.constants as { Model?: string }).Model ?? "") : "";
+  // Tab S6 Lite generation and comparable entry-level tablets default to the
+  // lightweight renderer. A saved user choice is loaded later and overrides it.
+  const isKnownLowPerformanceDevice = Platform.OS === "android" && (
+    /^SM-P6\d{2}$/i.test(deviceModel) ||
+    /^SM-T(50\d|51\d|59\d)$/i.test(deviceModel)
+  );
   const compactLandscape = isLandscape && safeScreenHeight <= 460;
   const foldDevice = Platform.OS === "android" && /^SM-F/i.test(deviceModel);
   const foldPortrait = !isLandscape && isTablet && foldDevice;
@@ -1219,7 +1225,7 @@ export default function HomeScreen() {
   const [backgroundMusicVolume, setBackgroundMusicVolume] = useState(0.2);
   const [cardSelectVibrationEnabled, setCardSelectVibrationEnabled] = useState(true);
   const [screenShakeEnabled, setScreenShakeEnabled] = useState(false);
-  const [performanceMode, setPerformanceMode] = useState<"high" | "low">("high");
+  const [performanceMode, setPerformanceMode] = useState<"high" | "low">(isKnownLowPerformanceDevice ? "low" : "high");
   const lowPerformanceMode = performanceMode === "low";
   const [fixedFontScale, setFixedFontScale] = useState(false);
   const [pendingGameMode, setPendingGameMode] = useState<GameMode | null>(null);
