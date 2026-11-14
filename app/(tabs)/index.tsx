@@ -1428,6 +1428,20 @@ export default function HomeScreen() {
   const authQuery = trpc.auth.me.useQuery();
   const cloudStateQuery = trpc.gameState.get.useQuery(undefined, { enabled: Boolean(authQuery.data?.id), staleTime: 30000 });
   const cloudStateSaveMutation = trpc.gameState.save.useMutation();
+  useEffect(() => {
+    if (Platform.OS === "web" || !hydrated) return;
+    let cancelled = false;
+    void Auth.getUserInfo().then((storedUser) => {
+      if (!cancelled && storedUser) setGoogleSessionUser(storedUser);
+    });
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void authQuery.refetch().catch(() => undefined);
+    });
+    return () => {
+      cancelled = true;
+      subscription.remove();
+    };
+  }, [authQuery.refetch, hydrated]);
   const leaderboardQuery = trpc.leaderboard.top.useQuery({ mode: gameMode }, { refetchInterval: RANKING_REFETCH_INTERVAL_MS, staleTime: RANKING_REFETCH_INTERVAL_MS });
   const leaderboardSnapshotQuery = trpc.leaderboard.snapshot.useQuery({ mode: gameMode }, { enabled: Boolean(authQuery.data?.id), refetchInterval: RANKING_REFETCH_INTERVAL_MS, staleTime: RANKING_REFETCH_INTERVAL_MS });
   const currentStageRankingQuery = trpc.leaderboard.byStage.useQuery({ mode: gameMode, stage: game.level }, { refetchInterval: RANKING_REFETCH_INTERVAL_MS, staleTime: RANKING_REFETCH_INTERVAL_MS });
