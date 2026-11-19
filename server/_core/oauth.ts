@@ -12,6 +12,16 @@ type GoogleIdTokenPayload = JWTPayload & {
   name?: string;
 };
 
+// Render production must be able to update the public OAuth audience without
+// requiring an APK source change. Keep the checked-in ID as a safe fallback
+// for local development and older deployments.
+function getGoogleClientIds(): string[] {
+  return Array.from(new Set([
+    process.env.GOOGLE_WEB_CLIENT_ID?.trim(),
+    GOOGLE_WEB_CLIENT_ID,
+  ].filter((value): value is string => Boolean(value))));
+}
+
 async function verifyGoogleIdToken(idToken: string): Promise<GoogleIdTokenPayload> {
   console.info("[GoogleAuth-v4] tokeninfo verification started", {
     tokenSegments: idToken.split(".").length,
@@ -30,15 +40,18 @@ async function verifyGoogleIdToken(idToken: string): Promise<GoogleIdTokenPayloa
     exp?: string | number;
   };
   const expiresAt = Number(payload.exp);
+  const acceptedClientIds = getGoogleClientIds();
   if (
     !payload.sub
-    || payload.aud !== GOOGLE_WEB_CLIENT_ID
+    || !acceptedClientIds.includes(payload.aud ?? "")
     || (payload.iss !== "accounts.google.com" && payload.iss !== "https://accounts.google.com")
     || !Number.isFinite(expiresAt)
     || expiresAt <= Math.floor(Date.now() / 1000)
   ) {
     console.warn("[GoogleAuth-v4] tokeninfo claim mismatch", {
-      audienceMatches: payload.aud === GOOGLE_WEB_CLIENT_ID,
+      audienceMatches: acceptedClientIds.includes(payload.aud ?? ""),
+      acceptedAudienceCount: acceptedClientIds.length,
+      tokenAudienceSuffix: typeof payload.aud === "string" ? payload.aud.slice(-24) : null,
       issuer: payload.iss,
       hasSubject: Boolean(payload.sub),
       expiryValid: Number.isFinite(expiresAt) && expiresAt > Math.floor(Date.now() / 1000),
