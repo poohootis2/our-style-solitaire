@@ -109,11 +109,44 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
-    });
+    try {
+      await db.insert(users).values(values).onDuplicateKeyUpdate({
+        set: updateSet,
+      });
+    } catch (upsertError) {
+      // TiDB/MySQL deployments can reject Drizzle's DEFAULT-heavy upsert
+      // statement even though the equivalent SELECT/UPDATE or explicit INSERT
+      // succeeds. Retry without changing or deleting any existing user data.
+      const existing = await db.select({ id: users.id }).from(users).where(eq(users.openId, user.openId)).limit(1);
+      if (existing[0]) {
+        await db.update(users).set(updateSet).where(eq(users.id, existing[0].id));
+      } else {
+        await db.insert(users).values({
+          openId: user.openId,
+          name: user.name ?? null,
+          email: user.email ?? null,
+          avatarUrl: user.avatarUrl ?? null,
+          loginMethod: user.loginMethod ?? null,
+          countryCode: user.countryCode ?? null,
+          role: user.role ?? (user.openId === ENV.ownerOpenId ? "admin" : "user"),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          lastSignedIn: values.lastSignedIn ?? new Date(),
+        });
+      }
+      console.warn("[Database] Drizzle upsert required TiDB-compatible fallback", {
+        code: (upsertError as { code?: string }).code,
+        errno: (upsertError as { errno?: number }).errno,
+        sqlState: (upsertError as { sqlState?: string }).sqlState,
+      });
+    }
   } catch (error) {
-    console.error("[Database] Failed to upsert user:", error);
+    console.error("[Database] Failed to upsert user:", {
+      message: error instanceof Error ? error.message : String(error),
+      code: (error as { code?: string }).code,
+      errno: (error as { errno?: number }).errno,
+      sqlState: (error as { sqlState?: string }).sqlState,
+    });
     throw error;
   }
 }
