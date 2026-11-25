@@ -5,6 +5,7 @@ const config = getDefaultConfig(__dirname);
 
 module.exports = withNativeWind(config, {
   input: "./global.css",
-  // Vercel Linux builds must persist the generated web CSS cache for Metro.
+  // Keep generated CSS inside the project so Vercel Metro can hash it reliably.
+  output: "./.nativewind/web.css",
   forceWriteFileSystem: true,
 });
