@@ -5,7 +5,7 @@ const config = getDefaultConfig(__dirname);
 
 module.exports = withNativeWind(config, {
   input: "./global.css",
-  // Force write CSS to file system instead of virtual modules
-  // This fixes iOS styling issues in development mode
-  forceWriteFileSystem: true,
+  // Vercel's Linux build workspace can write the generated web CSS cache.
+  // Keep the local Windows path virtual to avoid node_modules permission errors.
+  forceWriteFileSystem: process.env.VERCEL === "1",
 });
