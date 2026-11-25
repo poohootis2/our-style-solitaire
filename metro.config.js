@@ -8,8 +8,10 @@ const nativeWindCacheDir = path.resolve(
   __dirname,
   "node_modules/react-native-css-interop/.cache",
 );
+const nativeWindWebCssPath = path.join(nativeWindCacheDir, "web.css");
 
 fs.mkdirSync(nativeWindCacheDir, { recursive: true });
+fs.closeSync(fs.openSync(nativeWindWebCssPath, "a"));
 config.watchFolders = [
   ...(config.watchFolders ?? []),
   nativeWindCacheDir,
@@ -17,6 +19,5 @@ config.watchFolders = [
 
 module.exports = withNativeWind(config, {
   input: "./global.css",
-  // Keep generated CSS cache watched by Metro on Vercel.
   forceWriteFileSystem: true,
 });
